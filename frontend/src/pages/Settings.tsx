@@ -53,7 +53,9 @@ function Integrations() {
           {row("Anthropic Claude", i.ai.backend, i.ai.api_key_set, i.ai.model)}
         </tbody>
       </table></div>
-      <ListEditor k="well_types" initial={s.data.well_types?.values || []} />
+      <div className="card"><h2>{t("well_type")}</h2>
+        <div className="chips">{(s.data.well_types?.values || []).map((w: string) => <span key={w} className="chip">{w}</span>)}</div>
+        <p className="muted" style={{ marginBottom: 0 }}>{t("well_type_fixed")}</p></div>
       <ListEditor k="countries" initial={s.data.countries?.values || []} />
     </div>
   );

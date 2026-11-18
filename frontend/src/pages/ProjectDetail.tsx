@@ -6,6 +6,7 @@ import { useI18n } from "../i18n";
 import { Empty, ErrorBox, Field, Modal, Status, toast, useApi } from "../ui";
 import ProjectForm from "./ProjectForm";
 import { MediaTable } from "./MediaLibrary";
+import { PlaqueIcon, PlaqueImage } from "../plaque/PlaqueView";
 
 export default function ProjectDetail() {
   const { wellId } = useParams();
@@ -24,11 +25,11 @@ export default function ProjectDetail() {
     <>
       <div className="topbar">
         <div><Link to="/projects" className="muted">‹ {t("nav_projects")}</Link>
-          <h1>{t("well_id")} <span className="mono">{d.well_id}</span> {d.is_sample && <span className="badge">{t("sample")}</span>}</h1>
+          <h1>{t("well_id")} <span className="wid">{d.well_id}</span> {d.is_sample && <span className="badge">{t("sample")}</span>}</h1>
           {d.merged_into_id && <span className="badge warn">merged</span>}</div>
         <div style={{ display: "flex", gap: 8 }}>
           {can(...MANAGERS) && <button onClick={() => setMerging(true)}>{t("request_merge")}</button>}
-          {can(...EDITORS) && <Link className="btn" to={`/plaque/${d.well_id}`}>{t("pl_design")}</Link>}
+          {can(...EDITORS) && <Link className="btn" to={`/plaque/${d.well_id}`}><PlaqueIcon approved={!!d.plaque_media_id} />{d.plaque_media_id ? t("pl_new_version") : t("pl_create")}</Link>}
           {can(...EDITORS) && <button className="primary" onClick={() => setEditing(true)}>{t("edit")}</button>}
         </div>
       </div>
@@ -40,18 +41,25 @@ export default function ProjectDetail() {
       <div className="card">
         <div className="dl">
           {item("customer_name", d.customer_name)}{item("customer_phone", d.customer_phone && <span dir="ltr">{d.customer_phone}</span>)}
-          {item("country", d.country)}{item("city", d.city)}{item("village", d.village)}{item("well_type", d.well_type)}
+          {item("well_type", d.well_type)}
           {item("sales_source", d.sales_source)}{item("contractor", d.contractor ? `${d.contractor.code} · ${d.contractor.name}` : null)}
           {item("sale_amount", d.sale_amount && `${num(d.sale_amount)} ${d.currency}`)}{item("order_date", fmtDate(d.order_date))}
-          {item("construction_start_date", fmtDate(d.construction_start_date))}{item("completion_date", fmtDate(d.completion_date))}
           {item("delivery_date", fmtDate(d.delivery_date))}{item("last_maintenance_date", fmtDate(d.last_maintenance_date))}
           {item("next_maintenance_date", fmtDate(d.next_maintenance_date))}
           {item("raw_media_folder", d.raw_media_folder_url && <a href={d.raw_media_folder_url} target="_blank" rel="noreferrer">{t("open_link")}</a>)}
           {item("final_video_link", d.final_video_link && <a href={d.final_video_link} target="_blank" rel="noreferrer">{t("open_link")}</a>)}
-          {item("last_updated", fmtDate(d.updated_at))}
         </div>
         {d.dedication && <p style={{ whiteSpace: "pre-wrap" }}><span className="muted">{t("dedication")}: </span><b>{d.dedication}</b>{d.shopify_order && <span className="muted"> · Shopify {d.shopify_order}</span>}</p>}
         {d.notes && <p style={{ whiteSpace: "pre-wrap", marginBottom: 0 }}><span className="muted">{t("notes")}: </span>{d.notes}</p>}
+      </div>
+      <div className="card plaque-section" style={{ marginTop: 14 }}>
+        <h2 style={{ display: "flex", gap: 8, alignItems: "center" }}>{t("pl_section")}
+          {d.plaque_media_id ? <span className="badge ok">{t("pl_badge_approved")}</span> : <span className="badge warn">{t("pl_none_yet")}</span>}</h2>
+        {d.plaque_media_id ? <div className="plaque-approved">
+          <PlaqueImage mediaId={d.plaque_media_id} alt={`${t("pl_section")} ${d.well_id}`} />
+          <div><p className="muted" style={{ marginTop: 0 }}>{t("pl_approved_on")}: {fmtDate(d.plaque_approved_at)}</p>
+            {can(...EDITORS) && <Link className="btn" to={`/plaque/${d.well_id}`}>{t("pl_new_version")}</Link>}</div>
+        </div> : can(...EDITORS) && <Link className="btn primary" to={`/plaque/${d.well_id}`}><PlaqueIcon />{t("pl_create")}</Link>}
       </div>
       <div className="card" style={{ marginTop: 14 }}>
         <div className="tabs">{["timeline", "media", "maintenance", "deliveries"].map((k) => (

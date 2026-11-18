@@ -71,6 +71,25 @@ def _check_contractor(db: Session, contractor_id: int | None):
         raise HTTPException(422, "Unknown contractor")
 
 
+def _check_well_type(data: dict, current: str | None = None) -> None:
+    """Only the four types (or a project's own existing legacy type) may be written from the dashboard/API."""
+    from app.services.well_types import ALLOWED, CANONICAL, normalize
+    if "well_type" not in data or data["well_type"] is None:
+        return
+    v = normalize(data["well_type"])
+    if v not in ALLOWED and v != current:
+        raise HTTPException(422, f"Unknown well type '{data['well_type']}'. Use one of: {'، '.join(CANONICAL)}")
+    data["well_type"] = v
+
+
+def _country_from_contractor(db: Session, p: Project) -> None:
+    """Country is no longer typed in by hand: it follows the contractor, so reports by country keep working."""
+    if p.contractor_id and not p.country:
+        c = db.get(Contractor, p.contractor_id)
+        if c and c.country:
+            p.country = c.country
+
+
 def _enforce_dates(p: Project):
     if p.construction_status == ConstructionStatus.completed and not p.completion_date:
         p.completion_date = date.today()
@@ -88,7 +107,10 @@ def create_project(db: Session, data: dict, *, actor: User | None, source: str =
     if actor and actor.role not in FINANCE_ROLES and data.get("cost") is not None:
         raise HTTPException(403, "Only managers can set the well cost")
     _check_contractor(db, data.get("contractor_id"))
+    if source in ("dashboard", "assistant"):
+        _check_well_type(data)
     p = Project(**data, is_sample=is_sample)
+    _country_from_contractor(db, p)
     _enforce_dates(p)
     try:
         with db.begin_nested():
@@ -124,9 +146,17 @@ def update_project(db: Session, project: Project, changes: dict, *, actor: User 
         raise HTTPException(403, "Only managers can change the well cost")
     if "contractor_id" in changes:
         _check_contractor(db, changes["contractor_id"])
+    if source in ("dashboard", "assistant"):
+        changes = dict(changes)
+        _check_well_type(changes, project.well_type)
     before = snapshot(project)
     for k, v in changes.items():
         setattr(project, k, v)
+    if "contractor_id" in changes and "country" not in changes and project.contractor_id:
+        c = db.get(Contractor, project.contractor_id)
+        if c and c.country:
+            project.country = c.country  # the well moved to a contractor in another country
+    _country_from_contractor(db, project)
     _enforce_dates(project)
     after = snapshot(project)
     diff = {k: {"from": before.get(k), "to": after.get(k)} for k in after if before.get(k) != after.get(k)}

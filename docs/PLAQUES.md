@@ -36,3 +36,18 @@ Code: `frontend/src/plaque/render.ts` (drawing and export), `frontend/src/plaque
 - **Well icons**: six HAYAH well types (hand pump, hand pump with tank, one or two tanks with 4 taps, one or two tanks
   with a tap wall) in `frontend/public/wells/`, background removed. Icon can sit left or right.
 - **Flags**: Pakistan, Bangladesh, Nepal, India, Tanzania first, then all 22 Arab League countries, then others.
+
+## Update: plaques from the order, with approval (2026-11-18)
+
+- **Plaque button beside every well order**: in every month sheet, contractor sheet, the Master Sheet, Projects and the
+  phone cards. No plaque yet → opens the designer filled in from the order (Well ID, owner/dedication, well type, contractor,
+  country flag, month). Approved → shows the approved plaque.
+- **Designer**: an order strip at the top (order, owner, type, contractor, plaque status, back to the order).
+  "Save as draft" keeps a version; **"Approve plaque"** shows the exact final PNG first, then "Approve as final" saves it
+  and links it to the order (`projects.plaque_media_id`, `plaque_approved_at`, `plaque_approved_by_id`; event `plaque_approved`).
+- **Nothing is replaced silently**: if the order already has an approved plaque the server refuses (409) unless the user
+  confirms (`replace_approved=true`). Every earlier version stays in "Saved plaques" and can be viewed or approved again.
+- API: `POST /api/projects/<WellID>/plaques` (form fields `approve`, `replace_approved`),
+  `POST /api/projects/<WellID>/plaques/approve` `{media_id, replace_approved}`, `GET /api/media/<id>/content` (the image).
+- Plaque wording for the unified well types: يدوي → بئر سطحي يدوي · متوسط → بئر ارتوازي متوسط · عميق → بئر ارتوازي عميق ·
+  شمسي → بئر بالطاقة الشمسية (editable on the plaque).

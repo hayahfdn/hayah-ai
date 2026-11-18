@@ -40,7 +40,7 @@ export async function download(path: string, filename: string) {
 
 export type Role = "super_admin" | "operations_manager" | "staff" | "contractor" | "maintenance" | "viewer";
 export interface User { id: number; email: string; full_name: string; role: Role; is_active: boolean; preferred_lang: "ar" | "en"; phone: string | null; contractor_id: number | null; last_login_at: string | null; }
-export interface Contractor { id: number; code: string; name: string; country: string | null; phone: string | null; is_active: boolean; notes: string | null; }
+export interface Contractor { id: number; code: string; name: string; country: string | null; phone: string | null; is_active: boolean; notes: string | null; color?: string | null; }
 export interface Project {
   id: number; well_id: number; order_date: string | null; customer_name: string | null; customer_phone: string | null;
   country: string | null; city: string | null; village: string | null; well_type: string | null; sales_source: string | null;
@@ -50,6 +50,7 @@ export interface Project {
   delivery_status: string; delivery_date: string | null; raw_media_folder_url: string | null; final_video_link: string | null;
   video_status: string; maintenance_status: string; last_maintenance_date: string | null; next_maintenance_date: string | null;
   notes: string | null; merged_into_id: number | null; is_sample: boolean; version: number; updated_at: string; created_at: string;
+  plaque_media_id?: number | null; plaque_approved_at?: string | null;
 }
 export interface Sacrifice {
   id: number; sacrifice_no: number; order_date: string | null; donor_name: string | null; received_date: string | null;
@@ -66,3 +67,10 @@ export interface Tx {
 export const TX_KINDS = ["income", "contractor_payment", "ad_spend", "operating_expense", "partner_took", "partner_spent", "partner_withdrawal", "loan", "transfer", "other"];
 /** Tell every open sheet to reload (after a prompt edit, a new row, etc.). */
 export const dataChanged = () => window.dispatchEvent(new Event("hayah:data-changed"));
+
+/** Fetch a stored file (e.g. an approved plaque) as an object URL; the API needs the sign-in token. */
+export async function mediaUrl(mediaId: number): Promise<string> {
+  const res = await fetch(`/api/media/${mediaId}/content`, { headers: { Authorization: `Bearer ${getToken()}` } });
+  if (!res.ok) throw new ApiError(res.status, res.status === 404 ? "File not found" : res.statusText);
+  return URL.createObjectURL(await res.blob());
+}

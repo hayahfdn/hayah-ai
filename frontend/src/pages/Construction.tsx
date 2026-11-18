@@ -3,6 +3,7 @@ import { api, Project } from "../api";
 import { useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { ErrorBox, toast, useApi } from "../ui";
+import { contractorColor } from "../look";
 
 const COLS = ["new_order", "scheduled", "in_progress", "on_hold", "completed"];
 
@@ -27,13 +28,13 @@ export default function Construction() {
               <h3>{st(c)} <span className="muted">({items.length})</span></h3>
               <div className="grid" style={{ gap: 8 }}>
                 {items.map((p) => (
-                  <div className="card" key={p.id} style={{ padding: 10 }}>
+                  <div className="card" key={p.id} style={{ padding: 10, background: contractorColor(p.contractor) || undefined }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
-                      <Link to={`/projects/${p.well_id}`} className="mono"><b>#{p.well_id}</b></Link>
+                      <Link to={`/projects/${p.well_id}`} className="wid">#{p.well_id}</Link>
                       <span className="muted">{p.contractor?.code || "—"}</span>
                     </div>
-                    <div className="muted" style={{ fontSize: 12.5 }}>{[p.village, p.country].filter(Boolean).join(" · ")}</div>
-                    <div className="muted" style={{ fontSize: 12 }}>{t("last_updated")}: {fmtDate(p.updated_at)}</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.customer_name || "—"}</div>
+                    <div className="muted" style={{ fontSize: 12.5 }}>{[p.well_type, p.contractor?.name, fmtDate(p.order_date)].filter((x) => x && x !== "—").join(" · ")}</div>
                     {canEdit && <select style={{ marginTop: 6, width: "100%" }} value={c} onChange={(e) => move(p, e.target.value)} aria-label={t("construction_status")}>
                       {[...COLS, "cancelled"].map((s) => <option key={s} value={s}>{st(s)}</option>)}</select>}
                   </div>

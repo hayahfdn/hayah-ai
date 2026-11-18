@@ -1,5 +1,10 @@
 import { createContext, lazy, Suspense, useContext, useEffect, useState } from "react";
-import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import "@fontsource/ibm-plex-sans-arabic/400.css";
+import "@fontsource/ibm-plex-sans-arabic/500.css";
+import "@fontsource/ibm-plex-sans-arabic/600.css";
+import "@fontsource/ibm-plex-sans-arabic/700.css";
+import SideNav from "./SideNav";
 import { api, getToken, setToken, User } from "./api";
 import { useI18n } from "./i18n";
 import { ErrorBox, Field } from "./ui";
@@ -61,28 +66,26 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
 
 function Shell({ children }: { children: React.ReactNode }) {
   const { t, lang, setLang } = useI18n();
-  const { user, logout, can, counts } = useAuth();
+  const { user, logout, can } = useAuth();
   const [pw, setPw] = useState(false);
   const [open, setOpen] = useState(false);
   const loc = useLocation();
   useEffect(() => setOpen(false), [loc.pathname]);
-  const items: [string, string, boolean, number?][] = [
-    ["/", "nav_dashboard", true], ["/book", "nav_book", can(...MANAGERS)], ["/sheet", "nav_sheet", true], ["/projects", "nav_projects", true], ["/construction", "nav_construction", true],
-    ["/delivery", "nav_delivery", true, counts.pending_delivery_approvals], ["/maintenance", "nav_maintenance", true],
-    ["/media", "nav_media", true], ["/plaque", "nav_plaque", can(...EDITORS)], ["/review", "nav_review", can(...MANAGERS), counts.pending_review],
-    ["/contractors", "nav_contractors", true], ["/reports", "nav_reports", true], ["/settings", "nav_settings", can(...MANAGERS)],
-  ];
+  useEffect(() => { document.body.classList.toggle("menu-open", open); }, [open]);
   return (
     <>
-      <div className="mobile-bar"><b>{t("app_name")}</b><button className="sm" onClick={() => setOpen(!open)} aria-label="menu">☰</button></div>
+      <div className="mobile-bar">
+        <button className="menu-btn" onClick={() => setOpen(!open)} aria-label="menu" aria-expanded={open}>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+        </button>
+        <span className="mobile-brand"><img src="/hayah-logo.png" alt="" /><b>{t("app_name")}</b></span>
+        <span style={{ width: 40 }} />
+      </div>
       <div className="shell">
+        {open && <div className="scrim" onClick={() => setOpen(false)} aria-hidden="true" />}
         <aside className={`side ${open ? "open" : ""}`}>
           <div className="brand"><img className="logo" src="/hayah-logo.png" alt="HAYAH" /><div><b>{t("app_name")}</b><small>{t("app_sub")}</small></div></div>
-          <nav className="nav">
-            {items.filter((i) => i[2]).map(([to, key, , n]) => (
-              <NavLink key={to} to={to} end={to === "/"}>{t(key)}{n ? <span className="count">{n}</span> : null}</NavLink>
-            ))}
-          </nav>
+          <SideNav />
           <div className="side-foot">
             <div style={{ color: "#fff" }}>{user.full_name}</div>
             <div>{t("role_" + user.role)}</div>

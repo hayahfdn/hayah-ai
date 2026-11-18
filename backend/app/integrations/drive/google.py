@@ -49,6 +49,9 @@ class GoogleDriveClient:
                                               supportsAllDrives=True))
         return {"id": f["id"], "url": f.get("webViewLink")}
 
+    def download(self, file_id):
+        return self._run(self.svc.files().get_media(fileId=file_id, supportsAllDrives=True))
+
     def folder_url(self, folder_id):
         return f"https://drive.google.com/drive/folders/{folder_id}"
 

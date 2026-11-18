@@ -1,0 +1,38 @@
+// Labels for the reorganised menu, contractor colours, mobile cards and plaque approval.
+export const uiEn: Record<string, string> = {
+  nav_wells: "Wells", nav_sacrifices: "Sacrifices", nav_contractors_by_country: "Contractors", nav_partners: "Partners",
+  nav_operations: "Operations", nav_admin: "Administration", nav_contractors_manage: "Manage contractors",
+  current_month: "This month", pick_contractor: "Choose a contractor", n_contractors: "contractors",
+  open_sheet: "Open sheet", view_cards: "Cards", view_table: "Table",
+  row_colour: "Row colour", row_colour_hint: "Every well of this contractor gets this background, in every month.",
+  edit_row: "Edit", details: "Details", record_delivery: "Record delivery", delivery_date_prompt: "Delivery date",
+  st_delivered_short: "Delivered", st_waiting_short: "Not delivered",
+  pl_create: "Create plaque", pl_approved: "Plaque approved", pl_approved_on: "Approved", pl_view: "View plaque",
+  pl_approve: "Approve plaque", pl_approve_final: "Approve as final", pl_save_draft: "Save as draft",
+  pl_approve_title: "Check the plaque before approving", pl_approve_help: "This is the final file that will be saved with the order.",
+  pl_replace_confirm: "This order already has an approved plaque. Approve this version instead? The earlier plaque stays in the plaque history.",
+  pl_approved_ok: "Plaque approved and linked to the order", pl_approve_this: "Approve this version", pl_badge_approved: "Approved",
+  pl_order: "Order", pl_owner: "Order owner", pl_contractor: "Contractor", pl_back_order: "Back to the order",
+  pl_section: "Plaque", pl_none_yet: "No plaque approved for this order yet.", pl_new_version: "New version",
+  pl_open_full: "Open full size", well_type_fixed: "Well types are fixed: يدوي، متوسط، عميق، شمسي. Old spellings were unified automatically.",
+  sacrifice_edit: "Edit sacrifice", plaque_short: "Plaque", filter_contractor: "Contractor",
+};
+
+export const uiAr: Record<string, string> = {
+  nav_wells: "الآبار", nav_sacrifices: "الأضاحي", nav_contractors_by_country: "المقاولون", nav_partners: "المسؤولون",
+  nav_operations: "العمليات", nav_admin: "الإدارة", nav_contractors_manage: "إدارة المقاولين",
+  current_month: "الشهر الحالي", pick_contractor: "اختر المقاول", n_contractors: "مقاولين",
+  open_sheet: "فتح الصفحة", view_cards: "بطاقات", view_table: "جدول",
+  row_colour: "لون الصفوف", row_colour_hint: "كل آبار هذا المقاول تظهر بهذه الخلفية في جميع الأشهر.",
+  edit_row: "تعديل", details: "التفاصيل", record_delivery: "تسجيل التسليم", delivery_date_prompt: "تاريخ التسليم",
+  st_delivered_short: "تم التسليم", st_waiting_short: "لم يُسلَّم",
+  pl_create: "إنشاء لوحة", pl_approved: "اللوحة معتمدة", pl_approved_on: "اعتُمدت", pl_view: "عرض اللوحة",
+  pl_approve: "اعتماد اللوحة", pl_approve_final: "اعتماد نهائي", pl_save_draft: "حفظ كمسودة",
+  pl_approve_title: "راجع اللوحة قبل الاعتماد", pl_approve_help: "هذا هو الملف النهائي الذي سيُحفظ مع الطلب.",
+  pl_replace_confirm: "يوجد لهذا الطلب لوحة معتمدة. هل تريد اعتماد هذه النسخة بدلاً منها؟ تبقى اللوحة السابقة محفوظة في سجل اللوحات.",
+  pl_approved_ok: "اعتُمدت اللوحة وربطت بالطلب", pl_approve_this: "اعتماد هذه النسخة", pl_badge_approved: "معتمدة",
+  pl_order: "الطلب", pl_owner: "صاحب الطلب", pl_contractor: "المقاول", pl_back_order: "العودة إلى الطلب",
+  pl_section: "اللوحة", pl_none_yet: "لم تُعتمد لوحة لهذا الطلب بعد.", pl_new_version: "نسخة جديدة",
+  pl_open_full: "فتح بالحجم الكامل", well_type_fixed: "أنواع الآبار ثابتة: يدوي، متوسط، عميق، شمسي. وُحّدت المسميات القديمة تلقائياً.",
+  sacrifice_edit: "تعديل الأضحية", plaque_short: "لوحة", filter_contractor: "المقاول",
+};

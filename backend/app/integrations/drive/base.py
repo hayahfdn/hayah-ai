@@ -12,5 +12,7 @@ class DriveClient(Protocol):
     def upload(self, fh: BinaryIO, name: str, mime_type: str, parent_id: str, properties: dict) -> dict:
         """Returns {"id", "url"}."""
     def folder_url(self, folder_id: str) -> str: ...
+    def download(self, file_id: str) -> bytes:
+        """Read a stored file (used to show plaques inside the dashboard)."""
     def storage_quota(self) -> dict:
         """{"limit": bytes|None, "usage": bytes}"""

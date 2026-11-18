@@ -81,6 +81,7 @@ class ContractorIn(BaseModel):
     phone: str | None = PHONE
     is_active: bool = True
     notes: str | None = Field(default=None, max_length=5000)
+    color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
 
 
 class ContractorUpdate(BaseModel):
@@ -89,6 +90,7 @@ class ContractorUpdate(BaseModel):
     phone: str | None = PHONE
     is_active: bool | None = None
     notes: str | None = Field(default=None, max_length=5000)
+    color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
 
 
 class ContractorOut(ORM):
@@ -99,6 +101,7 @@ class ContractorOut(ORM):
     phone: str | None
     is_active: bool
     notes: str | None
+    color: str | None = None
 
 
 # ---------- projects ----------
@@ -210,6 +213,8 @@ class ProjectOut(ORM):
     next_maintenance_date: date | None
     notes: str | None
     merged_into_id: int | None
+    plaque_media_id: int | None = None
+    plaque_approved_at: datetime | None = None
     is_sample: bool
     version: int
     created_at: datetime
@@ -530,3 +535,8 @@ class DirectDeliveryIn(BaseModel):
 
 
 TokenOut.model_rebuild()
+
+
+class PlaqueApproveIn(BaseModel):
+    media_id: int
+    replace_approved: bool = False

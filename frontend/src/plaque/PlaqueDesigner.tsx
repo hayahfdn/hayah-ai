@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, Project } from "../api";
 import { EDITORS, useAuth } from "../App";
 import { useI18n } from "../i18n";
-import { ErrorBox, Field, toast } from "../ui";
+import { ErrorBox, Field, Modal, toast } from "../ui";
+import { PlaqueIcon, PlaqueImage } from "./PlaqueView";
 import {
   ANIMALS, applyOccasion, ARAB_FLAG_END, defaultDesign, defaultSacrificeDesign, Design, drawPlaque, DuaKind, duaText,
   exportPdf, exportPng, fileToSmallDataUrl, flagArabic, FLAGS, GRIDS, IconKey, loadAssets, MAIN_FLAG_COUNT, Occasion,
@@ -12,7 +13,7 @@ import {
 } from "./render";
 
 type Kind = "well" | "sacrifice";
-interface Saved { id: string; created_at: string; actor_label: string; filename: string; design: Design; }
+interface Saved { id: string; created_at: string; actor_label: string; filename: string; design: Design; media_id?: number; approved?: boolean; }
 
 function saveBlob(blob: Blob, name: string) {
   const a = document.createElement("a");
@@ -32,6 +33,8 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [pick, setPick] = useState("");
+  const [review, setReview] = useState<{ url: string; blob: Blob } | null>(null);
+  const [viewing, setViewing] = useState<number | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
 
   const fresh = (rec: any) => (kind === "well" ? defaultDesign(rec || undefined) : defaultSacrificeDesign(rec || undefined));
@@ -98,6 +101,33 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
     toast(kind === "well" ? t("pl_saved") : t("pl_saved_sac"));
     load();
   });
+  // Approve: show the exact final PNG first, then save it and link it to the order as the approved plaque.
+  const startApprove = () => run("approve", async () => {
+    const blob = await exportPng(d);
+    setReview({ url: URL.createObjectURL(blob), blob });
+  });
+  const closeReview = () => { if (review) URL.revokeObjectURL(review.url); setReview(null); };
+  const confirmApprove = () => run("approve", async () => {
+    if (!review) return;
+    const replace = !!record?.plaque_media_id;  // the warning is shown in this dialog; pressing approve is the consent
+    const form = new FormData();
+    form.append("file", new File([review.blob], `${fileBase}.png`, { type: "image/png" }));
+    form.append("design", JSON.stringify(d));
+    form.append("approve", "true");
+    form.append("replace_approved", replace ? "true" : "false");
+    await api(`/api/projects/${id}/plaques`, { form });
+    closeReview();
+    toast(t("pl_approved_ok"));
+    load();
+  });
+  const approveSaved = (s: Saved) => run("approve", async () => {
+    if (!s.media_id) return;
+    const replace = !!record?.plaque_media_id;
+    if (replace && !window.confirm(t("pl_replace_confirm"))) return;
+    await api(`/api/projects/${id}/plaques/approve`, { body: { media_id: s.media_id, replace_approved: replace } });
+    toast(t("pl_approved_ok"));
+    load();
+  });
   const L = (o: { en: string; ar: string }) => (lang === "ar" ? o.ar : o.en);
   const base = kind === "well" ? "/plaque" : "/plaque/sacrifice";
   const input = (k: string, v: string, dir: "rtl" | "ltr" = "rtl", list?: string) =>
@@ -140,6 +170,16 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
       </div>
       <ErrorBox error={error} />
       {!id && <p className="muted">{kind === "well" ? t("pl_no_well") : t("pl_no_sac")}</p>}
+      {kind === "well" && id && record && <div className="card order-strip">
+        <div><span className="muted">{t("pl_order")}</span><b className="wid">{record.well_id}</b></div>
+        <div><span className="muted">{t("pl_owner")}</span><b>{record.customer_name || "—"}</b></div>
+        <div><span className="muted">{t("well_type")}</span><b>{record.well_type || "—"}</b></div>
+        <div><span className="muted">{t("pl_contractor")}</span><b>{record.contractor?.name || "—"}</b></div>
+        <div>{record.plaque_media_id
+          ? <button type="button" className="plaque-btn ok" onClick={() => setViewing(record.plaque_media_id)}><PlaqueIcon approved /><span>{t("pl_approved")}</span></button>
+          : <span className="badge warn">{t("pl_none_yet")}</span>}</div>
+        <Link className="btn" to={`/projects/${record.well_id}`}>{t("pl_back_order")}</Link>
+      </div>}
       <div className="plaque-layout">
         <div className="card plaque-preview">
           <canvas ref={canvas} aria-label={t("pl_preview")} style={{ aspectRatio: `${GRIDS[d.template][0]} / ${GRIDS[d.template][1]}` }} />
@@ -149,7 +189,8 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
             </select>
             <button onClick={downloadPng} disabled={!!busy}>{busy === "png" ? "…" : t("pl_download_png")}</button>
             <button onClick={downloadPdf} disabled={!!busy}>{busy === "pdf" ? "…" : t("pl_download_pdf")}</button>
-            {id && record && can(...EDITORS) && <button className="primary" onClick={saveTo} disabled={!!busy}>{busy === "save" ? "…" : kind === "well" ? t("pl_save") : t("pl_save_sac")}</button>}
+            {id && record && can(...EDITORS) && <button className={kind === "well" ? "" : "primary"} onClick={saveTo} disabled={!!busy}>{busy === "save" ? "…" : kind === "well" ? t("pl_save_draft") : t("pl_save_sac")}</button>}
+            {kind === "well" && id && record && can(...EDITORS) && <button className="primary" onClick={startApprove} disabled={!!busy}><PlaqueIcon approved />{busy === "approve" ? "…" : t("pl_approve")}</button>}
           </div>
         </div>
         <div className="card">
@@ -189,11 +230,22 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
             {saved.length ? <ul className="timeline">{saved.map((s) => (
               <li key={s.id}><span className="muted">{fmtDate(s.created_at)} {new Date(s.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                 <span><bdi className="mono" dir="ltr">{s.filename}</bdi> · {s.actor_label}{" "}
-                  <button className="sm" onClick={() => { setD({ ...fresh(record), ...s.design } as Design); window.scrollTo({ top: 0, behavior: "smooth" }); }}>{t("pl_load")}</button></span></li>))}</ul>
+                  {s.approved && <span className="badge ok">{t("pl_badge_approved")}</span>}{" "}
+                  <button className="sm" onClick={() => { setD({ ...fresh(record), ...s.design } as Design); window.scrollTo({ top: 0, behavior: "smooth" }); }}>{t("pl_load")}</button>{" "}
+                  {kind === "well" && s.media_id && <button className="sm" onClick={() => setViewing(s.media_id!)}>{t("pl_view")}</button>}{" "}
+                  {kind === "well" && s.media_id && !s.approved && can(...EDITORS) && <button className="sm" onClick={() => approveSaved(s)} disabled={!!busy}>{t("pl_approve_this")}</button>}</span></li>))}</ul>
               : <p className="muted">{t("pl_none_saved")}</p>}
           </>}
         </div>
       </div>
+      {review && <Modal title={t("pl_approve_title")} onClose={closeReview}>
+        <p className="muted" style={{ marginTop: 0 }}>{t("pl_approve_help")}</p>
+        <img className="plaque-img" src={review.url} alt={t("pl_preview")} />
+        {record?.plaque_media_id && <p className="banner">{t("pl_replace_confirm")}</p>}
+        <div className="actions"><button onClick={closeReview}>{t("cancel")}</button>
+          <button className="primary" onClick={confirmApprove} disabled={!!busy}>{busy === "approve" ? "…" : t("pl_approve_final")}</button></div>
+      </Modal>}
+      {viewing && <Modal title={`${t("pl_view")} · ${id}`} onClose={() => setViewing(null)}><PlaqueImage mediaId={viewing} alt={t("pl_view")} /></Modal>}
     </>
   );
 }

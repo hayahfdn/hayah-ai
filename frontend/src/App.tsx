@@ -9,6 +9,7 @@ import Projects from "./pages/Projects";
 const Sheet = lazy(() => import("./pages/Sheet"));
 const Workbook = lazy(() => import("./book/Workbook"));
 const PromptBar = lazy(() => import("./book/PromptBar"));
+const PlaqueDesigner = lazy(() => import("./plaque/PlaqueDesigner"));
 import ProjectDetail from "./pages/ProjectDetail";
 import Construction from "./pages/Construction";
 import Delivery from "./pages/Delivery";
@@ -68,7 +69,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const items: [string, string, boolean, number?][] = [
     ["/", "nav_dashboard", true], ["/book", "nav_book", can(...MANAGERS)], ["/sheet", "nav_sheet", true], ["/projects", "nav_projects", true], ["/construction", "nav_construction", true],
     ["/delivery", "nav_delivery", true, counts.pending_delivery_approvals], ["/maintenance", "nav_maintenance", true],
-    ["/media", "nav_media", true], ["/review", "nav_review", can(...MANAGERS), counts.pending_review],
+    ["/media", "nav_media", true], ["/plaque", "nav_plaque", can(...EDITORS)], ["/review", "nav_review", can(...MANAGERS), counts.pending_review],
     ["/contractors", "nav_contractors", true], ["/reports", "nav_reports", true], ["/settings", "nav_settings", can(...MANAGERS)],
   ];
   return (
@@ -126,6 +127,8 @@ export default function App() {
             <Route path="/book/:kind/:id" element={<Suspense fallback={null}><Workbook /></Suspense>} />
             <Route path="/sheet" element={<Suspense fallback={null}><Sheet /></Suspense>} />
             <Route path="/projects/:wellId" element={<ProjectDetail />} />
+            <Route path="/plaque" element={<Suspense fallback={null}><PlaqueDesigner /></Suspense>} />
+            <Route path="/plaque/:wellId" element={<Suspense fallback={null}><PlaqueDesigner /></Suspense>} />
             <Route path="/construction" element={<Construction />} />
             <Route path="/delivery" element={<Delivery />} />
             <Route path="/maintenance" element={<Maintenance />} />

@@ -4,6 +4,17 @@ import { bookAr, bookEn } from "./i18n-book";
 export type Lang = "ar" | "en";
 
 const en: Record<string, string> = {
+  nav_plaque: "Plaque designer", pl_title: "Plaque designer", pl_design: "Design plaque", pl_open_well: "Well ID", pl_open: "Open",
+  pl_no_well: "Type a Well ID above to fill the plaque from that well. You can also design a plaque by hand here and download it.",
+  pl_preview: "Plaque preview", pl_size: "Size", pl_download_png: "Download PNG", pl_download_pdf: "Download PDF (print)",
+  pl_save: "Save to well history", pl_saved: "Plaque saved to the well", pl_name: "Name (donor or dedication)", pl_project_no: "Project number",
+  pl_well_type: "Well type", pl_month: "Month and year", pl_flag: "Flag", pl_flag_upload: "Or upload a flag", pl_icon: "Well icon",
+  pl_icon_upload: "Or upload an icon", pl_icon_well: "Hand-pump well", pl_none: "None", pl_uploaded: "Uploaded image",
+  pl_dua_kind: "Prayer for", pl_short_dua: "Short prayer under the name", pl_dua: "Prayer", pl_dua_hint: "Picking who the prayer is for fills this in. You can edit it freely.",
+  pl_more: "More text and style", pl_bismillah: "Bismillah", pl_verse: "Verse", pl_project_label: "Project label", pl_sadaqa_label: "Sadaqah label",
+  pl_footer_org: "Footer (Arabic)", pl_footer_site: "Footer website", pl_name_font: "Name font", pl_color: "Red colour",
+  pl_reset: "Reset from the well record", pl_history: "Saved plaques", pl_load: "Open", pl_none_saved: "No plaques saved for this well yet.",
+  cat_PLAQUE: "Plaque",
   app_name: "HAYAH AI", app_sub: "Operations", login: "Sign in", email: "Email", password: "Password", logout: "Sign out",
   login_title: "Sign in to HAYAH operations", login_failed: "Sign in failed",
   nav_sheet: "Master Sheet", saving: "Saving…", all_saved: "All changes saved", clear_filters: "Clear filters",
@@ -74,6 +85,17 @@ const en: Record<string, string> = {
 };
 
 const ar: Record<string, string> = {
+  nav_plaque: "مصمم اللوحات", pl_title: "مصمم اللوحة", pl_design: "تصميم لوحة", pl_open_well: "رقم البئر", pl_open: "فتح",
+  pl_no_well: "اكتب رقم البئر في الأعلى لتعبئة اللوحة من بيانات البئر. ويمكنك أيضًا تصميم لوحة يدويًا هنا وتنزيلها.",
+  pl_preview: "معاينة اللوحة", pl_size: "المقاس", pl_download_png: "تنزيل PNG", pl_download_pdf: "تنزيل PDF (طباعة)",
+  pl_save: "حفظ في سجل البئر", pl_saved: "تم حفظ اللوحة في سجل البئر", pl_name: "الاسم (المتبرع أو الإهداء)", pl_project_no: "رقم المشروع",
+  pl_well_type: "نوع البئر", pl_month: "الشهر والسنة", pl_flag: "العلم", pl_flag_upload: "أو ارفع علمًا", pl_icon: "أيقونة البئر",
+  pl_icon_upload: "أو ارفع أيقونة", pl_icon_well: "بئر بمضخة يدوية", pl_none: "بدون", pl_uploaded: "صورة مرفوعة",
+  pl_dua_kind: "الدعاء لـ", pl_short_dua: "الدعاء القصير تحت الاسم", pl_dua: "الدعاء", pl_dua_hint: "اختيار صاحب الدعاء يعبّئ النص تلقائيًا، ويمكنك تعديله بحرية.",
+  pl_more: "نصوص وتنسيق إضافي", pl_bismillah: "البسملة", pl_verse: "الآية", pl_project_label: "عبارة المشروع", pl_sadaqa_label: "عبارة الصدقة",
+  pl_footer_org: "التذييل (عربي)", pl_footer_site: "الموقع في التذييل", pl_name_font: "خط الاسم", pl_color: "اللون الأحمر",
+  pl_reset: "إعادة التعبئة من بيانات البئر", pl_history: "اللوحات المحفوظة", pl_load: "فتح", pl_none_saved: "لا توجد لوحات محفوظة لهذا البئر بعد.",
+  cat_PLAQUE: "لوحة",
   app_name: "حياة AI", app_sub: "العمليات", login: "تسجيل الدخول", email: "البريد الإلكتروني", password: "كلمة المرور",
   logout: "تسجيل الخروج", login_title: "الدخول إلى نظام عمليات حياة", login_failed: "تعذر تسجيل الدخول",
   nav_sheet: "الجدول الرئيسي", saving: "جارٍ الحفظ…", all_saved: "تم حفظ كل التغييرات", clear_filters: "مسح التصفية",

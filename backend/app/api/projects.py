@@ -1,7 +1,10 @@
 import csv
 import io
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+import shutil
+import tempfile
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -15,6 +18,7 @@ from app.schemas import (
     DeliveryOut, EventOut, MaintenanceOut, MediaOut, MergeRequestIn, ProjectCreate, ProjectOut, ProjectPage,
     ProjectUpdate, ReviewOut,
 )
+from app.services import plaques as plaque_svc
 from app.services import projects as svc
 from app.services.sheets_sync import MASTER_HEADER, project_row
 
@@ -119,3 +123,24 @@ def merge_request(body: MergeRequestIn, db: Session = Depends(get_db), user: Use
     case = svc.request_merge(db, src, tgt, body.reason, user)
     db.commit()
     return case
+
+
+# ---------------- plaques ----------------
+@router.get("/{well_id}/plaques")
+def list_plaques(well_id: int, db: Session = Depends(get_db), user: User = Depends(require_roles(ALL_ROLES))):
+    p = _get_visible(db, well_id, user)
+    ids = [p.id] + list(db.scalars(select(Project.id).where(Project.merged_into_id == p.id)))
+    return plaque_svc.list_plaques(db, ids)
+
+
+@router.post("/{well_id}/plaques", status_code=201)
+def save_plaque(well_id: int, file: UploadFile = File(...), design: str = Form(...), db: Session = Depends(get_db),
+                user: User = Depends(require_roles(PROJECT_CREATORS))):
+    p = svc.require_project(db, well_id, for_update=True)
+    parsed = plaque_svc.parse_design(design)
+    with tempfile.SpooledTemporaryFile(max_size=32 * 1024 * 1024) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        row = plaque_svc.save_plaque(db, p, tmp, filename=file.filename, mime_type=file.content_type,
+                                     design=parsed, actor=user)
+    db.commit()
+    return row

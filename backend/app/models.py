@@ -105,6 +105,7 @@ class MediaCategory(str, enum.Enum):
     maintenance_before = "MAINT_BEFORE"
     maintenance_after = "MAINT_AFTER"
     maintenance = "MAINTENANCE"
+    plaque = "PLAQUE"  # print-ready plaque made in the plaque designer
     other = "OTHER"
 
 

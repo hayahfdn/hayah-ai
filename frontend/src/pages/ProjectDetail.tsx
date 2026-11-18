@@ -28,6 +28,7 @@ export default function ProjectDetail() {
           {d.merged_into_id && <span className="badge warn">merged</span>}</div>
         <div style={{ display: "flex", gap: 8 }}>
           {can(...MANAGERS) && <button onClick={() => setMerging(true)}>{t("request_merge")}</button>}
+          {can(...EDITORS) && <Link className="btn" to={`/plaque/${d.well_id}`}>{t("pl_design")}</Link>}
           {can(...EDITORS) && <button className="primary" onClick={() => setEditing(true)}>{t("edit")}</button>}
         </div>
       </div>

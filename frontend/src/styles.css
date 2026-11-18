@@ -201,3 +201,13 @@ td.num, th.num { text-align: end; }
 .plan table td, .plan table th { padding: 4px 8px; white-space: normal; }
 .kpi .value.neg { color: var(--bad); }
 .kpi.ok .value { color: var(--ok); }
+
+/* Plaque designer */
+.plaque-layout { display: grid; grid-template-columns: minmax(280px, 560px) 1fr; gap: 14px; align-items: start; }
+.plaque-preview { position: sticky; top: 12px; }
+.plaque-preview canvas { width: 100%; display: block; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+@media (max-width: 900px) { .plaque-layout { grid-template-columns: 1fr; } .plaque-preview { position: static; } }
+.icon-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.icon-picks button { flex-direction: column; height: auto; padding: 6px; font-weight: 500; font-size: 12px; text-align: center; line-height: 1.3; min-height: 60px; justify-content: center; }
+.icon-picks button img { width: 100%; height: 64px; object-fit: contain; }
+.icon-picks button.on { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand) inset; }

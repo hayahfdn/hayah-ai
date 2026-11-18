@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm.exc import StaleDataError
 
-from app.api import assistant, auth, contractors, finance, intake, operations, projects, system, imports, shopify, undo
+from app.api import assistant, auth, contractors, finance, intake, operations, plaques, projects, system, imports, shopify, undo
 from app.config import get_settings
 from app.integrations.drive.base import DriveError
 from app.integrations.sheets.base import SheetsError
@@ -48,7 +48,7 @@ def create_app() -> FastAPI:
 
     for r in (auth.router, auth.users, contractors.router, projects.router, operations.delivery, operations.maintenance,
               operations.media, operations.review, intake.router, system.router, finance.router, finance.sacrifices,
-              assistant.router, imports.router, undo.router, shopify.router):
+              assistant.router, imports.router, undo.router, shopify.router, plaques.router):
         app.include_router(r)
     return app
 

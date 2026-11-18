@@ -17,7 +17,8 @@ def extract_message(db: Session, text: str, group_label: str | None, *, has_medi
         from app.services.settings_store import get_setting
         from app.services.usage import month_ai_cost
         cfg = get_setting(db, "ai")
-        if cfg.get("ai_enabled") and s.anthropic_api_key and month_ai_cost(db) < min(cfg.get("monthly_budget_usd", 0), s.ai_monthly_budget_max_usd):
+        from app.services.secrets_store import anthropic_key
+        if cfg.get("ai_enabled") and anthropic_key(db) and month_ai_cost(db) < min(cfg.get("monthly_budget_usd", 0), s.ai_monthly_budget_max_usd):
             try:
                 from app.integrations.ai.anthropic_extractor import extract as ai_extract  # Phase 6
                 return ai_extract(db, text, group_label, has_media=has_media)

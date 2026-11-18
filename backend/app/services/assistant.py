@@ -103,7 +103,11 @@ Rules:
 - Delivery status and delivery date cannot be changed here; if asked, add a question saying the delivery must be confirmed on the Delivery page.
 - Nothing can be deleted. A wrong money row is voided.
 - If the request is unclear, return no operations and ask in "questions".
-- Keep the summary short and in the user's language."""
+- Keep the summary short and in the user's language.
+- All money in this system is US dollars ($). Every well and sacrifice is already in USD unless its currency field says
+  otherwise. If the user says the currency is $ or dollars, make no operations; say in the summary that everything is
+  already in US dollars ($).
+- The screen layout, colours and labels can't be changed here; for those, return no operations and say so in "questions"."""
 
 
 def _context_rows(db: Session, page: dict | None) -> str:
@@ -139,7 +143,8 @@ def _call_model(db: Session, prompt: str, page: dict | None) -> tuple[dict, dict
     import anthropic
 
     s = get_settings()
-    client = anthropic.Anthropic(api_key=s.anthropic_api_key, timeout=120.0)
+    from app.services.secrets_store import anthropic_key
+    client = anthropic.Anthropic(api_key=anthropic_key(db), timeout=120.0)
     try:
         resp = client.beta.messages.create(
             model=s.anthropic_model,
@@ -151,7 +156,7 @@ def _call_model(db: Session, prompt: str, page: dict | None) -> tuple[dict, dict
             fallbacks="default",
         )
     except anthropic.AuthenticationError:
-        raise AssistantUnavailable("The Anthropic API key was rejected. Check HAYAH_ANTHROPIC_API_KEY on the server.")
+        raise AssistantUnavailable("The Anthropic API key was rejected. An admin can paste a new key in Settings → AI.")
     except anthropic.RateLimitError:
         raise AssistantUnavailable("Claude is busy right now (rate limit). Try again in a minute.")
     except anthropic.APIStatusError as e:
@@ -181,10 +186,11 @@ def _record_usage(db: Session, usage: dict, ref: str):
 def check_available(db: Session) -> None:
     s = get_settings()
     cfg = get_setting(db, "ai")
-    if not s.anthropic_api_key:
+    from app.services.secrets_store import anthropic_key
+    if not anthropic_key(db):
         raise AssistantUnavailable(
             "Editing with a prompt needs Claude (Anthropic API), which is not connected yet. "
-            "An admin adds the API key on the server (HAYAH_ANTHROPIC_API_KEY) and turns AI on in Settings. "
+            "An admin pastes the API key in Settings → AI and turns AI on there. "
             "Cost stays inside the monthly AI budget you set. Until then, edit the cells directly.", "no_key")
     if not cfg.get("ai_enabled"):
         raise AssistantUnavailable("AI is turned off in Settings. An admin can turn it on there.", "ai_off")

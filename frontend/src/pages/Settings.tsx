@@ -86,7 +86,13 @@ function AISettings({ admin }: { admin: boolean }) {
   const { t, num } = useI18n();
   const s = useApi<any>("/api/settings");
   const [f, setF] = useState<any>(null);
+  const [key, setKey] = useState("");
   useEffect(() => { if (s.data) setF(s.data.ai); }, [s.data]);
+  const saveKey = async (value: string) => {
+    try { await api("/api/settings/ai-key", { method: "PUT", body: { api_key: value } }); setKey(""); toast(t("saved")); s.reload(); }
+    catch (e: any) { toast(e.message); }
+  };
+  const hint = s.data?.integrations?.ai?.api_key;
   if (!f) return <ErrorBox error={s.error} />;
   const save = async () => {
     try { await api("/api/settings/ai", { method: "PUT", body: { ...f, monthly_budget_usd: Number(f.monthly_budget_usd), min_confidence: Number(f.min_confidence), manual_approval_over_usd: Number(f.manual_approval_over_usd) } }); toast(t("saved")); }
@@ -94,6 +100,15 @@ function AISettings({ admin }: { admin: boolean }) {
   };
   return <div className="card">
     <div className="banner info">Claude Pro does not include API credits. Production AI uses the Anthropic API, billed per token, capped by the monthly budget below (never more than $20 a month). When AI is off or the budget is reached, the free rules engine and the AI Review queue keep everything working.</div>
+    {admin && <div className="form-grid" style={{ marginBottom: 12 }}>
+      <Field label={t("ai_key")} hint={hint?.set ? t("ai_key_saved") + " …" + hint.last4 : t("ai_key_help")} tone={hint?.set ? "ok" : undefined}>
+        <input type="password" dir="ltr" autoComplete="off" placeholder="sk-ant-…" value={key} onChange={(e) => setKey(e.target.value)} />
+      </Field>
+      <div className="actions" style={{ alignSelf: "end" }}>
+        <button className="primary" disabled={!key.trim()} onClick={() => saveKey(key)}>{t("ai_key_save")}</button>
+        {hint?.where === "settings" && <button onClick={() => saveKey("")}>{t("ai_key_remove")}</button>}
+      </div>
+    </div>}
     <div className="form-grid">
       <Field label={t("ai_enabled")}><input type="checkbox" disabled={!admin} checked={!!f.ai_enabled} onChange={(e) => setF({ ...f, ai_enabled: e.target.checked })} style={{ minHeight: 0, width: "auto" }} /></Field>
       <Field label={t("monthly_budget")}><input type="number" min={0} max={20} disabled={!admin} value={f.monthly_budget_usd} onChange={(e) => setF({ ...f, monthly_budget_usd: e.target.value })} /></Field>

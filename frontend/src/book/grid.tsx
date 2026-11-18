@@ -24,7 +24,7 @@ export function useMoney() {
   const { lang } = useI18n();
   return useMemo(() => {
     const f = new Intl.NumberFormat(lang === "ar" ? "ar-EG-u-nu-latn" : "en-GB", { maximumFractionDigits: 2 });
-    return (v: any) => (v === null || v === undefined || v === "" ? "" : f.format(Number(v)));
+    return (v: any) => (v === null || v === undefined || v === "" ? "" : "$" + f.format(Number(v)));
   }, [lang]);
 }
 

@@ -1,6 +1,7 @@
 """Dashboard KPIs, reports, sync controls, settings, audit and health."""
 from datetime import date, timedelta
 
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
@@ -17,6 +18,7 @@ from app.schemas import AISettingsIn, ConflictResolve, SyncConflictOut
 from app.services import sheets_sync, usage
 from app.services.audit import audit
 from app.services.jobs import enqueue, retry_job, run_due_jobs
+from app.services.secrets_store import anthropic_key_hint, set_anthropic_key
 from app.services.settings_store import get_setting, set_setting
 
 router = APIRouter(prefix="/api", tags=["system"])
@@ -151,7 +153,7 @@ def get_settings_view(db: Session = Depends(get_db), _: User = Depends(require_r
             "drive": {"backend": s.drive_backend},
             "whatsapp": {"backend": s.whatsapp_backend, "verify_token_set": bool(s.whatsapp_verify_token),
                          "app_secret_set": bool(s.whatsapp_app_secret), "phone_number_id_set": bool(s.whatsapp_phone_number_id)},
-            "ai": {"backend": s.ai_backend, "api_key_set": bool(s.anthropic_api_key), "model": s.anthropic_model},
+            "ai": {"backend": s.ai_backend, "api_key": anthropic_key_hint(db), "api_key_set": anthropic_key_hint(db)["set"], "model": s.anthropic_model},
         },
         "ai": get_setting(db, "ai"), "well_types": get_setting(db, "well_types"),
         "countries": get_setting(db, "countries"), "animal_types": get_setting(db, "animal_types"), "branding": get_setting(db, "branding"),
@@ -166,6 +168,22 @@ def put_ai(body: AISettingsIn, db: Session = Depends(get_db), user: User = Depen
     audit(db, "settings.ai", "settings", "ai", actor=user, before=before, after=body.model_dump())
     db.commit()
     return body
+
+
+class APIKeyIn(BaseModel):
+    api_key: str = Field(default="", max_length=300)
+
+
+@router.put("/settings/ai-key")
+def put_ai_key(body: APIKeyIn, db: Session = Depends(get_db), user: User = Depends(require_roles(ADMINS))):
+    """Paste (or clear, with an empty value) the Anthropic API key. It is stored encrypted and never shown again."""
+    key = body.api_key.strip()
+    if key and not key.startswith("sk-ant-"):
+        raise HTTPException(422, "That doesn't look like an Anthropic API key (it starts with sk-ant-)")
+    set_anthropic_key(db, key or None, user.id)
+    audit(db, "settings.ai_key", "settings", "ai", actor=user, after={"set": bool(key), "last4": key[-4:] if key else None})
+    db.commit()
+    return anthropic_key_hint(db)
 
 
 @router.get("/settings/lists")

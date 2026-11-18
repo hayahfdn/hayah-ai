@@ -5,6 +5,7 @@ import { EDITORS, MANAGERS, useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { Empty, ErrorBox, Modal, Status, useApi } from "../ui";
 import ProjectForm from "./ProjectForm";
+import PlaqueBadge from "../plaque/PlaqueBadge";
 
 export default function Projects() {
   const { t, st, fmtDate, num } = useI18n();
@@ -36,23 +37,23 @@ export default function Projects() {
           <option value="">{t("delivery_status")}: {t("all")}</option>
           {["not_ready", "pending", "delivered"].map((s) => <option key={s} value={s}>{st(s)}</option>)}
         </select>
-        <input placeholder={t("country")} defaultValue={q.country || ""} onBlur={(e) => setQ("country", e.target.value)} style={{ width: 140 }} />
         <span className="muted">{data ? `${num(data.total)} ${t("projects")}` : ""}</span>
       </div>
       <ErrorBox error={error} />
       <div className="table-wrap">
         <table>
           <thead><tr>
-            <th>{t("well_id")}</th><th>{t("customer_name")}</th><th>{t("country")}</th><th>{t("village")}</th><th>{t("well_type")}</th>
+            <th>{t("well_id")}</th><th>{t("plaque")}</th><th>{t("customer_name")}</th><th>{t("well_type")}</th>
             <th>{t("contractor")}</th><th>{t("construction_status")}</th><th>{t("delivery_status")}</th><th>{t("video_status")}</th>
             <th>{t("payment_status")}</th><th>{t("order_date")}</th>
           </tr></thead>
           <tbody>
             {data?.items.map((p) => (
-              <tr key={p.id} onClick={() => nav(`/projects/${p.well_id}`)} style={{ cursor: "pointer" }}>
-                <td><Link to={`/projects/${p.well_id}`} className="mono"><b>{p.well_id}</b></Link> {p.is_sample && <span className="badge">{t("sample")}</span>}</td>
-                <td>{p.customer_name || "—"}</td><td>{p.country || "—"}</td><td>{p.village || "—"}</td><td>{p.well_type || "—"}</td>
-                <td>{p.contractor?.code || "—"}</td><td><Status v={p.construction_status} /></td><td><Status v={p.delivery_status} /></td>
+              <tr key={p.id} onClick={() => nav(`/projects/${p.well_id}`)} style={{ cursor: "pointer", background: p.contractor?.color || undefined }}>
+                <td className="row-head"><Link to={`/projects/${p.well_id}`} className="well-no">{p.well_id}</Link> {p.is_sample && <span className="badge">{t("sample")}</span>}</td>
+                <td><PlaqueBadge p={p} compact /></td>
+                <td className="strong">{p.customer_name || "—"}</td><td>{p.well_type || "—"}</td>
+                <td>{p.contractor?.name || "—"}</td><td><Status v={p.construction_status} /></td><td><Status v={p.delivery_status} /></td>
                 <td><Status v={p.video_status} /></td><td><Status v={p.payment_status} /></td><td className="muted">{fmtDate(p.order_date)}</td>
               </tr>
             ))}

@@ -7,6 +7,7 @@ from app.deps import ALL_ROLES, MANAGERS, require_roles
 from app.models import Contractor, Project, User
 from app.schemas import ContractorIn, ContractorOut, ContractorUpdate
 from app.services.audit import audit, snapshot
+from app.services.contractor_colors import next_color
 from app.services.projects import queue_sheet_sync
 
 router = APIRouter(prefix="/api/contractors", tags=["contractors"])
@@ -37,6 +38,7 @@ def create(body: ContractorIn, db: Session = Depends(get_db), user: User = Depen
     if db.scalar(select(Contractor).where(func.upper(Contractor.code) == body.code.upper())):
         raise HTTPException(409, "Contractor code already exists")
     c = Contractor(**body.model_dump() | {"code": body.code.upper()})
+    c.color = (c.color or next_color(db)).upper()
     db.add(c)
     db.flush()
     audit(db, "contractor.create", "contractor", c.code, actor=user, after=snapshot(c))
@@ -52,7 +54,7 @@ def update(cid: int, body: ContractorUpdate, db: Session = Depends(get_db), user
         raise HTTPException(404, "Contractor not found")
     before = snapshot(c)
     for k, v in body.model_dump(exclude_unset=True).items():
-        setattr(c, k, v)
+        setattr(c, k, v.upper() if k == "color" and v else v)
     audit(db, "contractor.update", "contractor", c.code, actor=user, before=before, after=snapshot(c))
     queue_sheet_sync(db)
     db.commit()

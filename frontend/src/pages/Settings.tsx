@@ -53,10 +53,54 @@ function Integrations() {
           {row("Anthropic Claude", i.ai.backend, i.ai.api_key_set, i.ai.model)}
         </tbody>
       </table></div>
-      <ListEditor k="well_types" initial={s.data.well_types?.values || []} />
+      <WellTypes />
       <ListEditor k="countries" initial={s.data.countries?.values || []} />
     </div>
   );
+}
+
+/** The four well types: counts, anything left to unify, and the reversible unification runs. */
+function WellTypes() {
+  const { t, num, fmtDate } = useI18n();
+  const { can } = useAuth();
+  const admin = can("super_admin");
+  const w = useApi<{ types: string[]; legacy: string; counts: { value: string | null; count: number }[];
+    pending: { from: string; to: string; count: number }[]; unknown: { value: string; count: number }[];
+    runs: { id: number; at: string; by: string; count: number; undone: boolean }[] }>("/api/admin/well-types");
+  const [ask, setAsk] = useState<null | { text: string; go: () => Promise<void> }>(null);
+  if (!w.data) return <ErrorBox error={w.error} />;
+  const d = w.data;
+  const act = (text: string, path: string) => setAsk({ text, go: async () => {
+    try { const r = await api(path, { method: "POST" }); toast(`${t("saved")} (${r.changed ?? r.restored ?? 0})`); w.reload(); }
+    catch (e: any) { toast(e.message); }
+  } });
+  return <div className="card">
+    <h2>{t("wt_title")}</h2>
+    <p className="muted" style={{ marginTop: -6 }}>{t("wt_help")}</p>
+    <div className="chips" style={{ marginBottom: 10 }}>
+      {d.types.map((x) => <span key={x} className="chip strong">{x}</span>)}
+      <span className="chip muted">{d.legacy} · {t("wt_legacy")}</span>
+    </div>
+    <h3>{t("wt_now")}</h3>
+    <div className="chips">{d.counts.map((c) => <span key={c.value ?? "-"} className="chip">{c.value ?? "—"}: <b>{num(c.count)}</b></span>)}</div>
+    <h3 style={{ marginTop: 14 }}>{t("wt_pending")}</h3>
+    {d.pending.length ? <>
+      <div className="table-wrap"><table><thead><tr><th>{t("well_type")}</th><th>→</th><th>{t("count")}</th></tr></thead>
+        <tbody>{d.pending.map((p) => <tr key={p.from}><td>{p.from}</td><td><b>{p.to}</b></td><td className="num">{num(p.count)}</td></tr>)}</tbody></table></div>
+      {admin && <div className="actions"><button className="primary" onClick={() => act(t("wt_confirm"), "/api/admin/well-types/normalize")}>{t("wt_apply")}</button></div>}
+    </> : <p className="muted">{t("wt_none_pending")}</p>}
+    {d.unknown.length > 0 && <><h3 style={{ marginTop: 14 }}>{t("wt_unknown")}</h3>
+      <div className="chips">{d.unknown.map((u) => <span key={u.value} className="chip warn-t">{u.value}: {num(u.count)}</span>)}</div></>}
+    {d.runs.length > 0 && <><h3 style={{ marginTop: 14 }}>{t("wt_runs")}</h3>
+      <ul className="timeline">{d.runs.map((r) => <li key={r.id}><span className="muted">{fmtDate(r.at)}</span>
+        <span>{r.by} · {num(r.count)} {t("wells")} {r.undone ? <span className="badge">{t("wt_undone")}</span>
+          : admin && <button className="sm" onClick={() => act(t("wt_undo_confirm"), `/api/admin/well-types/undo/${r.id}`)}>↶ {t("wt_undo")}</button>}</span></li>)}</ul></>}
+    {ask && <Modal title={t("wt_title")} onClose={() => setAsk(null)}>
+      <p>{ask.text}</p>
+      <div className="actions"><button onClick={() => setAsk(null)}>{t("cancel")}</button>
+        <button className="primary" onClick={async () => { const a = ask; setAsk(null); await a.go(); }}>{t("save")}</button></div>
+    </Modal>}
+  </div>;
 }
 
 function ListEditor({ k, initial }: { k: string; initial: string[] }) {

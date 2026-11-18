@@ -31,35 +31,106 @@ def parse_design(raw: str) -> dict:
 
 
 def save_plaque(db: Session, project: Project, fh: BinaryIO, *, filename: str | None, mime_type: str | None,
-                design: dict, actor: User) -> dict:
+                design: dict, actor: User, approve: bool = False, replace: bool = False) -> dict:
+    """Every save is a new version (nothing is overwritten). approve=True also makes it the
+    order's approved plaque; if another plaque is already approved, replace=True is required."""
     mime = (mime_type or "").split(";")[0]
     if mime not in PLAQUE_MIME:
         raise HTTPException(415, "A plaque must be a PNG or PDF file")
+    if approve:
+        _check_replace(project, replace)
     asset, _ = store_media(db, fh, original_filename=filename or f"plaque-{project.well_id}.png", mime_type=mime,
                            project=project, category=MediaCategory.plaque, source="dashboard",
                            sender=actor.full_name, actor=actor)
-    label = design.get("name_ar") or design.get("name_en") or ""
+    label = design.get("name") or design.get("name_ar") or design.get("name_en") or ""
+    version = _count(db, project) + 1
     ev = add_event(db, project, "plaque_saved", source="dashboard", actor=actor,
-                   summary=f"{design.get('template')} · {design.get('size', '')} · {label}"[:500],
-                   payload={"media_id": asset.id, "filename": asset.filename, "design": design})
+                   summary=f"v{version} · {design.get('template')} · {design.get('size', '')} · {label}"[:500],
+                   payload={"media_id": asset.id, "filename": asset.filename, "design": design, "version": version})
     audit(db, "plaque.saved", "project", project.well_id, actor=actor,
-          after={"media_id": asset.id, "template": design.get("template")})
+          after={"media_id": asset.id, "template": design.get("template"), "version": version})
+    if project.plaque_status is None:
+        project.plaque_status = "draft"
     db.flush()
-    return _row(ev, asset.filename)
+    if approve:
+        _approve(db, project, ev, actor)
+    return _row(ev, asset.filename, project)
 
 
-def _row(ev: ProjectEvent, filename: str | None = None) -> dict:
+def _count(db: Session, project: Project) -> int:
+    return db.scalar(select(func.count()).select_from(ProjectEvent).where(
+        ProjectEvent.project_id == project.id, ProjectEvent.event_type == "plaque_saved")) or 0
+
+
+def _check_replace(project: Project, replace: bool) -> None:
+    if project.plaque_media_id and not replace:
+        raise HTTPException(409, "This order already has an approved plaque. Confirm to replace it "
+                                 "(the earlier plaque stays in the versions list).")
+
+
+def _approve(db: Session, project: Project, ev: ProjectEvent, actor: User) -> None:
+    media_id = (ev.payload or {}).get("media_id")
+    previous = project.plaque_media_id
+    project.plaque_status = "approved"
+    project.plaque_media_id = media_id
+    project.plaque_approved_at = utcnow()
+    project.plaque_approved_by = actor.full_name
+    add_event(db, project, "plaque_approved", source="dashboard", actor=actor,
+              summary=f"Plaque v{(ev.payload or {}).get('version') or ''} approved"[:500],
+              payload={"media_id": media_id, "plaque_event_id": str(ev.id), "replaced_media_id": previous})
+    audit(db, "plaque.approved", "project", project.well_id, actor=actor,
+          before={"plaque_media_id": previous}, after={"plaque_media_id": media_id, "plaque_event_id": str(ev.id)})
+    from app.services.projects import queue_sheet_sync
+    queue_sheet_sync(db)
+    db.flush()
+
+
+def approve_version(db: Session, project: Project, event_id: str, actor: User, *, replace: bool = False) -> dict:
+    import uuid
+    try:
+        eid = uuid.UUID(str(event_id))
+    except ValueError:
+        raise HTTPException(404, "No such plaque version")
+    ev = db.scalar(select(ProjectEvent).where(ProjectEvent.id == eid, ProjectEvent.project_id == project.id,
+                                              ProjectEvent.event_type == "plaque_saved"))
+    if not ev:
+        raise HTTPException(404, "No such plaque version")
+    if project.plaque_media_id == (ev.payload or {}).get("media_id"):
+        return _row(ev, None, project)
+    _check_replace(project, replace)
+    _approve(db, project, ev, actor)
+    return _row(ev, None, project)
+
+
+def plaque_file(db: Session, project_ids: list[int], media_id: int) -> tuple[bytes, str, str]:
+    from app.integrations.drive import get_drive_client
+    from app.models import MediaAsset
+    a = db.get(MediaAsset, media_id)
+    if not a or a.project_id not in project_ids or a.category != MediaCategory.plaque or not a.drive_file_id:
+        raise HTTPException(404, "Plaque file not found")
+    try:
+        data = get_drive_client().download(a.drive_file_id)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, f"Could not read the plaque file: {e}")
+    return data, a.mime_type, a.filename
+
+
+def _row(ev: ProjectEvent, filename: str | None = None, project: Project | None = None) -> dict:
     p = ev.payload or {}
     return {"id": str(ev.id), "created_at": ev.created_at.isoformat() if ev.created_at else None,
-            "actor_label": ev.actor_label, "media_id": p.get("media_id"),
-            "filename": filename or p.get("filename"), "design": p.get("design") or {}}
+            "actor_label": ev.actor_label, "media_id": p.get("media_id"), "version": p.get("version"),
+            "filename": filename or p.get("filename"), "design": p.get("design") or {},
+            "approved": bool(project and project.plaque_media_id and project.plaque_media_id == p.get("media_id"))}
 
 
-def list_plaques(db: Session, project_ids: list[int]) -> list[dict]:
-    rows = db.scalars(select(ProjectEvent).where(ProjectEvent.project_id.in_(project_ids),
-                                                 ProjectEvent.event_type == "plaque_saved")
-                      .order_by(ProjectEvent.created_at.desc()).limit(200))
-    return [_row(e) for e in rows]
+def list_plaques(db: Session, project: Project, project_ids: list[int]) -> list[dict]:
+    rows = list(db.scalars(select(ProjectEvent).where(ProjectEvent.project_id.in_(project_ids),
+                                                      ProjectEvent.event_type == "plaque_saved")
+                           .order_by(ProjectEvent.created_at.desc()).limit(200)))
+    out = [_row(e, None, project) for e in rows]
+    for i, r in enumerate(out):  # older saves have no number: count them from the oldest
+        r["version"] = r["version"] or len(out) - i
+    return out
 
 
 # ---------------- sacrifice plaques ----------------

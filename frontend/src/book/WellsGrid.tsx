@@ -10,13 +10,16 @@ import { ErrorBox, Modal, toast, useApi } from "../ui";
 import ProjectForm from "../pages/ProjectForm";
 import RecentChanges, { Change, undoChange } from "../admin/RecentChanges";
 import { dateCol, HayahGrid, moneyCol, n, sum, useDataReload, useMoney } from "./grid";
+import { useIsMobile } from "../nav";
+import PlaqueBadge from "../plaque/PlaqueBadge";
+import WellCards from "./WellCards";
 
 const CONSTRUCTION = ["new_order", "scheduled", "in_progress", "completed", "on_hold", "cancelled"];
 const PAYMENT = ["unpaid", "partial", "paid", "refunded"];
 const VIDEO = ["none", "raw_received", "processing", "in_review", "completed"];
 // Team members add orders and selling prices; costs and delivery approval stay with managers.
 const STAFF_LOCKED = new Set(["cost", "delivery_date"]);
-const CONTRACTOR_EDITABLE = new Set(["construction_status", "construction_start_date", "completion_date", "notes"]);
+const CONTRACTOR_EDITABLE = new Set(["construction_status", "notes"]);
 
 export default function WellsGrid({ month, contractorId, height, title }: { month?: string; contractorId?: number; height?: string; title?: string }) {
   const { t, st, lang } = useI18n();
@@ -45,7 +48,11 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
   const editable = useCallback((f: string) => manager || (staff && !STAFF_LOCKED.has(f)) || (isContractor && CONTRACTOR_EDITABLE.has(f)),
     [manager, staff, isContractor]);
   const codeById = useMemo(() => Object.fromEntries((contractors.data || []).map((c) => [c.id, c.code])), [contractors.data]);
+  const colorById = useMemo(() => Object.fromEntries((contractors.data || []).map((c) => [c.id, c.color || ""])), [contractors.data]);
   const rows = projects.data?.items || [];
+  const mobile = useIsMobile();
+  const [view, setView] = useState<"cards" | "table">("cards");
+  const cards = mobile && view === "cards";
 
   const cols = useMemo<ColDef<Project>[]>(() => {
     const status = (opts: string[]) => ({ cellEditor: "agSelectCellEditor", cellEditorParams: { values: opts }, valueFormatter: (p: any) => (p.node?.isRowPinned() ? "" : st(p.value)) });
@@ -56,12 +63,15 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
     const showSale = !isContractor;  // selling price: everyone on the team
     const showMoney = manager;        // cost and profit: managers only
     const c: (ColDef<Project> | false)[] = [
-      col("well_id", { editable: false, pinned: lang === "ar" ? "right" : "left", width: 100, filter: "agNumberColumnFilter",
-        cellClass: "mono cell-link", sort: "asc", valueFormatter: (p) => (p.node?.isRowPinned() ? t("total_row") : String(p.value ?? "")) }),
-      col("order_date", dateCol), col("customer_name", { width: 170 }),
+      col("well_id", { editable: false, pinned: lang === "ar" ? "right" : "left", width: 96, filter: "agNumberColumnFilter",
+        cellClass: "well-no cell-link", sort: "asc", valueFormatter: (p) => (p.node?.isRowPinned() ? t("total_row") : String(p.value ?? "")),
+        cellClassRules: { "id-done": (p) => p.data?.delivery_status === "delivered", "id-wait": (p) => p.data?.delivery_status === "pending" } }),
+      { colId: "plaque", headerName: t("plaque"), pinned: lang === "ar" ? "right" : "left", width: 118, editable: false, sortable: false,
+        filter: false, cellClass: "plaque-cell",
+        cellRenderer: (p: any) => (p.node.isRowPinned() || !p.data ? null : <PlaqueBadge p={p.data} compact />) },
+      col("order_date", dateCol), col("customer_name", { width: 180, cellClass: "strong" }),
       col("customer_phone", { width: 145, cellStyle: { direction: "ltr", textAlign: "end" } }),
-      col("country", { width: 115, ...pick(lists.data?.countries) }), col("city", { width: 115 }), col("village", { width: 115 }),
-      col("well_type", { width: 110, ...pick(lists.data?.well_types) }),
+      col("well_type", { width: 100, ...pick(lists.data?.well_types) }),
       col("contractor_id", { headerName: t("contractor"), width: 105, cellEditor: "agSelectCellEditor",
         cellEditorParams: { values: [null, ...(contractors.data || []).map((c) => c.id)] },
         valueFormatter: (p) => (p.node?.isRowPinned() ? "" : p.value ? codeById[p.value] || String(p.value) : "—"),
@@ -74,17 +84,13 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
       col("payment_status", { ...status(PAYMENT), width: 110 }), col("payment_method", { width: 125 }),
       col("extras", { width: 110 }), col("shopify_order", { width: 105 }), col("sales_source", { width: 120 }),
       col("dedication", { width: 200, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true }),
-      col("received_date", dateCol),
       col("construction_status", { ...status(CONSTRUCTION), width: 130 }),
-      col("construction_start_date", dateCol), col("completion_date", dateCol),
       col("delivery_status", { editable: false, valueFormatter: (p) => (p.node?.isRowPinned() ? "" : st(p.value)), width: 115, cellClass: "locked" }),
       col("delivery_date", { ...dateCol, headerTooltip: t("delivered_note"), cellClass: manager ? undefined : "locked", editable: (p) => manager && !p.node.isRowPinned() }),
       col("final_video_link", { width: 190 }), col("video_status", { ...status(VIDEO), width: 140 }),
       col("maintenance_status", { editable: false, valueFormatter: (p) => (p.node?.isRowPinned() ? "" : st(p.value)), cellClass: "locked", width: 115 }),
       col("next_maintenance_date", dateCol),
       col("notes", { width: 240, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true }),
-      col("updated_at", { headerName: t("last_updated"), editable: false, cellClass: "locked", width: 150,
-        valueFormatter: (p) => (p.value ? new Date(p.value).toLocaleString() : "") }),
     ];
     return c.filter(Boolean) as ColDef<Project>[];
   }, [t, st, lang, editable, manager, staff, isContractor, contractors.data, codeById, lists.data, money]);
@@ -124,18 +130,24 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
         {title && <h2 style={{ margin: 0, marginInlineEnd: 8 }}>{title}</h2>}
         <input type="search" className="search" placeholder={t("search")} value={quick}
           onChange={(e) => { setQuick(e.target.value); gridRef.current?.setGridOption("quickFilterText", e.target.value); }} />
-        <span className="muted" aria-live="polite">{saving ? t("saving") : t("all_saved")}</span>
-        <button onClick={() => gridRef.current?.setFilterModel(null)}>{t("clear_filters")}</button>
+        {mobile && <div className="seg" role="group">
+          <button className={view === "cards" ? "on" : ""} onClick={() => setView("cards")}>{t("view_cards")}</button>
+          <button className={view === "table" ? "on" : ""} onClick={() => setView("table")}>{t("view_table")}</button>
+        </div>}
+        <span className="muted save-state" aria-live="polite">{saving ? t("saving") : t("all_saved")}</span>
+        {!cards && <button onClick={() => gridRef.current?.setFilterModel(null)}>{t("clear_filters")}</button>}
         {(manager || staff) && <button title={t("undo_last_help")} onClick={undoLast}>↶ {t("undo_last")}</button>}
         {(manager || staff) && <button onClick={() => setHistory(true)}>{t("undo_title")}</button>}
         {manager && !month && !contractorId && <button onClick={() => download("/api/projects/export.csv", "hayah-projects.csv")}>{t("export_csv")}</button>}
         {(manager || staff) && <button className="primary" onClick={() => setCreating(true)}>+ {t("new_project")}</button>}
       </div>
       <ErrorBox error={projects.error} />
-      <HayahGrid<Project> rows={rows} cols={cols} totals={totals} onEdit={onEdit} height={height} gridRef={gridRef}
+      {cards ? <WellCards rows={rows} quick={quick} colorById={colorById} codeById={codeById} contractors={contractors.data || []}
+          showSale={!isContractor} canEdit={manager || staff} isContractor={isContractor} onSaved={(u) => projects.setData((d) => d && { ...d, items: d.items.map((r) => (r.id === u.id ? u : r)) })} />
+        : <HayahGrid<Project> rows={rows} cols={cols} totals={totals} onEdit={onEdit} height={height} gridRef={gridRef}
         rowId={(r) => String(r.id)}
-        rowClass={(p) => (p.data?.delivery_status === "delivered" ? "row-done" : p.data?.construction_status === "completed" ? "row-wait" : undefined)}
-        onCellDoubleClicked={(e) => { if (e.colDef.field === "well_id" && e.data && !e.node.isRowPinned()) nav(`/projects/${e.data.well_id}`); }} />
+        rowStyle={(p) => (p.data?.contractor_id && colorById[p.data.contractor_id] ? { background: colorById[p.data.contractor_id] } : undefined)}
+        onCellDoubleClicked={(e) => { if (e.colDef.field === "well_id" && e.data && !e.node.isRowPinned()) nav(`/projects/${e.data.well_id}`); }} />}
       {history && <Modal title={t("undo_title")} onClose={() => { setHistory(false); projects.reload(); }}>
         <RecentChanges mine={!manager} />
       </Modal>}

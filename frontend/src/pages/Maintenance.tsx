@@ -26,11 +26,11 @@ export default function Maintenance() {
       </div>
       <ErrorBox error={error} />
       <div className="table-wrap"><table>
-        <thead><tr><th>{t("maintenance_id")}</th><th>{t("well_id")}</th><th>{t("date")}</th><th>{t("country")}</th><th>{t("problem_type")}</th>
+        <thead><tr><th>{t("maintenance_id")}</th><th>{t("well_id")}</th><th>{t("date")}</th><th>{t("problem_type")}</th>
           <th>{t("description")}</th><th>{t("technician")}</th><th>{t("repair_cost")}</th><th>{t("status")}</th><th>{t("next_maintenance_date")}</th></tr></thead>
         <tbody>{data?.map((m) => (
           <tr key={m.id}><td className="mono">{m.maintenance_code}</td><td><Link className="mono" to={`/projects/${m.well_id}`}>{m.well_id}</Link></td>
-            <td>{fmtDate(m.date)}</td><td>{m.country || "—"}</td><td>{m.problem_type}</td><td className="wrap">{m.description || "—"}</td>
+            <td>{fmtDate(m.date)}</td><td>{m.problem_type}</td><td className="wrap">{m.description || "—"}</td>
             <td>{m.technician || "—"}</td><td className="num">{num(m.repair_cost)}</td>
             <td>{canWrite ? <select value={m.status} onChange={(e) => setRec(m.maintenance_code, e.target.value)}>
               {["open", "in_progress", "resolved"].map((s) => <option key={s} value={s}>{st(s)}</option>)}</select> : <Status v={m.status} />}</td>

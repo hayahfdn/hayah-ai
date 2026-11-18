@@ -57,7 +57,7 @@ export default function PromptBar() {
 
   return (
     <>
-      <button className="prompt-fab" onClick={() => setOpen(true)} title="Ctrl+K">✦ {t("prompt_btn")}</button>
+      <button className="prompt-fab" onClick={() => setOpen(true)} title="Ctrl+K"aria-label={t("prompt_btn")}>✦ <span className="fab-label">{t("prompt_btn")}</span></button>
       {open && <Modal title={t("prompt_title")} onClose={() => setOpen(false)}>
         {status && !status.ready && <div className="banner"><b>{t("prompt_not_ready")}.</b> {status.code && t("why_" + status.code) !== "why_" + status.code ? t("why_" + status.code) : status.reason}</div>}
         <textarea value={prompt} onChange={(e) => { setPrompt(e.target.value); setPlan(null); }} placeholder={t("prompt_ph")} rows={4} autoFocus

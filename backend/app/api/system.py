@@ -8,20 +8,42 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db
-from app.deps import ADMINS, ALL_ROLES, MANAGERS, require_roles
+from app.deps import ADMINS, ALL_ROLES, MANAGERS, get_current_user, require_roles
 from app.integrations.drive import get_drive_client
 from app.models import (
     ApprovalStatus, AuditLog, ConstructionStatus, Contractor, DeliveryConfirmation, DeliveryStatus, Job, JobStatus,
     MaintenanceRecord, MaintenanceStatus, Project, ReviewCase, ReviewStatus, SyncConflict, User, VideoStatus,
 )
 from app.schemas import AISettingsIn, ConflictResolve, SyncConflictOut
-from app.services import sheets_sync, usage
+from app.services import sheets_sync, usage, well_types
 from app.services.audit import audit
 from app.services.jobs import enqueue, retry_job, run_due_jobs
 from app.services.secrets_store import anthropic_key_hint, set_anthropic_key
 from app.services.settings_store import get_setting, set_setting
 
 router = APIRouter(prefix="/api", tags=["system"])
+
+
+@router.get("/nav")
+def nav(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """What the side menu lists for this person: month pages, contractors by country, partners.
+    Finance pages (sacrifices, contractor ledgers, partners) are for managers only."""
+    from app.models import FinanceAccount, Role
+    from app.services.finance import months
+    manager = user.role in MANAGERS
+    m = months(db)
+    out: dict = {"current": m["current"], "wells": m["wells"], "sacrifices": m["sacrifices"] if manager else [],
+                 "contractors": [], "partners": [], "banks": []}
+    if user.role != Role.contractor:
+        cons = db.scalars(select(Contractor).where(Contractor.is_active.is_(True)).order_by(Contractor.code))
+        out["contractors"] = [{"id": c.id, "code": c.code, "name": c.name, "country": c.country or "", "color": c.color}
+                              for c in cons]
+    if manager:
+        accs = list(db.scalars(select(FinanceAccount).where(FinanceAccount.is_active.is_(True))
+                               .order_by(FinanceAccount.sort_order, FinanceAccount.id)))
+        out["partners"] = [{"code": a.code, "name": a.name} for a in accs if a.kind == "partner"]
+        out["banks"] = [{"code": a.code, "name": a.name} for a in accs if a.kind == "bank"]
+    return out
 
 
 @router.get("/dashboard")
@@ -188,8 +210,9 @@ def put_ai_key(body: APIKeyIn, db: Session = Depends(get_db), user: User = Depen
 
 @router.get("/settings/lists")
 def get_lists(db: Session = Depends(get_db), _: User = Depends(require_roles(ALL_ROLES))):
-    """Dropdown values used by the sheets."""
-    return {k: get_setting(db, k).get("values", []) for k in ("well_types", "countries", "animal_types")}
+    """Dropdown values used by the sheets. Well types are always the four HAYAH types."""
+    out = {k: get_setting(db, k).get("values", []) for k in ("countries", "animal_types")}
+    return {"well_types": list(well_types.TYPES), **out}
 
 
 @router.put("/settings/lists/{key}")
@@ -197,10 +220,42 @@ def put_list(key: str, values: list[str], db: Session = Depends(get_db), user: U
     if key not in ("well_types", "countries", "animal_types"):
         raise HTTPException(404, "Unknown list")
     clean = sorted({v.strip()[:80] for v in values if v.strip()})
+    if key == "well_types":  # one name per type: long names fold into the four types
+        clean = [t for t in well_types.TYPES if t in {well_types.normalize(v) for v in clean}] or list(well_types.TYPES)
     set_setting(db, key, {"values": clean}, user.id)
     audit(db, f"settings.{key}", "settings", key, actor=user, after={"values": clean})
     db.commit()
     return {"values": clean}
+
+
+# ---------------- well types: one name per type ----------------
+@router.get("/admin/well-types")
+def well_types_status(db: Session = Depends(get_db), _: User = Depends(require_roles(MANAGERS))):
+    conn = db.connection()
+    counts = db.execute(select(Project.well_type, func.count()).where(Project.merged_into_id.is_(None))
+                        .group_by(Project.well_type)).all()
+    return {"types": well_types.TYPES, "legacy": well_types.LEGACY,
+            "counts": [{"value": v, "count": n} for v, n in sorted(counts, key=lambda r: -r[1])],
+            "pending": well_types.preview(conn), "unknown": well_types.unknown(conn), "runs": well_types.runs(conn)}
+
+
+@router.post("/admin/well-types/normalize")
+def well_types_normalize(db: Session = Depends(get_db), user: User = Depends(require_roles(ADMINS))):
+    out = well_types.normalize_rows(db.connection(), actor_label=user.full_name, actor_id=user.id)
+    db.commit()
+    return out
+
+
+@router.post("/admin/well-types/undo/{audit_id}")
+def well_types_undo(audit_id: int, db: Session = Depends(get_db), user: User = Depends(require_roles(ADMINS))):
+    try:
+        out = well_types.undo_rows(db.connection(), audit_id, actor_label=user.full_name, actor_id=user.id)
+    except LookupError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    db.commit()
+    return out
 
 
 @router.get("/audit")

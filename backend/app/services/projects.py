@@ -81,6 +81,19 @@ def _enforce_dates(p: Project):
         p.delivery_status = DeliveryStatus.pending
 
 
+def _country_from_contractor(db: Session, p: Project, old_contractor_id: int | None = None) -> None:
+    """Country is no longer typed on the forms: it follows the contractor (reports by country keep working).
+    A country that was typed by hand and differs from the old contractor's country is left alone."""
+    if not p.contractor_id:
+        return
+    new = db.get(Contractor, p.contractor_id)
+    if not new or not new.country:
+        return
+    old = db.get(Contractor, old_contractor_id) if old_contractor_id else None
+    if not p.country or (old and p.country == old.country):
+        p.country = new.country
+
+
 def create_project(db: Session, data: dict, *, actor: User | None, source: str = "dashboard",
                    ip: str | None = None, is_sample: bool = False) -> Project:
     if get_by_well_id(db, data["well_id"]):
@@ -89,6 +102,7 @@ def create_project(db: Session, data: dict, *, actor: User | None, source: str =
         raise HTTPException(403, "Only managers can set the well cost")
     _check_contractor(db, data.get("contractor_id"))
     p = Project(**data, is_sample=is_sample)
+    _country_from_contractor(db, p)
     _enforce_dates(p)
     try:
         with db.begin_nested():
@@ -127,6 +141,8 @@ def update_project(db: Session, project: Project, changes: dict, *, actor: User 
     before = snapshot(project)
     for k, v in changes.items():
         setattr(project, k, v)
+    if "contractor_id" in changes and "country" not in changes:
+        _country_from_contractor(db, project, before.get("contractor_id"))
     _enforce_dates(project)
     after = snapshot(project)
     diff = {k: {"from": before.get(k), "to": after.get(k)} for k in after if before.get(k) != after.get(k)}

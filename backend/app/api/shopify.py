@@ -129,7 +129,7 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
     except ValueError:
         raise HTTPException(400, "Invalid JSON")
     wid = request.headers.get("X-Shopify-Webhook-Id") or request.headers.get("X-Shopify-Event-Id")
-    enqueue(db, "shopify_order", {"topic": topic, "order": order},
+    enqueue(db, "shopify_order", {"topic": topic, "order": svc.slim_rest(order)},
             key=f"shopify:{wid}" if wid else f"shopify:{topic}:{order.get('id')}:{order.get('updated_at')}")
     svc._state(db, last_webhook_at=utcnow().isoformat())
     db.commit()

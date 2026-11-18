@@ -127,8 +127,10 @@ export default function App() {
             <Route path="/book/:kind/:id" element={<Suspense fallback={null}><Workbook /></Suspense>} />
             <Route path="/sheet" element={<Suspense fallback={null}><Sheet /></Suspense>} />
             <Route path="/projects/:wellId" element={<ProjectDetail />} />
-            <Route path="/plaque" element={<Suspense fallback={null}><PlaqueDesigner /></Suspense>} />
-            <Route path="/plaque/:wellId" element={<Suspense fallback={null}><PlaqueDesigner /></Suspense>} />
+            <Route path="/plaque" element={<Suspense fallback={null}><PlaqueDesigner key="well" /></Suspense>} />
+            <Route path="/plaque/sacrifice" element={<Suspense fallback={null}><PlaqueDesigner kind="sacrifice" key="sac" /></Suspense>} />
+            <Route path="/plaque/sacrifice/:no" element={<Suspense fallback={null}><PlaqueDesigner kind="sacrifice" key="sac" /></Suspense>} />
+            <Route path="/plaque/:wellId" element={<Suspense fallback={null}><PlaqueDesigner key="well" /></Suspense>} />
             <Route path="/construction" element={<Construction />} />
             <Route path="/delivery" element={<Delivery />} />
             <Route path="/maintenance" element={<Maintenance />} />

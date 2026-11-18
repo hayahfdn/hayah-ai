@@ -23,3 +23,16 @@ reopened and edited from the designer's "Saved plaques" list.
 
 Code: `frontend/src/plaque/render.ts` (drawing and export), `frontend/src/plaque/PlaqueDesigner.tsx`,
 `backend/app/services/plaques.py`. Flags are from flag-icons (MIT, `frontend/public/flags/`).
+
+## Update: sacrifice plaques, well icons, flags (2026-11-18)
+
+- **Sacrifice plaque** (tab "لوحة ذبيحة", `/plaque/sacrifice/<No>`): portrait 1024 × 1536, matching HAYAH's sacrifice
+  plaques. Types: صدقة، عقيقة مولود، عقيقة مولودة، صدقة مع الإطعام، عقيقة مع الإطعام. Picking a type fills the header
+  (Bismillah + Al Imran 92, the aqiqah hadith, or Al Insan 8), the title (e.g. "خروف عقيقة المولودة:"), the red line and
+  the prayer (aqiqah prayers use the child's first name). All fields stay editable. Filled from the workbook: number,
+  donor name (or `dedication`), animal, type (from the intention), month, flag and Arabic country name (contractor's country).
+  `GET /api/plaques/sacrifices/<No>` returns only plaque fields (never cost or price), so Team members can use it.
+  Saved PNGs go to Drive `Plaques/Sacrifices/<No>/`; the design is kept in the audit log (`plaque.saved`).
+- **Well icons**: six HAYAH well types (hand pump, hand pump with tank, one or two tanks with 4 taps, one or two tanks
+  with a tap wall) in `frontend/public/wells/`, background removed. Icon can sit left or right.
+- **Flags**: Pakistan, Bangladesh, Nepal, India, Tanzania first, then all 22 Arab League countries, then others.

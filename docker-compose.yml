@@ -1,0 +1,65 @@
+# HAYAH AI – local and VPS deployment.
+#   cp .env.example .env   (then edit secrets)
+#   docker compose up -d --build
+#   docker compose exec api python -m app.cli create-admin --email you@example.org --name "Your Name"
+# Dashboard: http://localhost:8080   API docs (non-production): http://localhost:8080/api/docs
+# Backup:    docker compose --profile backup run --rm backup   (writes ./backups/hayah-YYYYMMDD-HHMM.dump)
+name: hayah
+
+x-backend: &backend
+  build: ./backend
+  env_file: .env
+  environment:
+    HAYAH_DATABASE_URL: postgresql+psycopg://hayah:${POSTGRES_PASSWORD}@db:5432/hayah
+    HAYAH_MOCK_DATA_DIR: /app/data
+    HAYAH_SECRETS_DIR: /app/secrets
+  volumes:
+    - appdata:/app/data
+    - ./secrets:/app/secrets:ro
+  depends_on:
+    db: { condition: service_healthy }
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: hayah
+      POSTGRES_USER: hayah
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hayah -d hayah"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    <<: *backend
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      retries: 6
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      api: { condition: service_healthy }
+
+  web:
+    build: ./frontend
+    ports: ["${WEB_PORT:-8080}:80"]
+    depends_on: [api]
+    restart: unless-stopped
+
+  backup:
+    image: postgres:16-alpine
+    profiles: ["backup"]
+    environment: { PGPASSWORD: "${POSTGRES_PASSWORD}" }
+    volumes: ["./backups:/backups"]
+    entrypoint: ["sh", "-c", "pg_dump -h db -U hayah -Fc hayah > /backups/hayah-$$(date +%Y%m%d-%H%M).dump"]
+
+volumes:
+  pgdata:
+  appdata:

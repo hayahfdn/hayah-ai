@@ -1,0 +1,410 @@
+{
+  "$defs": {
+    "ConstructionFields": {
+      "properties": {
+        "construction_status": {
+          "anyOf": [
+            {
+              "enum": [
+                "scheduled",
+                "in_progress",
+                "completed",
+                "on_hold"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Construction Status"
+        },
+        "contractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contractor"
+        },
+        "progress_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Progress Note"
+        }
+      },
+      "title": "ConstructionFields",
+      "type": "object"
+    },
+    "DeliveryFields": {
+      "properties": {
+        "delivery_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delivery Date"
+        },
+        "received_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Received By"
+        },
+        "handover_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Handover Note"
+        }
+      },
+      "title": "DeliveryFields",
+      "type": "object"
+    },
+    "FinalVideoFields": {
+      "properties": {
+        "video_url": {
+          "anyOf": [
+            {
+              "pattern": "^https://",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Video Url"
+        }
+      },
+      "title": "FinalVideoFields",
+      "type": "object"
+    },
+    "MaintenanceFields": {
+      "properties": {
+        "problem_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Problem Type"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "technician": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Technician"
+        },
+        "repair_action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repair Action"
+        },
+        "repair_cost": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repair Cost"
+        }
+      },
+      "title": "MaintenanceFields",
+      "type": "object"
+    },
+    "NewOrderFields": {
+      "properties": {
+        "customer_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Customer Name"
+        },
+        "country": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Country"
+        },
+        "city": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "City"
+        },
+        "village": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Village"
+        },
+        "well_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Well Type"
+        },
+        "sale_amount": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sale Amount"
+        }
+      },
+      "title": "NewOrderFields",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "well_ids": {
+      "description": "Every Well ID explicitly written in the message",
+      "items": {
+        "type": "integer"
+      },
+      "title": "Well Ids",
+      "type": "array"
+    },
+    "well_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Set only when exactly one Well ID is explicit",
+      "title": "Well Id"
+    },
+    "event_type": {
+      "default": "unknown",
+      "enum": [
+        "new_order",
+        "construction_update",
+        "delivery_confirmation",
+        "final_video",
+        "maintenance_report",
+        "general_note",
+        "unknown"
+      ],
+      "title": "Event Type",
+      "type": "string"
+    },
+    "language": {
+      "default": "unknown",
+      "enum": [
+        "ar",
+        "en",
+        "mixed",
+        "unknown"
+      ],
+      "title": "Language",
+      "type": "string"
+    },
+    "construction": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ConstructionFields"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "delivery": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DeliveryFields"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "final_video": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FinalVideoFields"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "maintenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MaintenanceFields"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "new_order": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NewOrderFields"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "missing_fields": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Fields",
+      "type": "array"
+    },
+    "conflicts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Conflicts",
+      "type": "array"
+    },
+    "requires_human_review": {
+      "default": true,
+      "title": "Requires Human Review",
+      "type": "boolean"
+    },
+    "engine": {
+      "default": "rules",
+      "title": "Engine",
+      "type": "string"
+    },
+    "reasoning": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reasoning"
+    }
+  },
+  "required": [
+    "confidence"
+  ],
+  "title": "Extraction",
+  "type": "object"
+}

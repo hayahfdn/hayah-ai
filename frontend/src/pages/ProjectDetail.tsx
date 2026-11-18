@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, Project } from "../api";
-import { MANAGERS, useAuth } from "../App";
+import { EDITORS, MANAGERS, useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { Empty, ErrorBox, Field, Modal, Status, toast, useApi } from "../ui";
 import ProjectForm from "./ProjectForm";
@@ -28,7 +28,7 @@ export default function ProjectDetail() {
           {d.merged_into_id && <span className="badge warn">merged</span>}</div>
         <div style={{ display: "flex", gap: 8 }}>
           {can(...MANAGERS) && <button onClick={() => setMerging(true)}>{t("request_merge")}</button>}
-          {can(...MANAGERS) && <button className="primary" onClick={() => setEditing(true)}>{t("edit")}</button>}
+          {can(...EDITORS) && <button className="primary" onClick={() => setEditing(true)}>{t("edit")}</button>}
         </div>
       </div>
       <div className="grid kpis" style={{ marginBottom: 14 }}>

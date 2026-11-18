@@ -12,7 +12,10 @@ bearer = HTTPBearer(auto_error=False)
 ALL_ROLES = set(Role)
 MANAGERS = {Role.super_admin, Role.operations_manager}
 ADMINS = {Role.super_admin}
-FIELD_WRITERS = {Role.super_admin, Role.operations_manager, Role.contractor}
+FIELD_WRITERS = {Role.super_admin, Role.operations_manager, Role.staff, Role.contractor}
+PROJECT_CREATORS = {Role.super_admin, Role.operations_manager, Role.staff}
+# Only these roles may see or change costs, profit, ads, accounts and other money-out details.
+FINANCE_VIEWERS = MANAGERS
 MAINTENANCE_WRITERS = {Role.super_admin, Role.operations_manager, Role.maintenance}
 
 

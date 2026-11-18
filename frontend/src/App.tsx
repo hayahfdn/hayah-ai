@@ -23,6 +23,8 @@ type AuthCtx = { user: User; can: (...roles: string[]) => boolean; logout: () =>
 const Auth = createContext<AuthCtx>(null!);
 export const useAuth = () => useContext(Auth);
 export const MANAGERS = ["super_admin", "operations_manager"];
+// Can add and edit wells (with selling price). Costs and finance stay with MANAGERS.
+export const EDITORS = [...MANAGERS, "staff"];
 
 function Login({ onLogin }: { onLogin: (u: User) => void }) {
   const { t, lang, setLang } = useI18n();

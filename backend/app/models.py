@@ -35,6 +35,7 @@ def _enum(e: type[enum.Enum], name: str):
 class Role(str, enum.Enum):
     super_admin = "super_admin"
     operations_manager = "operations_manager"
+    staff = "staff"  # team member: adds orders and selling prices, never sees costs or finance
     contractor = "contractor"
     maintenance = "maintenance"
     viewer = "viewer"

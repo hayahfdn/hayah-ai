@@ -38,7 +38,7 @@ export async function download(path: string, filename: string) {
   URL.revokeObjectURL(a.href);
 }
 
-export type Role = "super_admin" | "operations_manager" | "contractor" | "maintenance" | "viewer";
+export type Role = "super_admin" | "operations_manager" | "staff" | "contractor" | "maintenance" | "viewer";
 export interface User { id: number; email: string; full_name: string; role: Role; is_active: boolean; preferred_lang: "ar" | "en"; phone: string | null; contractor_id: number | null; last_login_at: string | null; }
 export interface Contractor { id: number; code: string; name: string; country: string | null; phone: string | null; is_active: boolean; notes: string | null; }
 export interface Project {

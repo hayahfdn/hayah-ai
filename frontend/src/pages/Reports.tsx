@@ -7,6 +7,7 @@ import { Bars, ErrorBox, useApi } from "../ui";
 export default function Reports() {
   const { t, st, num } = useI18n();
   const { can } = useAuth();
+  const showCost = can(...MANAGERS);
   const today = new Date().toISOString().slice(0, 10);
   const yearAgo = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
   const [range, setRange] = useState({ start: yearAgo, end: today });
@@ -28,8 +29,8 @@ export default function Reports() {
           <table><thead><tr><th>{t("status")}</th><th>{t("count")}</th><th>{t("amount")}</th></tr></thead>
             <tbody>{data.by_payment_status.map((r: any) => <tr key={r.status}><td>{st(r.status)}</td><td className="num">{num(r.count)}</td><td className="num">{num(r.amount)}</td></tr>)}</tbody></table></div>
         <div className="card"><h2>{t("maint_by_problem")}</h2>
-          <table><thead><tr><th>{t("problem_type")}</th><th>{t("count")}</th><th>{t("cost")}</th></tr></thead>
-            <tbody>{data.maintenance_by_problem.map((r: any) => <tr key={r.problem_type}><td>{r.problem_type}</td><td className="num">{num(r.count)}</td><td className="num">{num(r.cost)}</td></tr>)}</tbody></table></div>
+          <table><thead><tr><th>{t("problem_type")}</th><th>{t("count")}</th>{showCost && <th>{t("cost")}</th>}</tr></thead>
+            <tbody>{data.maintenance_by_problem.map((r: any) => <tr key={r.problem_type}><td>{r.problem_type}</td><td className="num">{num(r.count)}</td>{showCost && <td className="num">{num(r.cost)}</td>}</tr>)}</tbody></table></div>
       </div>}
     </>
   );

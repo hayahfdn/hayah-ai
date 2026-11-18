@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { download, Project } from "../api";
-import { MANAGERS, useAuth } from "../App";
+import { EDITORS, MANAGERS, useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { Empty, ErrorBox, Modal, Status, useApi } from "../ui";
 import ProjectForm from "./ProjectForm";
@@ -22,7 +22,7 @@ export default function Projects() {
       <div className="topbar"><h1>{t("nav_projects")}</h1>
         <div style={{ display: "flex", gap: 8 }}>
           {can(...MANAGERS) && <button onClick={() => download("/api/projects/export.csv", "hayah-projects.csv")}>{t("export_csv")}</button>}
-          {can(...MANAGERS) && <button className="primary" onClick={() => setCreating(true)}>+ {t("new_project")}</button>}
+          {can(...EDITORS) && <button className="primary" onClick={() => setCreating(true)}>+ {t("new_project")}</button>}
         </div>
       </div>
       {data?.items.some((p) => p.is_sample) && <div className="banner">{t("sample_banner")}</div>}

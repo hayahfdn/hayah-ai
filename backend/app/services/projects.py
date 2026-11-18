@@ -15,6 +15,24 @@ from app.models import (
 from app.services.audit import audit, jsonable, snapshot
 from app.services.jobs import enqueue
 
+FINANCE_ROLES = {Role.super_admin, Role.operations_manager}
+HIDDEN_FROM_STAFF = {"cost"}
+
+
+def redact_event(ev: dict) -> dict | None:
+    """Timeline entry as a non-manager may see it: cost changes removed. None = nothing left to show."""
+    payload = dict(ev.get("payload") or {})
+    if "fields" in payload:
+        payload["fields"] = {k: v for k, v in payload["fields"].items() if k not in HIDDEN_FROM_STAFF}
+    if "changes" in payload:
+        changes = {k: v for k, v in payload["changes"].items() if k not in HIDDEN_FROM_STAFF}
+        if not changes and payload["changes"]:
+            return None
+        if len(changes) != len(payload["changes"]):
+            ev = {**ev, "summary": ", ".join(f"{k}: {v['from']} → {v['to']}" for k, v in changes.items())[:500]}
+        payload["changes"] = changes
+    return {**ev, "payload": payload}
+
 
 def get_by_well_id(db: Session, well_id: int, *, for_update: bool = False) -> Project | None:
     q = select(Project).where(Project.well_id == well_id)
@@ -67,6 +85,8 @@ def create_project(db: Session, data: dict, *, actor: User | None, source: str =
                    ip: str | None = None, is_sample: bool = False) -> Project:
     if get_by_well_id(db, data["well_id"]):
         raise HTTPException(409, f"Well ID {data['well_id']} already exists")
+    if actor and actor.role not in FINANCE_ROLES and data.get("cost") is not None:
+        raise HTTPException(403, "Only managers can set the well cost")
     _check_contractor(db, data.get("contractor_id"))
     p = Project(**data, is_sample=is_sample)
     _enforce_dates(p)
@@ -100,6 +120,8 @@ def update_project(db: Session, project: Project, changes: dict, *, actor: User 
             raise HTTPException(403, "Contractors may only update construction progress and notes")
         if actor.contractor_id is None or project.contractor_id != actor.contractor_id:
             raise HTTPException(403, "This project is not assigned to you")
+    if actor and actor.role not in FINANCE_ROLES and "cost" in changes:
+        raise HTTPException(403, "Only managers can change the well cost")
     if "contractor_id" in changes:
         _check_contractor(db, changes["contractor_id"])
     before = snapshot(project)

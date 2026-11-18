@@ -130,7 +130,7 @@ function NewUser({ onClose, onSaved }: { onClose: () => void; onSaved: () => voi
     <Field label={t("name")}><input required onChange={set("full_name")} /></Field>
     <Field label={t("email")}><input type="email" required onChange={set("email")} /></Field>
     <Field label={t("password")} hint="10+ chars, uppercase and a digit"><input type="password" required minLength={10} onChange={set("password")} /></Field>
-    <Field label={t("role")}><select value={f.role} onChange={set("role")}>{["super_admin", "operations_manager", "contractor", "maintenance", "viewer"].map((r) => <option key={r} value={r}>{t("role_" + r)}</option>)}</select></Field>
+    <Field label={t("role")}><select value={f.role} onChange={set("role")}>{["super_admin", "operations_manager", "staff", "contractor", "maintenance", "viewer"].map((r) => <option key={r} value={r}>{t("role_" + r)}</option>)}</select></Field>
     <Field label={t("phone")} hint="WhatsApp number, used to recognise the sender"><input dir="ltr" onChange={set("phone")} /></Field>
     {f.role === "contractor" && <Field label={t("contractor")}><select required onChange={set("contractor_id")}><option value="">—</option>{contractors.data?.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}</select></Field>}
   </div><ErrorBox error={error} /><div className="actions"><button type="button" onClick={onClose}>{t("cancel")}</button><button className="primary">{t("create")}</button></div></form></Modal>;

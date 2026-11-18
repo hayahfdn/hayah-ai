@@ -55,7 +55,7 @@ def dashboard(db: Session = Depends(get_db), _: User = Depends(require_roles(ALL
 
 @router.get("/reports/summary")
 def report(start: date | None = None, end: date | None = None, db: Session = Depends(get_db),
-           _: User = Depends(require_roles(ALL_ROLES))):
+           user: User = Depends(require_roles(ALL_ROLES))):
     end = end or date.today()
     start = start or end - timedelta(days=365)
     live = Project.merged_into_id.is_(None)
@@ -76,7 +76,8 @@ def report(start: date | None = None, end: date | None = None, db: Session = Dep
             "deliveries_by_month": [{"month": m, "delivered": n} for m, n in delivered],
             "by_well_type": [{"well_type": t or "—", "count": n} for t, n in by_type],
             "by_payment_status": [{"status": s.value, "count": n, "amount": float(a)} for s, n, a in by_payment],
-            "maintenance_by_problem": [{"problem_type": p, "count": n, "cost": float(c)} for p, n, c in maint]}
+            "maintenance_by_problem": [{"problem_type": p, "count": n, "cost": float(c) if user.role in MANAGERS else None}
+                                       for p, n, c in maint]}
 
 
 # ---------- Google Sheets sync ----------

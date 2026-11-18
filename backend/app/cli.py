@@ -71,6 +71,7 @@ def seed_demo(with_media: bool = True):
                  ("manager@hayah.local", "Demo Operations Manager", Role.operations_manager, None, "+920000000001"),
                  ("p1@hayah.local", "Demo Contractor Pak 1", Role.contractor, "PAK1", "+920000000002"),
                  ("maint@hayah.local", "Demo Maintenance", Role.maintenance, None, "+920000000003"),
+                 ("staff@hayah.local", "Demo Team Member", Role.staff, None, None),
                  ("viewer@hayah.local", "Demo Viewer", Role.viewer, None, None)]
         by_email = {}
         for email, name, role, ccode, phone in users:

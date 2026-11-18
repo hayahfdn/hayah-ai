@@ -13,6 +13,8 @@ import { dateCol, HayahGrid, moneyCol, n, sum, useDataReload, useMoney } from ".
 const CONSTRUCTION = ["new_order", "scheduled", "in_progress", "completed", "on_hold", "cancelled"];
 const PAYMENT = ["unpaid", "partial", "paid", "refunded"];
 const VIDEO = ["none", "raw_received", "processing", "in_review", "completed"];
+// Team members add orders and selling prices; costs and delivery approval stay with managers.
+const STAFF_LOCKED = new Set(["cost", "delivery_date"]);
 const CONTRACTOR_EDITABLE = new Set(["construction_status", "construction_start_date", "completion_date", "notes"]);
 
 export default function WellsGrid({ month, contractorId, height, title }: { month?: string; contractorId?: number; height?: string; title?: string }) {
@@ -30,7 +32,9 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
   const [creating, setCreating] = useState(false);
   const manager = can(...MANAGERS);
   const isContractor = user.role === "contractor";
-  const editable = useCallback((f: string) => manager || (isContractor && CONTRACTOR_EDITABLE.has(f)), [manager, isContractor]);
+  const staff = user.role === "staff";
+  const editable = useCallback((f: string) => manager || (staff && !STAFF_LOCKED.has(f)) || (isContractor && CONTRACTOR_EDITABLE.has(f)),
+    [manager, staff, isContractor]);
   const codeById = useMemo(() => Object.fromEntries((contractors.data || []).map((c) => [c.id, c.code])), [contractors.data]);
   const rows = projects.data?.items || [];
 
@@ -40,7 +44,8 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
     const col = (field: keyof Project, extra: Partial<ColDef<Project>> = {}): ColDef<Project> => ({
       field, headerName: t(field as string), editable: (p) => editable(field as string) && !p.node.isRowPinned(), ...extra,
     });
-    const showMoney = manager || !isContractor;
+    const showSale = !isContractor;  // selling price: everyone on the team
+    const showMoney = manager;        // cost and profit: managers only
     const c: (ColDef<Project> | false)[] = [
       col("well_id", { editable: false, pinned: lang === "ar" ? "right" : "left", width: 100, filter: "agNumberColumnFilter",
         cellClass: "mono cell-link", sort: "asc", valueFormatter: (p) => (p.node?.isRowPinned() ? t("total_row") : String(p.value ?? "")) }),
@@ -52,7 +57,7 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
         cellEditorParams: { values: [null, ...(contractors.data || []).map((c) => c.id)] },
         valueFormatter: (p) => (p.node?.isRowPinned() ? "" : p.value ? codeById[p.value] || String(p.value) : "—"),
         filterValueGetter: (p) => (p.data?.contractor_id ? codeById[p.data.contractor_id] : "") }),
-      showMoney && moneyCol<Project>("sale_amount", t("sale_amount"), manager, money),
+      showSale && moneyCol<Project>("sale_amount", t("sale_amount"), manager || staff, money),
       showMoney && moneyCol<Project>("cost", t("cost"), manager, money),
       showMoney && { colId: "profit", headerName: t("profit"), editable: false, width: 105, cellClass: "num locked",
         valueGetter: (p) => (p.data?.sale_amount == null && p.data?.cost == null ? null : n(p.data?.sale_amount) - n(p.data?.cost)),
@@ -63,7 +68,7 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
       col("construction_status", { ...status(CONSTRUCTION), width: 130 }),
       col("construction_start_date", dateCol), col("completion_date", dateCol),
       col("delivery_status", { editable: false, valueFormatter: (p) => (p.node?.isRowPinned() ? "" : st(p.value)), width: 115, cellClass: "locked" }),
-      col("delivery_date", { ...dateCol, headerTooltip: t("delivered_note"), cellClass: manager ? undefined : "locked" }),
+      col("delivery_date", { ...dateCol, headerTooltip: t("delivered_note"), cellClass: manager ? undefined : "locked", editable: (p) => manager && !p.node.isRowPinned() }),
       col("final_video_link", { width: 190 }), col("video_status", { ...status(VIDEO), width: 140 }),
       col("maintenance_status", { editable: false, valueFormatter: (p) => (p.node?.isRowPinned() ? "" : st(p.value)), cellClass: "locked", width: 115 }),
       col("next_maintenance_date", dateCol),
@@ -72,7 +77,7 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
         valueFormatter: (p) => (p.value ? new Date(p.value).toLocaleString() : "") }),
     ];
     return c.filter(Boolean) as ColDef<Project>[];
-  }, [t, st, lang, editable, manager, isContractor, contractors.data, codeById, lists.data, money]);
+  }, [t, st, lang, editable, manager, staff, isContractor, contractors.data, codeById, lists.data, money]);
 
   const totals = useMemo(() => [{ id: -1, well_id: null as any, customer_name: `${rows.length} ${t("wells")}`,
     sale_amount: String(sum(rows, (r) => r.sale_amount)), cost: String(sum(rows, (r) => r.cost)) } as Partial<Project>], [rows, t]);
@@ -112,7 +117,7 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
         <span className="muted" aria-live="polite">{saving ? t("saving") : t("all_saved")}</span>
         <button onClick={() => gridRef.current?.setFilterModel(null)}>{t("clear_filters")}</button>
         {manager && !month && !contractorId && <button onClick={() => download("/api/projects/export.csv", "hayah-projects.csv")}>{t("export_csv")}</button>}
-        {manager && <button className="primary" onClick={() => setCreating(true)}>+ {t("new_project")}</button>}
+        {(manager || staff) && <button className="primary" onClick={() => setCreating(true)}>+ {t("new_project")}</button>}
       </div>
       <ErrorBox error={projects.error} />
       <HayahGrid<Project> rows={rows} cols={cols} totals={totals} onEdit={onEdit} height={height} gridRef={gridRef}

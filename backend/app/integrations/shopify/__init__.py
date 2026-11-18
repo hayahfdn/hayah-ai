@@ -64,10 +64,31 @@ def client_credentials_token(domain: str, client_id: str, client_secret: str) ->
         r = c.post(f"https://{domain}/admin/oauth/access_token",
                    data={"grant_type": "client_credentials", "client_id": client_id, "client_secret": client_secret})
     if r.status_code != 200:
-        raise ShopifyError(f"Shopify refused the app keys ({r.status_code}): {r.text[:200]}. "
-                           "Check the client ID/secret and that the app is installed on this store.")
+        raise ShopifyError(explain_oauth_error(r.status_code, r.text))
     j = r.json()
     return j["access_token"], time.time() + float(j.get("expires_in", 86399)) - 300
+
+
+OAUTH_HINTS = {
+    "app_not_installed": "The app is not installed on this store yet. In the Shopify Dev Dashboard open the app, "
+                         "release a version with the read_orders scope, then click Install app and choose this store.",
+    "shop_not_permitted": "The app and the store are in different Shopify organizations. Make the app again, starting "
+                          "from the store admin: Settings > Apps > Develop apps > Build apps in Dev Dashboard.",
+    "invalid_client": "Shopify does not recognise this client ID / client secret. Copy both again from the app's "
+                      "Settings page in the Dev Dashboard.",
+    "invalid_request": "Shopify rejected the request. Check the store address and the client ID.",
+}
+
+
+def explain_oauth_error(status: int, body: str) -> str:
+    """Turn Shopify's error page into one readable sentence."""
+    import re as _re
+    for code, hint in OAUTH_HINTS.items():
+        if code in (body or ""):
+            return f"{hint} (Shopify: {code})"
+    title = _re.search(r"<title>(.*?)</title>", body or "", _re.S)
+    detail = title.group(1).strip() if title else _re.sub(r"<[^>]+>", " ", body or "")[:150].strip()
+    return f"Shopify refused the app keys ({status}: {detail}). Check the client ID/secret and that the app is installed on this store."
 
 
 def graphql(domain: str, token: str, query: str, variables: dict | None = None, version: str = API_VERSION) -> dict:

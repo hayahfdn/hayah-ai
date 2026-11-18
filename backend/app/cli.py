@@ -1,6 +1,7 @@
 """Admin commands.
 
   python -m app.cli create-admin --email you@hayah.org --name "Name"   (prompts for password)
+  python -m app.cli setup-workbook   # creates the standard contractor/account tabs (safe to repeat)
   python -m app.cli seed-demo        # 12 SAMPLE projects, flagged is_sample=True (never real data)
   python -m app.cli sync-sheets
   python -m app.cli export-schemas   # writes docs/schemas/*.json
@@ -24,19 +25,21 @@ from app.security import hash_password, validate_password_strength
 DEMO_PASSWORD = "Demo-Pass-2026"
 # Placeholder sample data: Well IDs start at 9001 so they can never collide with real wells (1337...).
 SAMPLES = [
-    (9001, "Pakistan", "Tharparkar", "Mithi", "medium_artesian", "P1", "completed", "delivered"),
-    (9002, "Pakistan", "Tharparkar", "Islamkot", "shallow_hand_pump", "P1", "completed", "pending"),
-    (9003, "Pakistan", "Umerkot", "Kunri", "deep_borewell", "P2", "in_progress", None),
-    (9004, "Bangladesh", "Sylhet", "Jaintiapur", "shallow_hand_pump", "B1", "new_order", None),
-    (9005, "Bangladesh", "Rangpur", "Pirganj", "medium_artesian", "B1", "scheduled", None),
-    (9006, "Yemen", "Taiz", "Al-Mawasit", "solar_submersible", "Y1", "in_progress", None),
-    (9007, "Somalia", "Baidoa", "Bonkay", "deep_borewell", "S1", "completed", "delivered"),
-    (9008, "Sudan", "Kassala", "Wad Sharifey", "solar_submersible", None, "new_order", None),
-    (9009, "India", "Bihar", "Kishanganj", "shallow_hand_pump", "P2", "on_hold", None),
-    (9010, "Pakistan", "Sindh", "Badin", "medium_artesian", "P1", "completed", "pending"),
-    (9011, "Yemen", "Hodeidah", "Bajil", "deep_borewell", "Y1", "completed", "delivered"),
-    (9012, "Somalia", "Gedo", "Luuq", "shallow_hand_pump", "S1", "in_progress", None),
+    (9001, "Pakistan", "Tharparkar", "Mithi", "متوسط", "PAK1", "completed", "delivered"),
+    (9002, "Pakistan", "Tharparkar", "Islamkot", "يدوي", "PAK1", "completed", "pending"),
+    (9003, "Pakistan", "Umerkot", "Kunri", "عميق", "PAK2", "in_progress", None),
+    (9004, "Bangladesh", "Sylhet", "Jaintiapur", "يدوي", "BANG1", "new_order", None),
+    (9005, "Bangladesh", "Rangpur", "Pirganj", "متوسط", "BANG1", "scheduled", None),
+    (9006, "Nepal", "Madhesh", "Janakpur", "شمسي", "NEP1", "in_progress", None),
+    (9007, "Tanzania", "Tanga", "Muheza", "عميق", "TZ1", "completed", "delivered"),
+    (9008, "Pakistan", "Sindh", "Thatta", "شمسي", None, "new_order", None),
+    (9009, "Pakistan", "Punjab", "Rajanpur", "يدوي", "PAK5", "on_hold", None),
+    (9010, "Pakistan", "Sindh", "Badin", "متوسط", "PAK1", "completed", "pending"),
+    (9011, "Nepal", "Lumbini", "Kapilvastu", "عميق", "NEP2", "completed", "delivered"),
+    (9012, "Tanzania", "Pwani", "Bagamoyo", "يدوي", "TZ1", "in_progress", None),
 ]
+SALE = {"يدوي": 300, "متوسط": 650, "عميق": 1500, "شمسي": 2400}
+COST = {"يدوي": 170, "متوسط": 420, "عميق": 1050, "شمسي": 1800}
 NAMES = ["عائلة أحمد", "Fatima Trust", "مسجد النور", "Ali & Sons", "أم محمد", "Green Hope", "عبدالله سالم",
          "Noor Foundation", "Hassan family", "مدرسة الأمل", "Yusuf Ibrahim", "قرية السلام"]
 
@@ -60,17 +63,12 @@ def seed_demo(with_media: bool = True):
         if db.scalar(select(Project).where(Project.well_id == 9001)):
             print("Demo data already present")
             return
-        contractors = {}
-        for code, name, country in [("P1", "Placeholder Contractor P1", "Pakistan"), ("P2", "Placeholder Contractor P2", "Pakistan"),
-                                    ("B1", "Placeholder Contractor B1", "Bangladesh"), ("Y1", "Placeholder Contractor Y1", "Yemen"),
-                                    ("S1", "Placeholder Contractor S1", "Somalia")]:
-            c = db.scalar(select(Contractor).where(Contractor.code == code)) or Contractor(code=code, name=name, country=country)
-            db.add(c)
-            db.flush()
-            contractors[code] = c
+        from app.services.finance import ensure_workbook_defaults
+        ensure_workbook_defaults(db)
+        contractors = {c.code: c for c in db.scalars(select(Contractor))}
         users = [("admin@hayah.local", "Demo Super Admin", Role.super_admin, None, None),
                  ("manager@hayah.local", "Demo Operations Manager", Role.operations_manager, None, "+920000000001"),
-                 ("p1@hayah.local", "Demo Contractor P1", Role.contractor, "P1", "+920000000002"),
+                 ("p1@hayah.local", "Demo Contractor Pak 1", Role.contractor, "PAK1", "+920000000002"),
                  ("maint@hayah.local", "Demo Maintenance", Role.maintenance, None, "+920000000003"),
                  ("viewer@hayah.local", "Demo Viewer", Role.viewer, None, None)]
         by_email = {}
@@ -89,7 +87,9 @@ def seed_demo(with_media: bool = True):
             p = psvc.create_project(db, {
                 "well_id": wid, "order_date": order_date, "customer_name": NAMES[i], "customer_phone": f"+00000000{wid}",
                 "country": country, "city": city, "village": village, "well_type": wtype, "sales_source": "website" if i % 2 else "whatsapp",
-                "contractor_id": contractors[ccode].id if ccode else None, "sale_amount": Decimal(350 + 150 * (i % 5)),
+                "contractor_id": contractors[ccode].id if ccode else None, "sale_amount": Decimal(SALE[wtype]), "cost": Decimal(COST[wtype]),
+                "payment_method": "Shopify" if i % 2 else "Bank transfer", "shopify_order": f"#S{1100 + i}" if i % 2 else None,
+                "extras": "سيراميك" if i % 4 == 0 else ("خزان" if i % 4 == 1 else None),
                 "payment_status": PaymentStatus.paid if i % 3 else PaymentStatus.partial,
                 "construction_status": ConstructionStatus.new_order, "notes": "SAMPLE DATA – not a real project"},
                 actor=admin, is_sample=True)
@@ -115,8 +115,53 @@ def seed_demo(with_media: bool = True):
                 png = _tiny_png(i)
                 store_media(db, io.BytesIO(png), original_filename=f"sample_{wid}.png", mime_type="image/png", project=p,
                             category=MediaCategory.construction, source="dashboard", sender="Sample data", actor=manager)
+        _seed_finance(db, contractors, admin)
         db.commit()
         print(f"Seeded {len(SAMPLES)} SAMPLE projects (Well IDs 9001-9012). Demo password for *@hayah.local: {DEMO_PASSWORD}")
+
+
+def _seed_finance(db, contractors, actor):
+    """SAMPLE sacrifices (numbers 90001+) and money rows, all flagged is_sample."""
+    from app.models import FinanceAccount, TxKind
+    from app.services import finance as fin
+    today = date.today()
+    acc = {a.code: a for a in db.scalars(select(FinanceAccount))}
+    animals = [("خروف", 120, 199), ("ماعز", 95, 159), ("بقرة", 160, 259)]
+    intents = ["صدقة", "عقيقة", "بنية الشفاء", "عايدة"]
+    for i in range(14):
+        a, cost, price = animals[i % 3]
+        od = today - timedelta(days=5 + i * 9)
+        fin.create_sacrifice(db, {
+            "sacrifice_no": 90001 + i, "order_date": od, "donor_name": NAMES[i % len(NAMES)],
+            "received_date": od + timedelta(days=1), "delivery_date": od + timedelta(days=4) if i > 1 else None,
+            "contractor_id": contractors["TZ1"].id, "animal_type": a, "cost": Decimal(cost), "sale_price": Decimal(price),
+            "payment_method": "Shopify", "extras": "إطعام" if i % 3 == 0 else None, "sales_source": "Website",
+            "shopify_order": f"#S{1140 + i}", "intention": intents[i % 4], "notes": "SAMPLE DATA"},
+            actor=actor, is_sample=True)
+    rows = [
+        (40, TxKind.income, "WISE", None, None, None, 6200, "Shopify payout"),
+        (12, TxKind.income, "WISE", None, None, None, 2900, "Shopify payout"),
+        (35, TxKind.contractor_payment, "WISE", "PAK1", None, None, 900, "Payment for wells"),
+        (20, TxKind.contractor_payment, "WISE", "PAK2", None, None, 600, "Payment for wells"),
+        (18, TxKind.contractor_payment, "WISE", "TZ1", None, None, 1200, "Payment for sacrifices"),
+        (15, TxKind.contractor_payment, "WISE", "NEP1", None, None, 400, "Advance"),
+        (30, TxKind.ad_spend, "WISE", None, "Facebook", None, 380, "Campaign"),
+        (10, TxKind.ad_spend, "WISE", None, "Google", None, 220, "Search ads"),
+        (8, TxKind.ad_spend, "WISE", None, "Neutrons", None, 300, "Agency fee"),
+        (25, TxKind.operating_expense, "WISE", None, None, "Software", 79, "Shopify plan"),
+        (22, TxKind.operating_expense, "WISE", None, None, "Salaries", 600, "Video editor"),
+        (28, TxKind.partner_took, "MOHAMMED", None, None, None, 500, "Cash for field visit"),
+        (14, TxKind.partner_spent, "MOHAMMED", None, None, None, 320, "Paid PAK5 deposit"),
+        (21, TxKind.partner_took, "GHAZI", None, None, None, 300, "Ads card top-up"),
+        (9, TxKind.partner_withdrawal, "GHAZI", None, None, None, 150, "Personal withdrawal"),
+        (60, TxKind.loan, "CLIQ", None, None, None, 1000, "Start-up loan"),
+        (6, TxKind.partner_spent, "CLIQ", None, None, None, 90, "Printing"),
+    ]
+    for days, kind, a, ccode, channel, cat, amount, desc in rows:
+        fin.create_transaction(db, {
+            "date": today - timedelta(days=days), "kind": kind, "account_id": acc[a].id,
+            "contractor_id": contractors[ccode].id if ccode else None, "channel": channel, "category": cat,
+            "amount": Decimal(amount), "description": f"SAMPLE: {desc}"}, actor=actor, is_sample=True)
 
 
 def _tiny_png(seed: int) -> bytes:
@@ -135,6 +180,7 @@ def main():
     a.add_argument("--email", required=True)
     a.add_argument("--name", required=True)
     sub.add_parser("seed-demo")
+    sub.add_parser("setup-workbook")
     sub.add_parser("sync-sheets")
     sub.add_parser("export-schemas")
     args = ap.parse_args()
@@ -142,6 +188,12 @@ def main():
         create_admin(args.email, args.name)
     elif args.cmd == "seed-demo":
         seed_demo()
+    elif args.cmd == "setup-workbook":
+        from app.services.finance import ensure_workbook_defaults
+        with SessionLocal() as db:
+            ensure_workbook_defaults(db)
+            db.commit()
+        print("Workbook tabs ready (contractors PAK1-5, NEP1-3, BANG1, TZ1; accounts Wise, Mohammed, Ghazi, Haya Cliq)")
     elif args.cmd == "sync-sheets":
         from app.services.sheets_sync import run_sync
         with SessionLocal() as db:

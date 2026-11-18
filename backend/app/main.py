@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm.exc import StaleDataError
 
-from app.api import auth, contractors, intake, operations, projects, system
+from app.api import assistant, auth, contractors, finance, intake, operations, projects, system
 from app.config import get_settings
 from app.integrations.drive.base import DriveError
 from app.integrations.sheets.base import SheetsError
@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 def create_app() -> FastAPI:
     s = get_settings()
-    app = FastAPI(title="HAYAH AI – Operations API", version="0.4.0",
+    app = FastAPI(title="HAYAH AI – Operations API", version="0.5.0",
                   docs_url="/api/docs" if s.env != "production" else None, openapi_url="/api/openapi.json")
     app.add_middleware(CORSMiddleware, allow_origins=s.cors_origin_list, allow_credentials=False,
                        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"], allow_headers=["Authorization", "Content-Type"])
@@ -47,7 +47,8 @@ def create_app() -> FastAPI:
         return JSONResponse({"detail": f"Google Sheets is unavailable. ({exc})"}, status_code=502)
 
     for r in (auth.router, auth.users, contractors.router, projects.router, operations.delivery, operations.maintenance,
-              operations.media, operations.review, intake.router, system.router):
+              operations.media, operations.review, intake.router, system.router, finance.router, finance.sacrifices,
+              assistant.router):
         app.include_router(r)
     return app
 

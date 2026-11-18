@@ -28,12 +28,13 @@ def _scope(user: User):
 @router.get("", response_model=ProjectPage)
 def list_projects(q: str | None = None, country: str | None = None, construction_status: str | None = None,
                   delivery_status: str | None = None, contractor_id: int | None = None,
+                  month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$"),
                   page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=5000),
                   sort: str = Query("-well_id", pattern=r"^-?(well_id|order_date|updated_at|country|construction_status)$"),
                   db: Session = Depends(get_db), user: User = Depends(require_roles(ALL_ROLES))):
     items, total = svc.list_projects(db, q=q, country=country, construction_status=construction_status,
                                      delivery_status=delivery_status, contractor_id=contractor_id, page=page,
-                                     page_size=page_size, sort=sort, contractor_scope=_scope(user))
+                                     page_size=page_size, sort=sort, contractor_scope=_scope(user), month=month)
     return ProjectPage(items=items, total=total, page=page, page_size=page_size)
 
 

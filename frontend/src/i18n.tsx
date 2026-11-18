@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { bookAr, bookEn } from "./i18n-book";
 
 export type Lang = "ar" | "en";
 
@@ -142,6 +143,8 @@ const ar: Record<string, string> = {
   merge_into: "دمج في رقم البئر", request_merge: "طلب دمج", merge_reason: "السبب",
 };
 
+Object.assign(en, bookEn);
+Object.assign(ar, bookAr);
 const dicts = { ar, en };
 type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (k: string) => string; st: (v?: string | null) => string; fmtDate: (d?: string | null) => string; num: (n: any) => string };
 const I18n = createContext<Ctx>(null!);

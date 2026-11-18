@@ -66,7 +66,7 @@ def test_keep_db_value_overwrites_sheet_after_resolution(client, manager, db, mo
     c = db.query(SyncConflict).one()
     client.post(f"/api/sync/conflicts/{c.id}/resolve", json={"keep": "db"}, headers=manager)
     run_sync(db)
-    assert master(mocks)[idx][COL["Village"]] == "Al-Mawasit"
+    assert master(mocks)[idx][COL["Village"]] == "Janakpur"
 
 
 def test_delivery_status_cannot_be_accepted_from_sheet(client, manager, db, mocks):

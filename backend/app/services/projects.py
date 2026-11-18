@@ -123,8 +123,12 @@ def update_project(db: Session, project: Project, changes: dict, *, actor: User 
 def list_projects(db: Session, *, q: str | None = None, country: str | None = None,
                   construction_status: str | None = None, delivery_status: str | None = None,
                   contractor_id: int | None = None, page: int = 1, page_size: int = 50,
-                  sort: str = "-well_id", contractor_scope: int | None = None):
+                  sort: str = "-well_id", contractor_scope: int | None = None, month: str | None = None):
     stmt = select(Project).where(Project.merged_into_id.is_(None))
+    if month:
+        from app.services.finance import month_bounds
+        a, b = month_bounds(month)
+        stmt = stmt.where(Project.order_date >= a, Project.order_date < b)
     if q:
         like = f"%{q.strip()}%"
         conds = [Project.customer_name.ilike(like), Project.city.ilike(like), Project.village.ilike(like),

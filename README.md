@@ -57,3 +57,7 @@ cd frontend && npm install && npm run dev     # http://localhost:5173, proxies /
 - Every change is written to the project timeline and the audit log, in the same transaction.
 - No API keys in the frontend. Secrets come from `.env` and `secrets/` only.
 - No unofficial WhatsApp automation. Only the official Cloud API on a dedicated intake number.
+
+
+## Finance workbook
+Excel-style pages for the Financial Summary, Wise, every contractor, partners and each month (wells and sacrifices), plus "Edit with a prompt". See [docs/WORKBOOK.md](docs/WORKBOOK.md).

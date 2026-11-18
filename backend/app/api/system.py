@@ -153,7 +153,7 @@ def get_settings_view(db: Session = Depends(get_db), _: User = Depends(require_r
             "ai": {"backend": s.ai_backend, "api_key_set": bool(s.anthropic_api_key), "model": s.anthropic_model},
         },
         "ai": get_setting(db, "ai"), "well_types": get_setting(db, "well_types"),
-        "countries": get_setting(db, "countries"), "branding": get_setting(db, "branding"),
+        "countries": get_setting(db, "countries"), "animal_types": get_setting(db, "animal_types"), "branding": get_setting(db, "branding"),
         "usage_this_month": usage.summary(db), "ai_cost_this_month_usd": usage.month_ai_cost(db),
     }
 
@@ -167,9 +167,15 @@ def put_ai(body: AISettingsIn, db: Session = Depends(get_db), user: User = Depen
     return body
 
 
+@router.get("/settings/lists")
+def get_lists(db: Session = Depends(get_db), _: User = Depends(require_roles(ALL_ROLES))):
+    """Dropdown values used by the sheets."""
+    return {k: get_setting(db, k).get("values", []) for k in ("well_types", "countries", "animal_types")}
+
+
 @router.put("/settings/lists/{key}")
 def put_list(key: str, values: list[str], db: Session = Depends(get_db), user: User = Depends(require_roles(ADMINS))):
-    if key not in ("well_types", "countries"):
+    if key not in ("well_types", "countries", "animal_types"):
         raise HTTPException(404, "Unknown list")
     clean = sorted({v.strip()[:80] for v in values if v.strip()})
     set_setting(db, key, {"values": clean}, user.id)

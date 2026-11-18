@@ -49,7 +49,10 @@ class Settings(BaseSettings):
 
     # Anthropic (production AI). Off until approved.
     anthropic_api_key: str = ""
-    anthropic_model: str = "claude-sonnet-5-5"
+    anthropic_model: str = "claude-opus-5-5"
+    # USD per million tokens, used for the cost guard (update if Anthropic changes prices).
+    anthropic_input_usd_per_mtok: float = 4.0
+    anthropic_output_usd_per_mtok: float = 20.0
     ai_monthly_budget_usd: float = 100.0
     ai_min_confidence: float = 0.90
 

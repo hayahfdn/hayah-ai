@@ -12,9 +12,10 @@ def defaults() -> dict:
     return {
         "ai": {"ai_enabled": s.ai_backend == "anthropic", "monthly_budget_usd": s.ai_monthly_budget_usd,
                "min_confidence": s.ai_min_confidence, "manual_approval_over_usd": 0.25},
-        # Placeholders until HAYAH confirms them (see docs/OPEN_QUESTIONS.md).
-        "well_types": {"values": ["shallow_hand_pump", "medium_artesian", "deep_borewell", "solar_submersible"]},
-        "countries": {"values": ["Pakistan", "Bangladesh", "India", "Yemen", "Somalia", "Sudan"]},
+        # From HAYAH's workbook; editable in Settings.
+        "well_types": {"values": ["يدوي", "متوسط", "عميق", "شمسي"]},
+        "countries": {"values": ["Pakistan", "Nepal", "Bangladesh", "India", "Tanzania"]},
+        "animal_types": {"values": ["خروف", "ماعز", "بقرة"]},
         "branding": {"logo_drive_file_id": None, "primary_color": "#0E7C86", "font": "Noto Sans Arabic"},
     }
 

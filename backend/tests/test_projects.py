@@ -20,7 +20,7 @@ def test_invalid_input_rejected(client, manager):
 
 def test_search_and_filters(client, manager):
     r = client.get("/api/projects", params={"country": "Pakistan"}, headers=manager).json()
-    assert r["total"] == 4
+    assert r["total"] == 6
     assert client.get("/api/projects", params={"q": "9007"}, headers=manager).json()["items"][0]["well_id"] == 9007
     assert client.get("/api/projects", params={"q": "النور"}, headers=manager).json()["total"] == 1
 

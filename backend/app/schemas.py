@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
+from datetime import date as Day
 from decimal import Decimal
 
 from typing import Annotated
@@ -11,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 
 from app.models import (
     ApprovalStatus, ConstructionStatus, DeliveryStatus, MaintenanceStatus, MediaCategory,
-    PaymentStatus, ReviewKind, ReviewStatus, Role, VideoStatus,
+    PaymentStatus, ReviewKind, ReviewStatus, Role, TxKind, VideoStatus,
 )
 
 EmailStr = Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, max_length=255,
@@ -112,6 +113,11 @@ class ProjectBase(BaseModel):
     sales_source: str | None = Field(default=None, max_length=120)
     contractor_id: int | None = None
     sale_amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    cost: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    payment_method: str | None = Field(default=None, max_length=60)
+    extras: str | None = Field(default=None, max_length=200)
+    shopify_order: str | None = Field(default=None, max_length=60)
+    received_date: date | None = None
     currency: str = Field(default="USD", pattern="^[A-Z]{3}$")
     payment_status: PaymentStatus = PaymentStatus.unpaid
     construction_status: ConstructionStatus = ConstructionStatus.new_order
@@ -148,6 +154,11 @@ class ProjectUpdate(BaseModel):
     sales_source: str | None = Field(default=None, max_length=120)
     contractor_id: int | None = None
     sale_amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    cost: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    payment_method: str | None = Field(default=None, max_length=60)
+    extras: str | None = Field(default=None, max_length=200)
+    shopify_order: str | None = Field(default=None, max_length=60)
+    received_date: date | None = None
     currency: str | None = Field(default=None, pattern="^[A-Z]{3}$")
     payment_status: PaymentStatus | None = None
     construction_status: ConstructionStatus | None = None
@@ -175,6 +186,11 @@ class ProjectOut(ORM):
     contractor_id: int | None
     contractor: ContractorOut | None
     sale_amount: Decimal | None
+    cost: Decimal | None
+    payment_method: str | None
+    extras: str | None
+    shopify_order: str | None
+    received_date: date | None
     currency: str
     payment_status: PaymentStatus
     construction_status: ConstructionStatus
@@ -378,6 +394,134 @@ class ManualMessageIn(BaseModel):
     group_label: str | None = Field(default=None, pattern="^[ABCD]$")
     sender_name: str | None = Field(default=None, max_length=200)
     sender_phone: str | None = PHONE
+
+
+# ---------- finance workbook ----------
+MONEY = dict(ge=0, max_digits=12, decimal_places=2)
+
+
+class SacrificeFields(BaseModel):
+    order_date: date | None = None
+    donor_name: str | None = Field(default=None, max_length=200)
+    received_date: date | None = None
+    delivery_date: date | None = None
+    contractor_id: int | None = None
+    animal_type: str | None = Field(default=None, max_length=60)
+    cost: Decimal | None = Field(default=None, **MONEY)
+    sale_price: Decimal | None = Field(default=None, **MONEY)
+    currency: str | None = Field(default=None, pattern="^[A-Z]{3}$")
+    payment_method: str | None = Field(default=None, max_length=60)
+    extras: str | None = Field(default=None, max_length=200)
+    sales_source: str | None = Field(default=None, max_length=120)
+    shopify_order: str | None = Field(default=None, max_length=60)
+    intention: str | None = Field(default=None, max_length=120)
+    notes: str | None = Field(default=None, max_length=10000)
+    model_config = ConfigDict(extra="forbid")
+
+
+class SacrificeCreate(SacrificeFields):
+    sacrifice_no: int = Field(gt=0, lt=10**12)
+
+
+class SacrificeUpdate(SacrificeFields):
+    expected_version: int | None = None
+
+
+class SacrificeOut(ORM):
+    id: int
+    sacrifice_no: int
+    order_date: date | None
+    donor_name: str | None
+    received_date: date | None
+    delivery_date: date | None
+    contractor_id: int | None
+    animal_type: str | None
+    cost: Decimal | None
+    sale_price: Decimal | None
+    currency: str
+    payment_method: str | None
+    extras: str | None
+    sales_source: str | None
+    shopify_order: str | None
+    intention: str | None
+    notes: str | None
+    is_sample: bool
+    version: int
+    updated_at: datetime
+
+
+class AccountOut(ORM):
+    id: int
+    code: str
+    name: str
+    kind: str
+    currency: str
+    notes: str | None
+    is_active: bool
+
+
+class AccountIn(BaseModel):
+    code: str = Field(min_length=1, max_length=40, pattern=r"^[A-Za-z0-9_-]+$")
+    name: str = Field(min_length=1, max_length=200)
+    kind: str = Field(pattern="^(bank|partner)$")
+    currency: str = Field(default="USD", pattern="^[A-Z]{3}$")
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class TransactionFields(BaseModel):
+    date: Day | None = None
+    kind: TxKind | None = None
+    direction: str | None = Field(default=None, pattern="^(in|out)$")
+    account_id: int | None = None
+    contractor_id: int | None = None
+    channel: str | None = Field(default=None, max_length=80)
+    category: str | None = Field(default=None, max_length=80)
+    amount: Decimal | None = Field(default=None, **MONEY)
+    currency: str | None = Field(default=None, pattern="^[A-Z]{3}$")
+    description: str | None = Field(default=None, max_length=5000)
+    reference: str | None = Field(default=None, max_length=120)
+    model_config = ConfigDict(extra="forbid")
+
+
+class TransactionCreate(TransactionFields):
+    date: Day
+    kind: TxKind
+    amount: Decimal = Field(**MONEY)
+    currency: str = Field(default="USD", pattern="^[A-Z]{3}$")
+
+
+class TransactionUpdate(TransactionFields):
+    expected_version: int | None = None
+
+
+class TransactionVoid(BaseModel):
+    reason: str = Field(min_length=3, max_length=2000)
+
+
+class TransactionOut(ORM):
+    id: int
+    date: Day
+    kind: TxKind
+    direction: str
+    account_id: int | None
+    contractor_id: int | None
+    channel: str | None
+    category: str | None
+    amount: Decimal
+    currency: str
+    description: str | None
+    reference: str | None
+    voided: bool
+    void_reason: str | None
+    is_sample: bool
+    version: int
+    updated_at: datetime
+
+
+class DirectDeliveryIn(BaseModel):
+    """A manager records a delivery they have confirmed themselves (explicit, authorized, audited)."""
+    delivery_date: date
+    note: str | None = Field(default=None, max_length=2000)
 
 
 TokenOut.model_rebuild()

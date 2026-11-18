@@ -160,8 +160,13 @@ class Project(Base):
     sales_source: Mapped[str | None] = mapped_column(String(120))
     contractor_id: Mapped[int | None] = mapped_column(ForeignKey("contractors.id"), index=True)
     sale_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))  # what the contractor charges for this well
     currency: Mapped[str] = mapped_column(String(3), default="USD")
     payment_status: Mapped[PaymentStatus] = mapped_column(_enum(PaymentStatus, "payment_status"), default=PaymentStatus.unpaid)
+    payment_method: Mapped[str | None] = mapped_column(String(60))
+    extras: Mapped[str | None] = mapped_column(String(200))  # e.g. ceramic, tank
+    shopify_order: Mapped[str | None] = mapped_column(String(60))
+    received_date: Mapped[date | None] = mapped_column(Date)  # contractor received the order
     construction_status: Mapped[ConstructionStatus] = mapped_column(
         _enum(ConstructionStatus, "construction_status"), default=ConstructionStatus.new_order, index=True)
     construction_start_date: Mapped[date | None] = mapped_column(Date)
@@ -405,3 +410,94 @@ class Counter(Base):
     __tablename__ = "counters"
     name: Mapped[str] = mapped_column(String(40), primary_key=True)
     value: Mapped[int] = mapped_column(BigInteger, default=0)
+
+
+class Sacrifice(Base):
+    """A sacrifice (أضحية / عقيقة / صدقة) order. Numbered by HAYAH, never by AI."""
+    __tablename__ = "sacrifices"
+    __table_args__ = (CheckConstraint("sacrifice_no > 0", name="ck_sacrifices_no_positive"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sacrifice_no: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    order_date: Mapped[date | None] = mapped_column(Date, index=True)
+    donor_name: Mapped[str | None] = mapped_column(String(200))
+    received_date: Mapped[date | None] = mapped_column(Date)
+    delivery_date: Mapped[date | None] = mapped_column(Date)
+    contractor_id: Mapped[int | None] = mapped_column(ForeignKey("contractors.id"), index=True)
+    animal_type: Mapped[str | None] = mapped_column(String(60))
+    cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    sale_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    payment_method: Mapped[str | None] = mapped_column(String(60))
+    extras: Mapped[str | None] = mapped_column(String(200))
+    sales_source: Mapped[str | None] = mapped_column(String(120))
+    shopify_order: Mapped[str | None] = mapped_column(String(60))
+    intention: Mapped[str | None] = mapped_column(String(120))  # صدقة / عقيقة / بنية الشفاء ...
+    notes: Mapped[str | None] = mapped_column(Text)
+    is_sample: Mapped[bool] = mapped_column(Boolean, default=False)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    contractor: Mapped[Contractor | None] = relationship(lazy="selectin")
+    __mapper_args__ = {"version_id_col": version}
+
+
+class FinanceAccount(Base):
+    """A money account: the Wise bank account, or a partner (Mohammed, Ghazi, Haya Cliq)."""
+    __tablename__ = "finance_accounts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True)  # WISE, MOHAMMED, GHAZI, CLIQ
+    name: Mapped[str] = mapped_column(String(200))
+    kind: Mapped[str] = mapped_column(String(20))  # bank | partner
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    notes: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TxKind(str, enum.Enum):
+    income = "income"                          # money received (sales, donations)
+    contractor_payment = "contractor_payment"  # paid to a contractor
+    ad_spend = "ad_spend"                      # advertising (platform or agency)
+    operating_expense = "operating_expense"    # salaries, software, fees ...
+    partner_took = "partner_took"              # partner took money from the company
+    partner_spent = "partner_spent"            # partner spent own money on the company
+    partner_withdrawal = "partner_withdrawal"  # partner withdrew for themselves
+    loan = "loan"                              # partner start-up loan to the company
+    transfer = "transfer"                      # between company accounts
+    other = "other"
+
+
+# Money direction for the account the row is recorded on.
+TX_DEFAULT_DIRECTION = {
+    TxKind.income: "in", TxKind.loan: "in", TxKind.partner_spent: "in",
+    TxKind.contractor_payment: "out", TxKind.ad_spend: "out", TxKind.operating_expense: "out",
+    TxKind.partner_took: "out", TxKind.partner_withdrawal: "out", TxKind.transfer: "out", TxKind.other: "out",
+}
+
+
+class Transaction(Base):
+    """One money movement. Never deleted: a wrong row is voided with a reason."""
+    __tablename__ = "transactions"
+    __table_args__ = (CheckConstraint("amount >= 0", name="ck_transactions_amount_positive"),
+                      CheckConstraint("direction in ('in','out')", name="ck_transactions_direction"))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    date: Mapped[date] = mapped_column(Date, index=True)
+    kind: Mapped[TxKind] = mapped_column(_enum(TxKind, "tx_kind"), index=True)
+    direction: Mapped[str] = mapped_column(String(3))
+    account_id: Mapped[int | None] = mapped_column(ForeignKey("finance_accounts.id"), index=True)
+    contractor_id: Mapped[int | None] = mapped_column(ForeignKey("contractors.id"), index=True)
+    channel: Mapped[str | None] = mapped_column(String(80))  # Facebook / Google / Instagram / agency name
+    category: Mapped[str | None] = mapped_column(String(80))  # free label, e.g. salaries, software
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    description: Mapped[str | None] = mapped_column(Text)
+    reference: Mapped[str | None] = mapped_column(String(120))
+    voided: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    void_reason: Mapped[str | None] = mapped_column(Text)
+    is_sample: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __mapper_args__ = {"version_id_col": version}

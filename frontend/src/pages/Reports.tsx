@@ -3,6 +3,7 @@ import { download } from "../api";
 import { MANAGERS, useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { Bars, ErrorBox, useApi } from "../ui";
+import ShopifySales from "./ShopifySales";
 
 export default function Reports() {
   const { t, st, num } = useI18n();
@@ -22,6 +23,7 @@ export default function Reports() {
         </div></div>
       <ErrorBox error={error} />
       {data && <div className="grid two">
+        {can("super_admin", "operations_manager", "staff") && <ShopifySales start={range.start} end={range.end} />}
         <div className="card"><h2>{t("orders_by_month")}</h2><Bars rows={data.orders_by_month.map((r: any) => ({ label: r.month, value: r.orders }))} /></div>
         <div className="card"><h2>{t("deliveries_by_month")}</h2><Bars rows={data.deliveries_by_month.map((r: any) => ({ label: r.month, value: r.delivered }))} /></div>
         <div className="card"><h2>{t("by_well_type")}</h2><Bars rows={data.by_well_type.map((r: any) => ({ label: r.well_type, value: r.count }))} /></div>

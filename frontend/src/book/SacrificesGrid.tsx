@@ -36,6 +36,7 @@ export default function SacrificesGrid({ month, contractorId, height, title }: {
         valueFormatter: (p) => money(p.value) },
       col("payment_method", { width: 120 }), col("extras", { width: 110 }), col("sales_source", { width: 120 }),
       col("shopify_order", { width: 105 }), col("intention", { width: 130 }),
+      col("dedication", { width: 200, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true }),
       col("notes", { width: 220, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true }),
     ];
   }, [t, lang, contractors.data, codeById, lists.data, money]);

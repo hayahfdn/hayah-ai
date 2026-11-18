@@ -117,6 +117,7 @@ class ProjectBase(BaseModel):
     payment_method: str | None = Field(default=None, max_length=60)
     extras: str | None = Field(default=None, max_length=200)
     shopify_order: str | None = Field(default=None, max_length=60)
+    dedication: str | None = Field(default=None, max_length=2000)
     received_date: date | None = None
     currency: str = Field(default="USD", pattern="^[A-Z]{3}$")
     payment_status: PaymentStatus = PaymentStatus.unpaid
@@ -158,6 +159,7 @@ class ProjectUpdate(BaseModel):
     payment_method: str | None = Field(default=None, max_length=60)
     extras: str | None = Field(default=None, max_length=200)
     shopify_order: str | None = Field(default=None, max_length=60)
+    dedication: str | None = Field(default=None, max_length=2000)
     received_date: date | None = None
     currency: str | None = Field(default=None, pattern="^[A-Z]{3}$")
     payment_status: PaymentStatus | None = None
@@ -190,6 +192,7 @@ class ProjectOut(ORM):
     payment_method: str | None
     extras: str | None
     shopify_order: str | None
+    dedication: str | None = None
     received_date: date | None
     currency: str
     payment_status: PaymentStatus
@@ -415,6 +418,7 @@ class SacrificeFields(BaseModel):
     sales_source: str | None = Field(default=None, max_length=120)
     shopify_order: str | None = Field(default=None, max_length=60)
     intention: str | None = Field(default=None, max_length=120)
+    dedication: str | None = Field(default=None, max_length=2000)
     notes: str | None = Field(default=None, max_length=10000)
     model_config = ConfigDict(extra="forbid")
 
@@ -444,6 +448,7 @@ class SacrificeOut(ORM):
     sales_source: str | None
     shopify_order: str | None
     intention: str | None
+    dedication: str | None = None
     notes: str | None
     is_sample: bool
     version: int

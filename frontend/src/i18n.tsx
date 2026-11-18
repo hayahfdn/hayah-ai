@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { bookAr, bookEn } from "./i18n-book";
+import { shopifyAr, shopifyEn } from "./i18n-shopify";
 
 export type Lang = "ar" | "en";
 
@@ -145,6 +146,8 @@ const ar: Record<string, string> = {
 
 Object.assign(en, bookEn);
 Object.assign(ar, bookAr);
+Object.assign(en, shopifyEn);
+Object.assign(ar, shopifyAr);
 const dicts = { ar, en };
 type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (k: string) => string; st: (v?: string | null) => string; fmtDate: (d?: string | null) => string; num: (n: any) => string };
 const I18n = createContext<Ctx>(null!);

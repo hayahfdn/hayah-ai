@@ -22,7 +22,7 @@ export default function ProjectForm({ project, onSaved, onCancel }: { project?: 
   }, [f.well_id, project]);
   const fields = ["order_date", "customer_name", "customer_phone", "country", "city", "village", "well_type", "sales_source",
     "contractor_id", "sale_amount", "currency", "payment_status", "construction_status", "construction_start_date", "completion_date",
-    "final_video_link", "video_status", "next_maintenance_date", "notes"];
+    "final_video_link", "video_status", "next_maintenance_date", "dedication", "notes"];
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(null);
     const body: any = {};
@@ -64,6 +64,7 @@ export default function ProjectForm({ project, onSaved, onCancel }: { project?: 
         {date("construction_start_date")}{date("completion_date")}
         {text("final_video_link", { type: "url", dir: "ltr", placeholder: "https://" })}{sel("video_status", VIDEO)}{date("next_maintenance_date")}
       </div>
+      <div style={{ marginTop: 12 }}><Field label={t("dedication")}><textarea value={f.dedication ?? ""} onChange={set("dedication")} /></Field></div>
       <div style={{ marginTop: 12 }}><Field label={t("notes")}><textarea value={f.notes ?? ""} onChange={set("notes")} /></Field></div>
       <p className="muted" style={{ fontSize: 12.5 }}>{t("delivery_rule")}</p>
       <ErrorBox error={error} />

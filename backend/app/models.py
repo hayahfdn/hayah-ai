@@ -167,6 +167,7 @@ class Project(Base):
     payment_method: Mapped[str | None] = mapped_column(String(60))
     extras: Mapped[str | None] = mapped_column(String(200))  # e.g. ceramic, tank
     shopify_order: Mapped[str | None] = mapped_column(String(60))
+    dedication: Mapped[str | None] = mapped_column(Text)  # الإهداء: the donor's dedication / plaque text
     received_date: Mapped[date | None] = mapped_column(Date)  # contractor received the order
     construction_status: Mapped[ConstructionStatus] = mapped_column(
         _enum(ConstructionStatus, "construction_status"), default=ConstructionStatus.new_order, index=True)
@@ -433,6 +434,7 @@ class Sacrifice(Base):
     sales_source: Mapped[str | None] = mapped_column(String(120))
     shopify_order: Mapped[str | None] = mapped_column(String(60))
     intention: Mapped[str | None] = mapped_column(String(120))  # صدقة / عقيقة / بنية الشفاء ...
+    dedication: Mapped[str | None] = mapped_column(Text)  # الإهداء
     notes: Mapped[str | None] = mapped_column(Text)
     is_sample: Mapped[bool] = mapped_column(Boolean, default=False)
     version: Mapped[int] = mapped_column(Integer, default=1)
@@ -502,3 +504,41 @@ class Transaction(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     __mapper_args__ = {"version_id_col": version}
+
+
+class ShopifyOrder(Base):
+    """One Shopify order seen by HAYAH AI (from a webhook or a sync). The unique
+    Shopify order id is what stops an order from being imported twice."""
+    __tablename__ = "shopify_orders"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shopify_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(60), index=True)  # e.g. #1221
+    created_at_shop: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    financial_status: Mapped[str | None] = mapped_column(String(40))
+    cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
+    total: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    customer_name: Mapped[str | None] = mapped_column(String(200))
+    # imported | partly_imported | already_in_workbook | nothing_to_import | needs_review
+    status: Mapped[str] = mapped_column(String(30), default="imported", index=True)
+    message: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(20), default="webhook")  # webhook | sync
+    raw: Mapped[dict] = mapped_column(JSONB, default=dict)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class ShopifyOrderItem(Base):
+    """One unit of one Shopify line item, and the well or sacrifice made for it."""
+    __tablename__ = "shopify_order_items"
+    __table_args__ = (UniqueConstraint("line_item_id", "unit", name="uq_shopify_item_unit"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("shopify_orders.id"), index=True)
+    line_item_id: Mapped[int] = mapped_column(BigInteger)
+    unit: Mapped[int] = mapped_column(Integer, default=1)  # 1..quantity
+    title: Mapped[str | None] = mapped_column(String(300))
+    kind: Mapped[str] = mapped_column(String(20))  # well | sacrifice | addon | other
+    amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))  # selling price of this unit incl. its add-ons
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)
+    sacrifice_id: Mapped[int | None] = mapped_column(ForeignKey("sacrifices.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

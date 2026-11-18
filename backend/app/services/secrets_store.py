@@ -53,3 +53,36 @@ def anthropic_key_hint(db: Session) -> dict:
     row = db.get(AppSetting, KEY)
     ok = bool(row and row.value.get("enc") and anthropic_key(db))
     return {"set": ok, "where": "settings" if ok else None, "last4": row.value.get("last4") if ok else None}
+
+
+# ---- generic secrets (Shopify etc.), same encryption, never sent to the browser ----
+def set_secret(db: Session, name: str, value: str | None, user_id: int | None, extra: dict | None = None) -> None:
+    key = "secret." + name
+    row = db.get(AppSetting, key)
+    v = {"enc": _fernet().encrypt(value.encode()).decode(), "last4": value[-4:], **(extra or {})} if value else {}
+    if row:
+        row.value, row.updated_by_id = v, user_id
+    else:
+        db.add(AppSetting(key=key, value=v, updated_by_id=user_id))
+    db.flush()
+
+
+def get_secret(db: Session, name: str) -> str:
+    row = db.get(AppSetting, "secret." + name)
+    if not row or not row.value.get("enc"):
+        return ""
+    try:
+        return _fernet().decrypt(row.value["enc"].encode()).decode()
+    except InvalidToken:
+        return ""
+
+
+def secret_meta(db: Session, name: str) -> dict:
+    row = db.get(AppSetting, "secret." + name)
+    return dict(row.value) if row and row.value else {}
+
+
+def secret_hint(db: Session, name: str) -> dict:
+    ok = bool(get_secret(db, name))
+    row = db.get(AppSetting, "secret." + name)
+    return {"set": ok, "last4": row.value.get("last4") if ok and row else None}

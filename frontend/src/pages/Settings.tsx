@@ -6,18 +6,20 @@ import { Empty, ErrorBox, Field, Modal, Status, toast, useApi } from "../ui";
 import { SyncPill } from "./Dashboard";
 import RecentChanges from "../admin/RecentChanges";
 import ImportWorkbook from "../admin/ImportWorkbook";
+import ShopifySettings from "../admin/ShopifySettings";
 
 export default function Settings() {
   const { t } = useI18n();
   const { can } = useAuth();
   const admin = can("super_admin");
   const [tab, setTab] = useState("integrations");
-  const tabs = ["integrations", "sync_conflicts", "ai_settings", "undo_tab", ...(admin ? ["users", "imp_tab"] : []), "jobs", "audit_log"];
+  const tabs = ["integrations", "shopify_tab", "sync_conflicts", "ai_settings", "undo_tab", ...(admin ? ["users", "imp_tab"] : []), "jobs", "audit_log"];
   return (
     <>
       <div className="topbar"><h1>{t("nav_settings")}</h1></div>
       <div className="tabs">{tabs.map((k) => <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{t(k)}</button>)}</div>
       {tab === "integrations" && <Integrations />}
+      {tab === "shopify_tab" && <ShopifySettings />}
       {tab === "sync_conflicts" && <Conflicts />}
       {tab === "ai_settings" && <AISettings admin={admin} />}
       {tab === "users" && <Users />}

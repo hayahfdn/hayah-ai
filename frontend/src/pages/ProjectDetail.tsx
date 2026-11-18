@@ -49,6 +49,7 @@ export default function ProjectDetail() {
           {item("final_video_link", d.final_video_link && <a href={d.final_video_link} target="_blank" rel="noreferrer">{t("open_link")}</a>)}
           {item("last_updated", fmtDate(d.updated_at))}
         </div>
+        {d.dedication && <p style={{ whiteSpace: "pre-wrap" }}><span className="muted">{t("dedication")}: </span><b>{d.dedication}</b>{d.shopify_order && <span className="muted"> · Shopify {d.shopify_order}</span>}</p>}
         {d.notes && <p style={{ whiteSpace: "pre-wrap", marginBottom: 0 }}><span className="muted">{t("notes")}: </span>{d.notes}</p>}
       </div>
       <div className="card" style={{ marginTop: 14 }}>

@@ -1,0 +1,20 @@
+# Server add-on for docker-compose.yml: Caddy serves HTTPS on ports 80/443 and
+# forwards to the dashboard, which then only listens on the server itself
+# (WEB_PORT=127.0.0.1:8080 in .env).
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.server.yml up -d --build
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    ports: ["80:80", "443:443"]
+    environment:
+      HAYAH_DOMAIN: ${HAYAH_DOMAIN:?set HAYAH_DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web]
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

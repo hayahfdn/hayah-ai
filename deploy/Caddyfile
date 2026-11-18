@@ -1,0 +1,5 @@
+# Automatic HTTPS (Let's Encrypt) for the dashboard. HAYAH_DOMAIN comes from /opt/hayah/.env.
+{$HAYAH_DOMAIN} {
+	encode gzip
+	reverse_proxy web:80
+}

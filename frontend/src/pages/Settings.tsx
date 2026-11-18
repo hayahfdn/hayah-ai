@@ -4,13 +4,14 @@ import { useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { Empty, ErrorBox, Field, Modal, Status, toast, useApi } from "../ui";
 import { SyncPill } from "./Dashboard";
+import ImportWorkbook from "../admin/ImportWorkbook";
 
 export default function Settings() {
   const { t } = useI18n();
   const { can } = useAuth();
   const admin = can("super_admin");
   const [tab, setTab] = useState("integrations");
-  const tabs = ["integrations", "sync_conflicts", "ai_settings", ...(admin ? ["users"] : []), "jobs", "audit_log"];
+  const tabs = ["integrations", "sync_conflicts", "ai_settings", ...(admin ? ["users", "imp_tab"] : []), "jobs", "audit_log"];
   return (
     <>
       <div className="topbar"><h1>{t("nav_settings")}</h1></div>
@@ -19,6 +20,7 @@ export default function Settings() {
       {tab === "sync_conflicts" && <Conflicts />}
       {tab === "ai_settings" && <AISettings admin={admin} />}
       {tab === "users" && <Users />}
+      {tab === "imp_tab" && <ImportWorkbook />}
       {tab === "jobs" && <Jobs />}
       {tab === "audit_log" && <Audit />}
     </>

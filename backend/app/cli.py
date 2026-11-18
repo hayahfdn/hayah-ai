@@ -180,6 +180,7 @@ def main():
     a = sub.add_parser("create-admin")
     a.add_argument("--email", required=True)
     a.add_argument("--name", required=True)
+    a.add_argument("--password-env", help="read the password from this environment variable (for unattended setup)")
     sub.add_parser("seed-demo")
     sub.add_parser("setup-workbook")
     sub.add_parser("sync-sheets")
@@ -189,7 +190,8 @@ def main():
     sub.add_parser("export-schemas")
     args = ap.parse_args()
     if args.cmd == "create-admin":
-        create_admin(args.email, args.name)
+        import os
+        create_admin(args.email, args.name, os.environ.get(args.password_env) if args.password_env else None)
     elif args.cmd == "seed-demo":
         seed_demo()
     elif args.cmd == "setup-workbook":

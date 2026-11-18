@@ -36,6 +36,12 @@ export const bookEn: Record<string, string> = {
   why_budget: "This month's AI budget is used up. An admin can raise it in Settings, or you can edit the cells directly.",
   ex1: "Well 1305 is completed, cost 420, contractor PAK1", ex2: "Add payment of 900 dollars to PAK2 today from Wise",
   ex3: "Sacrifice 3087: delivered on 2026-11-16", ex4: "Mohammed spent 120 on the company today for printing",
+  imp_tab: "Import workbook", imp_title: "Import the Excel workbook", imp_help: "Upload the .xlsx file. Preview first: it shows what would be loaded and anything that needs checking, and saves nothing. Wells and sacrifices that already exist are never changed.",
+  imp_preview: "Preview", imp_apply: "Load it into the system", imp_reading: "Reading the workbook…", imp_done: "Workbook loaded and logged.",
+  imp_loaded: "Loaded", imp_would_load: "Preview: this would be loaded", imp_money_rows: "Money rows", imp_delivered: "Marked delivered",
+  imp_skipped: "Already in the system, left unchanged", imp_new_contractors: "New contractor tabs", imp_action: "Needs your answer", imp_check: "Please check", imp_info: "For information",
+  pw_title: "Change password", pw_current: "Current password", pw_new: "New password", pw_again: "New password again", pw_mismatch: "The two new passwords are different.",
+  pw_changed: "Password changed.", pw_rule: "At least 10 characters, with letters and numbers.",
 };
 
 export const bookAr: Record<string, string> = {
@@ -75,4 +81,10 @@ export const bookAr: Record<string, string> = {
   why_budget: "انتهت ميزانية الذكاء الاصطناعي لهذا الشهر. يمكن للمسؤول رفعها من الإعدادات، أو عدّل الخلايا مباشرة.",
   ex1: "البئر 1305 اكتمل، التكلفة 420، المقاول PAK1", ex2: "أضف دفعة 900 دولار إلى PAK2 اليوم من Wise",
   ex3: "الأضحية 3087: تم التسليم في 2026-11-16", ex4: "محمد صرف 120 على الشركة اليوم للطباعة",
+  imp_tab: "استيراد الدفتر", imp_title: "استيراد ملف الإكسل", imp_help: "ارفع ملف ‎.xlsx‎. اضغط معاينة أولاً: تعرض ما سيتم تحميله وما يحتاج للتأكد، ولا تحفظ شيئاً. الآبار والأضاحي الموجودة لا تتغير أبداً.",
+  imp_preview: "معاينة", imp_apply: "تحميل في النظام", imp_reading: "جارٍ قراءة الملف…", imp_done: "تم تحميل الدفتر وتسجيله.",
+  imp_loaded: "تم التحميل", imp_would_load: "معاينة: هذا ما سيتم تحميله", imp_money_rows: "صفوف مالية", imp_delivered: "مسلّمة",
+  imp_skipped: "موجودة مسبقاً ولم تتغير", imp_new_contractors: "تبويبات مقاولين جديدة", imp_action: "تحتاج إجابتك", imp_check: "يرجى التأكد", imp_info: "للعلم",
+  pw_title: "تغيير كلمة المرور", pw_current: "كلمة المرور الحالية", pw_new: "كلمة المرور الجديدة", pw_again: "أعد كتابة كلمة المرور الجديدة", pw_mismatch: "كلمتا المرور الجديدتان غير متطابقتين.",
+  pw_changed: "تم تغيير كلمة المرور.", pw_rule: "10 أحرف على الأقل، فيها حروف وأرقام.",
 };

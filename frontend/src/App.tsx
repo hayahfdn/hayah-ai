@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation } from "re
 import { api, getToken, setToken, User } from "./api";
 import { useI18n } from "./i18n";
 import { ErrorBox, Field } from "./ui";
+import ChangePassword from "./admin/ChangePassword";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 const Sheet = lazy(() => import("./pages/Sheet"));
@@ -58,6 +59,7 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
 function Shell({ children }: { children: React.ReactNode }) {
   const { t, lang, setLang } = useI18n();
   const { user, logout, can, counts } = useAuth();
+  const [pw, setPw] = useState(false);
   const [open, setOpen] = useState(false);
   const loc = useLocation();
   useEffect(() => setOpen(false), [loc.pathname]);
@@ -83,8 +85,10 @@ function Shell({ children }: { children: React.ReactNode }) {
             <div>{t("role_" + user.role)}</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <button className="sm" onClick={() => setLang(lang === "ar" ? "en" : "ar")}>{t("language")}</button>
+              <button className="sm" onClick={() => setPw(true)}>{t("pw_title")}</button>
               <button className="sm" onClick={logout}>{t("logout")}</button>
             </div>
+            {pw && <ChangePassword onClose={() => setPw(false)} />}
           </div>
         </aside>
         <main className="main">{children}</main>

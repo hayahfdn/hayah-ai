@@ -12,16 +12,18 @@ interface Report { applied: boolean; file: string; wells: number; delivered: num
 export default function ImportWorkbook() {
   const { t } = useI18n();
   const [file, setFile] = useState<File | null>(null);
+  const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
   const [rep, setRep] = useState<Report | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [show, setShow] = useState<string>("action");
 
   const run = async (apply: boolean) => {
-    if (!file) return;
+    if (!file && !link.trim()) return;
     setBusy(true); setErr(null);
     const form = new FormData();
-    form.append("file", file);
+    if (link.trim()) form.append("url", link.trim());
+    else if (file) form.append("file", file);
     form.append("apply", String(apply));
     try {
       const r = await api<Report>("/api/admin/import-workbook", { form });
@@ -37,9 +39,13 @@ export default function ImportWorkbook() {
       <div className="card">
         <h2>{t("imp_title")}</h2>
         <p className="muted">{t("imp_help")}</p>
-        <input type="file" accept=".xlsx" onChange={(e) => { setFile(e.target.files?.[0] || null); setRep(null); }} />
+        <input type="file" accept=".xlsx" onChange={(e) => { setFile(e.target.files?.[0] || null); setLink(""); setRep(null); }} />
+        <p className="muted" style={{ margin: "10px 0 4px" }}>{t("imp_or_link")}</p>
+        <input type="url" dir="ltr" style={{ width: "100%" }} placeholder="https://1drv.ms/… · https://docs.google.com/spreadsheets/…"
+          value={link} onChange={(e) => { setLink(e.target.value); setRep(null); }} />
+        <p className="muted" style={{ fontSize: 13 }}>{t("imp_link_help")}</p>
         <div className="actions">
-          <button disabled={!file || busy} onClick={() => run(false)}>{busy ? t("imp_reading") : t("imp_preview")}</button>
+          <button disabled={(!file && !link.trim()) || busy} onClick={() => run(false)}>{busy ? t("imp_reading") : t("imp_preview")}</button>
           {rep && !rep.applied && <button className="primary" disabled={busy} onClick={() => run(true)}>{t("imp_apply")}</button>}
         </div>
         <ErrorBox error={err} />

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
@@ -64,6 +64,10 @@ DEFAULTS = {
     "intention_keys": ["الغرض", "نوع الطلب", "Purpose", "Intention"],
     "country_keys": ["الدولة المطلوبة", "الدولة", "Country"],
     "addon_keys": ["للمشروع", "For project"],
+    # Older orders have add-ons without the "للمشروع" property: these words in the title mark one.
+    "addon_keywords": ["إضافة", "اضافة", "سيراميك", "خزان", "دلو", "إطعام", "اطعام",
+                       "ceramic", "tank", "bucket", "feeding", "add-on"],
+    "sacrifice_addon_keywords": ["إطعام", "اطعام", "feeding"],
 }
 WELL_TYPES = [("شمسي", ["شمسي", "شمسية", "solar"]), ("عميق", ["عميق", "deep"]),
               ("متوسط", ["متوسط", "medium"]), ("يدوي", ["يدوي", "يدوية", "hand"])]
@@ -286,6 +290,8 @@ def _prop(props: dict, keys: list[str]) -> str | None:
 def classify(line: dict, cfg: dict) -> str:
     if _prop(line["props"], cfg["addon_keys"]):
         return "addon"
+    if any(k.lower() in line["title"].lower() for k in cfg["addon_keywords"]):
+        return "addon"  # e.g. "إضافة سيراميك للبئر" (its variant names the well it is for)
     title = f"{line['title']} {line.get('variant_title') or ''}".lower()
     if any(k.lower() in title for k in cfg["well_keywords"]):
         return "well"
@@ -385,7 +391,8 @@ def import_order(db: Session, o: dict, *, source: str = "webhook") -> dict:
     row.created_at_shop = datetime.fromisoformat(str(o["created_at"]).replace("Z", "+00:00")) if o.get("created_at") else None
     row.financial_status, row.total, row.currency = o["financial_status"], o["total"], o["currency"]
     row.customer_name = (o.get("customer_name") or "")[:200] or None
-    row.raw = _jsonable_order(o)
+    if row.source != "history":  # a past order keeps the copy the history import matched from
+        row.raw = _jsonable_order(o)
     row.updated_at = utcnow()
     db.flush()
 
@@ -395,6 +402,8 @@ def import_order(db: Session, o: dict, *, source: str = "webhook") -> dict:
             _mark_cancelled(db, row, o)
         row.cancelled = True
         result["status"] = row.status
+        return result
+    if row.source == "history":  # a past order: handled by the history import, never re-created here
         return result
     if row.status in {"imported", "already_in_workbook", "nothing_to_import", "needs_review"}:
         if paid:
@@ -421,72 +430,11 @@ def import_order(db: Session, o: dict, *, source: str = "webhook") -> dict:
         audit(db, "shopify.order_linked", "shopify_order", o["name"], actor_label="Shopify", after={"message": row.message})
         return result
 
-    mains, addons, others = [], [], []
-    for li in o["lines"]:
-        kind = classify(li, cfg)
-        (addons if kind == "addon" else others if kind == "other" else mains).append((kind, li))
-    units = []  # one entry per well/sacrifice to create
-    for kind, li in mains:
-        net = (li["unit_price"] - (li["discount"] / li["quantity"])).quantize(CENT, ROUND_HALF_UP)
-        for u in range(1, li["quantity"] + 1):
-            units.append({"kind": kind, "line": li, "unit": u, "amount": net, "extras": []})
-    problems = []
-    for _, li in addons:
-        target = _prop(li["props"], cfg["addon_keys"]) or ""
-        matches = [x for x in units if x["line"]["title"].strip() == target.strip()] or units
-        if not matches:
-            problems.append(f"add-on '{li['title']}' has no well or sacrifice in this order")
-            continue
-        net = (li["unit_price"] - (li["discount"] / li["quantity"])).quantize(CENT, ROUND_HALF_UP)
-        for i in range(li["quantity"]):
-            x = matches[i % len(matches)]
-            x["amount"] += net
-            x["extras"].append(li["title"] + (f" ({li['variant_title']})" if li.get("variant_title") else ""))
-        db.add(ShopifyOrderItem(order_id=row.id, line_item_id=li["id"], unit=1, title=li["title"][:300], kind="addon",
-                                amount=net * li["quantity"]))
-    for _, li in others:
-        db.add(ShopifyOrderItem(order_id=row.id, line_item_id=li["id"], unit=1, title=li["title"][:300], kind="other",
-                                amount=li["unit_price"] * li["quantity"]))
-        problems.append(f"'{li['title']}' is not a well or sacrifice, so nothing was created for it")
-
-    day = order_day(o, cfg["timezone"])
-    src = sales_source(o)
+    units, problems = _plan(db, row, o, cfg)
     made = []
     for x in units:
-        li, props = x["line"], x["line"]["props"]
-        donor = _prop(props, cfg["donor_keys"]) or o.get("customer_name")
-        phone = (_prop(props, cfg["phone_keys"]) or o.get("phone") or "")[:40] or None
-        ded = _prop(props, cfg["dedication_keys"])
-        mapped = {k.lower() for k in cfg["dedication_keys"] + cfg["phone_keys"] + cfg["donor_keys"]
-                  + cfg["intention_keys"] + cfg["country_keys"]}
-        extra_props = [f"{k}: {v}" for k, v in props.items() if not k.startswith("_") and k.lower() not in mapped and v]
-        notes = "\n".join([f"From Shopify order {o['name']}" + (f" ({x['unit']} of {li['quantity']})" if li["quantity"] > 1 else "")]
-                          + extra_props + ([f"Order note: {o['note']}"] if o.get("note") else []))
-        extras = ", ".join(x["extras"])[:200] or None
-        if x["kind"] == "well":
-            data = {"well_id": _next_well_id(db, cfg), "order_date": day, "customer_name": (donor or "")[:200] or None,
-                    "customer_phone": phone, "country": country(_prop(props, cfg["country_keys"]), get_setting(db, "countries").get("values", [])),
-                    "well_type": well_type(f"{li['title']} {li.get('variant_title') or ''}"), "sales_source": src,
-                    "sale_amount": x["amount"], "currency": o["currency"][:3], "payment_method": "Shopify",
-                    "payment_status": PaymentStatus.paid if paid else PaymentStatus.unpaid,
-                    "extras": extras, "shopify_order": o["name"][:60], "dedication": ded, "notes": notes}
-            p = psvc.create_project(db, data, actor=None, source="shopify")
-            db.add(ShopifyOrderItem(order_id=row.id, line_item_id=li["id"], unit=x["unit"], title=li["title"][:300],
-                                    kind="well", amount=x["amount"], project_id=p.id))
-            made.append(f"well {p.well_id}")
-            result["created_wells"] += 1
-        else:
-            data = {"sacrifice_no": _next_sacrifice_no(db, cfg), "order_date": day, "donor_name": (donor or "")[:200] or None,
-                    "animal_type": animal_type(f"{li['title']} {li.get('variant_title') or ''}"), "sale_price": x["amount"],
-                    "currency": o["currency"][:3], "payment_method": "Shopify", "extras": extras, "sales_source": src,
-                    "shopify_order": o["name"][:60], "intention": (_prop(props, cfg["intention_keys"]) or "")[:120] or None,
-                    "dedication": ded, "notes": "\n".join(filter(None, [notes, f"Phone: {phone}" if phone else None]))}
-            s = fin.create_sacrifice(db, data, actor=None, source="shopify")
-            db.add(ShopifyOrderItem(order_id=row.id, line_item_id=li["id"], unit=x["unit"], title=li["title"][:300],
-                                    kind="sacrifice", amount=x["amount"], sacrifice_id=s.id))
-            made.append(f"sacrifice {s.sacrifice_no}")
-            result["created_sacrifices"] += 1
-        db.flush()
+        made.append(_create_unit(db, row, o, x, cfg, paid))
+        result["created_wells" if x["kind"] == "well" else "created_sacrifices"] += 1
 
     if not units:
         row.status = "nothing_to_import"
@@ -499,6 +447,95 @@ def import_order(db: Session, o: dict, *, source: str = "webhook") -> dict:
     audit(db, "shopify.order_imported", "shopify_order", o["name"], actor_label="Shopify",
           after={"status": row.status, "message": row.message, "source": source})
     return result
+
+
+def _net(li: dict) -> Decimal:
+    return (li["unit_price"] - (li["discount"] / li["quantity"])).quantize(CENT, ROUND_HALF_UP)
+
+
+def _plan(db: Session, row: ShopifyOrder, o: dict, cfg: dict) -> tuple[list[dict], list[str]]:
+    """Split an order into units (one per well/sacrifice) with their add-ons folded in.
+    Records the add-on and other lines on the order. Returns (units, problems)."""
+    mains, addons, others = [], [], []
+    for li in o["lines"]:
+        kind = classify(li, cfg)
+        (addons if kind == "addon" else others if kind == "other" else mains).append((kind, li))
+    units = []
+    for kind, li in mains:
+        for u in range(1, li["quantity"] + 1):
+            units.append({"kind": kind, "line": li, "unit": u, "amount": _net(li), "extras": []})
+    problems = []
+    have = {(i.line_item_id, i.unit) for i in db.scalars(select(ShopifyOrderItem).where(ShopifyOrderItem.order_id == row.id))}
+    for _, li in addons:
+        target = (_prop(li["props"], cfg["addon_keys"]) or li.get("variant_title") or "").strip()
+        matches = [x for x in units if x["line"]["title"].strip() == target]
+        if not matches:
+            want = "sacrifice" if any(k.lower() in li["title"].lower() for k in cfg["sacrifice_addon_keywords"]) else "well"
+            matches = [x for x in units if x["kind"] == want] or units
+        if not matches:
+            problems.append(f"add-on '{li['title']}' has no well or sacrifice in this order")
+            continue
+        net = _net(li)
+        for i in range(li["quantity"]):
+            x = matches[i % len(matches)]
+            x["amount"] += net
+            x["extras"].append(li["title"] + (f" ({li['variant_title']})" if li.get("variant_title") else ""))
+        if (li["id"], 1) not in have:
+            db.add(ShopifyOrderItem(order_id=row.id, line_item_id=li["id"], unit=1, title=li["title"][:300], kind="addon",
+                                    amount=net * li["quantity"]))
+    for _, li in others:
+        if (li["id"], 1) not in have:
+            db.add(ShopifyOrderItem(order_id=row.id, line_item_id=li["id"], unit=1, title=li["title"][:300], kind="other",
+                                    amount=li["unit_price"] * li["quantity"]))
+        problems.append(f"'{li['title']}' is not a well or sacrifice, so nothing was created for it")
+    return units, problems
+
+
+def _unit_fields(db: Session, o: dict, x: dict, cfg: dict) -> dict:
+    li, props = x["line"], x["line"]["props"]
+    return {"donor": _prop(props, cfg["donor_keys"]) or o.get("customer_name"),
+            "phone": (_prop(props, cfg["phone_keys"]) or o.get("phone") or "")[:40] or None,
+            "dedication": _prop(props, cfg["dedication_keys"]),
+            "intention": (_prop(props, cfg["intention_keys"]) or "")[:120] or None,
+            "country": country(_prop(props, cfg["country_keys"]), get_setting(db, "countries").get("values", [])),
+            "title": f"{li['title']} {li.get('variant_title') or ''}"}
+
+
+def _create_unit(db: Session, row: ShopifyOrder, o: dict, x: dict, cfg: dict, paid: bool,
+                 item: ShopifyOrderItem | None = None, match: str | None = None) -> str:
+    """Create the well or sacrifice for one unit and link it. Returns e.g. 'well 1350'."""
+    li, props = x["line"], x["line"]["props"]
+    f = _unit_fields(db, o, x, cfg)
+    mapped = {k.lower() for k in cfg["dedication_keys"] + cfg["phone_keys"] + cfg["donor_keys"]
+              + cfg["intention_keys"] + cfg["country_keys"]}
+    extra_props = [f"{k}: {v}" for k, v in props.items() if not k.startswith("_") and k.lower() not in mapped and v]
+    notes = "\n".join([f"From Shopify order {o['name']}" + (f" ({x['unit']} of {li['quantity']})" if li["quantity"] > 1 else "")]
+                      + extra_props + ([f"Order note: {o['note']}"] if o.get("note") else []))
+    extras = ", ".join(x["extras"])[:200] or None
+    day, src = order_day(o, cfg["timezone"]), sales_source(o)
+    item = item or ShopifyOrderItem(order_id=row.id, line_item_id=li["id"], unit=x["unit"])
+    item.title, item.kind, item.amount, item.match = li["title"][:300], x["kind"], x["amount"], match
+    if x["kind"] == "well":
+        data = {"well_id": _next_well_id(db, cfg), "order_date": day, "customer_name": (f["donor"] or "")[:200] or None,
+                "customer_phone": f["phone"], "country": f["country"], "well_type": well_type(f["title"]), "sales_source": src,
+                "sale_amount": x["amount"], "currency": o["currency"][:3], "payment_method": "Shopify",
+                "payment_status": PaymentStatus.paid if paid else PaymentStatus.unpaid,
+                "extras": extras, "shopify_order": o["name"][:60], "dedication": f["dedication"], "notes": notes}
+        p = psvc.create_project(db, data, actor=None, source="shopify")
+        item.project_id = p.id
+        label = f"well {p.well_id}"
+    else:
+        data = {"sacrifice_no": _next_sacrifice_no(db, cfg), "order_date": day, "donor_name": (f["donor"] or "")[:200] or None,
+                "animal_type": animal_type(f["title"]), "sale_price": x["amount"],
+                "currency": o["currency"][:3], "payment_method": "Shopify", "extras": extras, "sales_source": src,
+                "shopify_order": o["name"][:60], "intention": f["intention"],
+                "dedication": f["dedication"], "notes": "\n".join(filter(None, [notes, f"Phone: {f['phone']}" if f["phone"] else None]))}
+        sac = fin.create_sacrifice(db, data, actor=None, source="shopify")
+        item.sacrifice_id = sac.id
+        label = f"sacrifice {sac.sacrifice_no}"
+    db.add(item)
+    db.flush()
+    return label
 
 
 def _linked(db: Session, row: ShopifyOrder):

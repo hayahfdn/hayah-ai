@@ -219,3 +219,11 @@ def test_enabling_without_a_date_starts_from_today(client, seeded):
     admin = login(client, "admin@hayah.local")
     r = client.put("/api/shopify/settings", headers=admin, json={"store_domain": "x-1", "enabled": True}).json()
     assert r["import_from"] == date.today().isoformat()
+
+
+def test_shopify_errors_are_readable():
+    from app.integrations.shopify import explain_oauth_error
+    html = '<!DOCTYPE html><html><head><title>400 - Oauth error app_not_installed</title><style>*{}</style>'
+    msg = explain_oauth_error(400, html)
+    assert "not installed" in msg and "<" not in msg
+    assert "<" not in explain_oauth_error(500, "<html><title>Oops</title></html>")

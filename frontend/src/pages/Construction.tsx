@@ -7,7 +7,7 @@ import { ErrorBox, toast, useApi } from "../ui";
 const COLS = ["new_order", "scheduled", "in_progress", "on_hold", "completed"];
 
 export default function Construction() {
-  const { t, st, fmtDate } = useI18n();
+  const { t, st } = useI18n();
   const { can, refreshCounts } = useAuth();
   const { data, error, reload } = useApi<{ items: Project[] }>("/api/projects", { page_size: 500, sort: "-updated_at" });
   const move = async (p: Project, s: string) => {
@@ -30,10 +30,9 @@ export default function Construction() {
                   <div className="card" key={p.id} style={{ padding: 10 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
                       <Link to={`/projects/${p.well_id}`} className="mono"><b>#{p.well_id}</b></Link>
-                      <span className="muted">{p.contractor?.code || "—"}</span>
+                      <span className="chip" style={{ background: p.contractor?.color || undefined }}>{p.contractor?.code || "—"}</span>
                     </div>
-                    <div className="muted" style={{ fontSize: 12.5 }}>{[p.village, p.country].filter(Boolean).join(" · ")}</div>
-                    <div className="muted" style={{ fontSize: 12 }}>{t("last_updated")}: {fmtDate(p.updated_at)}</div>
+                    <div style={{ fontSize: 13 }}>{p.customer_name || "—"}{p.well_type ? <span className="muted"> · {p.well_type}</span> : null}</div>
                     {canEdit && <select style={{ marginTop: 6, width: "100%" }} value={c} onChange={(e) => move(p, e.target.value)} aria-label={t("construction_status")}>
                       {[...COLS, "cancelled"].map((s) => <option key={s} value={s}>{st(s)}</option>)}</select>}
                   </div>

@@ -81,6 +81,7 @@ class ContractorIn(BaseModel):
     phone: str | None = PHONE
     is_active: bool = True
     notes: str | None = Field(default=None, max_length=5000)
+    color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
 
 
 class ContractorUpdate(BaseModel):
@@ -89,6 +90,7 @@ class ContractorUpdate(BaseModel):
     phone: str | None = PHONE
     is_active: bool | None = None
     notes: str | None = Field(default=None, max_length=5000)
+    color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
 
 
 class ContractorOut(ORM):
@@ -99,6 +101,7 @@ class ContractorOut(ORM):
     phone: str | None
     is_active: bool
     notes: str | None
+    color: str | None = None
 
 
 # ---------- projects ----------
@@ -134,6 +137,15 @@ class ProjectBase(BaseModel):
     def _https(cls, v):
         if v and not v.startswith("https://"):
             raise ValueError("Link must start with https://")
+        return v
+
+    @field_validator("well_type")
+    @classmethod
+    def _one_of_four(cls, v):
+        from app.services.well_types import ALL, TYPES, normalize
+        v = normalize(v)
+        if v is not None and v not in ALL:
+            raise ValueError("Well type must be one of: " + "، ".join(TYPES))
         return v
 
 
@@ -172,6 +184,7 @@ class ProjectUpdate(BaseModel):
     notes: str | None = Field(default=None, max_length=10000)
     model_config = ConfigDict(extra="forbid")
     _https = field_validator("final_video_link")(ProjectBase._https.__func__)
+    _types = field_validator("well_type")(ProjectBase._one_of_four.__func__)
 
 
 class ProjectOut(ORM):
@@ -211,6 +224,10 @@ class ProjectOut(ORM):
     notes: str | None
     merged_into_id: int | None
     is_sample: bool
+    plaque_status: str | None = None
+    plaque_media_id: int | None = None
+    plaque_approved_at: datetime | None = None
+    plaque_approved_by: str | None = None
     version: int
     created_at: datetime
     updated_at: datetime

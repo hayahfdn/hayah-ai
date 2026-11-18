@@ -19,7 +19,7 @@ from sqlalchemy import (
     Numeric, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.db import Base
 
@@ -142,6 +142,7 @@ class Contractor(Base):
     phone: Mapped[str | None] = mapped_column(String(40))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str | None] = mapped_column(Text)
+    color: Mapped[str | None] = mapped_column(String(7))  # row colour in the sheets, e.g. #E3F0FB
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -186,6 +187,11 @@ class Project(Base):
     last_maintenance_date: Mapped[date | None] = mapped_column(Date)
     next_maintenance_date: Mapped[date | None] = mapped_column(Date)
     notes: Mapped[str | None] = mapped_column(Text)
+    # The plaque approved for this order (its versions are the plaque_saved timeline events).
+    plaque_status: Mapped[str | None] = mapped_column(String(16))  # None, "draft" or "approved"
+    plaque_media_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id", use_alter=True, name="fk_projects_plaque_media"))
+    plaque_approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    plaque_approved_by: Mapped[str | None] = mapped_column(String(200))
     merged_into_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"))
     is_sample: Mapped[bool] = mapped_column(Boolean, default=False)  # seed/test data marker
     version: Mapped[int] = mapped_column(Integer, default=1)  # optimistic locking
@@ -194,6 +200,11 @@ class Project(Base):
 
     contractor: Mapped[Contractor | None] = relationship(lazy="selectin")
     __mapper_args__ = {"version_id_col": version}
+
+    @validates("well_type")
+    def _one_name_per_type(self, _key, value):
+        from app.services.well_types import normalize
+        return normalize(value)
 
 
 class ProjectEvent(Base):
@@ -443,6 +454,11 @@ class Sacrifice(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     contractor: Mapped[Contractor | None] = relationship(lazy="selectin")
     __mapper_args__ = {"version_id_col": version}
+
+    @validates("well_type")
+    def _one_name_per_type(self, _key, value):
+        from app.services.well_types import normalize
+        return normalize(value)
 
 
 class FinanceAccount(Base):

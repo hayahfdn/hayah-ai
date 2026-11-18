@@ -6,6 +6,7 @@ import { useI18n } from "../i18n";
 import { Empty, ErrorBox, Field, Modal, Status, toast, useApi } from "../ui";
 import ProjectForm from "./ProjectForm";
 import { MediaTable } from "./MediaLibrary";
+import PlaqueBadge, { usePlaqueImage } from "../plaque/PlaqueBadge";
 
 export default function ProjectDetail() {
   const { wellId } = useParams();
@@ -28,7 +29,7 @@ export default function ProjectDetail() {
           {d.merged_into_id && <span className="badge warn">merged</span>}</div>
         <div style={{ display: "flex", gap: 8 }}>
           {can(...MANAGERS) && <button onClick={() => setMerging(true)}>{t("request_merge")}</button>}
-          {can(...EDITORS) && <Link className="btn" to={`/plaque/${d.well_id}`}>{t("pl_design")}</Link>}
+          {can(...EDITORS) && <Link className="btn" to={`/plaque/${d.well_id}`}>🖼 {d.plaque_status ? t("plaque_new_version") : t("plaque_create")}</Link>}
           {can(...EDITORS) && <button className="primary" onClick={() => setEditing(true)}>{t("edit")}</button>}
         </div>
       </div>
@@ -40,19 +41,18 @@ export default function ProjectDetail() {
       <div className="card">
         <div className="dl">
           {item("customer_name", d.customer_name)}{item("customer_phone", d.customer_phone && <span dir="ltr">{d.customer_phone}</span>)}
-          {item("country", d.country)}{item("city", d.city)}{item("village", d.village)}{item("well_type", d.well_type)}
+          {item("well_type", d.well_type)}
           {item("sales_source", d.sales_source)}{item("contractor", d.contractor ? `${d.contractor.code} · ${d.contractor.name}` : null)}
           {item("sale_amount", d.sale_amount && `${num(d.sale_amount)} ${d.currency}`)}{item("order_date", fmtDate(d.order_date))}
-          {item("construction_start_date", fmtDate(d.construction_start_date))}{item("completion_date", fmtDate(d.completion_date))}
           {item("delivery_date", fmtDate(d.delivery_date))}{item("last_maintenance_date", fmtDate(d.last_maintenance_date))}
           {item("next_maintenance_date", fmtDate(d.next_maintenance_date))}
           {item("raw_media_folder", d.raw_media_folder_url && <a href={d.raw_media_folder_url} target="_blank" rel="noreferrer">{t("open_link")}</a>)}
           {item("final_video_link", d.final_video_link && <a href={d.final_video_link} target="_blank" rel="noreferrer">{t("open_link")}</a>)}
-          {item("last_updated", fmtDate(d.updated_at))}
         </div>
         {d.dedication && <p style={{ whiteSpace: "pre-wrap" }}><span className="muted">{t("dedication")}: </span><b>{d.dedication}</b>{d.shopify_order && <span className="muted"> · Shopify {d.shopify_order}</span>}</p>}
         {d.notes && <p style={{ whiteSpace: "pre-wrap", marginBottom: 0 }}><span className="muted">{t("notes")}: </span>{d.notes}</p>}
       </div>
+      <PlaqueCard p={d} />
       <div className="card" style={{ marginTop: 14 }}>
         <div className="tabs">{["timeline", "media", "maintenance", "deliveries"].map((k) => (
           <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{t(k)} {h.data && k !== "timeline" ? `(${h.data[k].length})` : ""}</button>))}</div>
@@ -91,4 +91,27 @@ function MergeModal({ source, onClose }: { source: number; onClose: () => void }
     <div style={{ marginTop: 12 }}><Field label={t("merge_reason")}><textarea required minLength={3} value={reason} onChange={(e) => setReason(e.target.value)} /></Field></div>
     <ErrorBox error={error} /><div className="actions"><button type="button" onClick={onClose}>{t("cancel")}</button><button className="primary">{t("request_merge")}</button></div>
   </form></Modal>;
+}
+
+/** The order's plaque: the approved image (or a clear way to create one), linked to the designer. */
+function PlaqueCard({ p }: { p: Project }) {
+  const { t, fmtDate } = useI18n();
+  const { can } = useAuth();
+  const img = usePlaqueImage(p.well_id, p.plaque_status === "approved" ? p.plaque_media_id : null);
+  return (
+    <div className="card plaque-card" style={{ marginTop: 14 }}>
+      <div className="plaque-card-head">
+        <h2 style={{ margin: 0 }}>{t("plaque")}</h2>
+        <PlaqueBadge p={p} />
+      </div>
+      {p.plaque_status === "approved" ? <div className="plaque-card-body">
+        {img.url ? <img className="plaque-thumb" src={img.url} alt={`${t("plaque")} ${p.well_id}`} /> : <ErrorBox error={img.error} />}
+        <div>
+          <p style={{ marginTop: 0 }}><span className="badge ok">✓ {t("plaque_approved")}</span></p>
+          <p className="muted">{t("plaque_approved_by")}: {p.plaque_approved_by || "—"} · {fmtDate(p.plaque_approved_at)}</p>
+          {can(...EDITORS) && <Link className="btn" to={`/plaque/${p.well_id}`}>{t("plaque_versions")} · {t("plaque_new_version")}</Link>}
+        </div>
+      </div> : <p className="muted" style={{ marginBottom: 0 }}>{p.plaque_status === "draft" ? t("plaque_draft") + " · " : ""}{t("plaque_none_yet")}</p>}
+    </div>
+  );
 }

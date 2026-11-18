@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { bookAr, bookEn } from "./i18n-book";
 import { shopifyAr, shopifyEn } from "./i18n-shopify";
+import { uiAr, uiEn } from "./i18n-ui";
 
 export type Lang = "ar" | "en";
 
@@ -45,7 +46,7 @@ const en: Record<string, string> = {
   delivery_status: "Delivery", delivery_date: "Delivery date", raw_media_folder: "Raw media folder",
   final_video_link: "Final video link", video_status: "Video", maintenance_status: "Maintenance",
   last_maintenance_date: "Last maintenance", next_maintenance_date: "Next maintenance", notes: "Notes",
-  last_updated: "Last updated", search: "Search Well ID, customer, village…", all: "All", new_project: "New project",
+  last_updated: "Last updated", search: "Search by Well ID or customer…", all: "All", new_project: "New project",
   create: "Create", save: "Save", cancel: "Cancel", edit: "Edit", close: "Close", loading: "Loading…", none: "—",
   saved: "Saved", approve: "Approve", reject: "Reject", details: "Details", history: "History", media: "Media",
   deliveries: "Deliveries", maintenance: "Maintenance", timeline: "Timeline", back: "Back", page: "Page", of: "of",
@@ -134,7 +135,7 @@ const ar: Record<string, string> = {
   delivery_status: "التسليم", delivery_date: "تاريخ التسليم", raw_media_folder: "مجلد الوسائط الخام",
   final_video_link: "رابط الفيديو النهائي", video_status: "الفيديو", maintenance_status: "الصيانة",
   last_maintenance_date: "آخر صيانة", next_maintenance_date: "الصيانة القادمة", notes: "ملاحظات",
-  last_updated: "آخر تحديث", search: "ابحث برقم البئر أو العميل أو القرية…", all: "الكل", new_project: "مشروع جديد",
+  last_updated: "آخر تحديث", search: "ابحث برقم البئر أو اسم العميل…", all: "الكل", new_project: "مشروع جديد",
   create: "إنشاء", save: "حفظ", cancel: "إلغاء", edit: "تعديل", close: "إغلاق", loading: "جارٍ التحميل…", none: "—",
   saved: "تم الحفظ", approve: "موافقة", reject: "رفض", details: "التفاصيل", history: "السجل", media: "الوسائط",
   deliveries: "التسليمات", maintenance: "الصيانة", timeline: "التسلسل الزمني", back: "رجوع", page: "صفحة", of: "من",
@@ -186,6 +187,8 @@ Object.assign(en, bookEn);
 Object.assign(ar, bookAr);
 Object.assign(en, shopifyEn);
 Object.assign(ar, shopifyAr);
+Object.assign(en, uiEn);
+Object.assign(ar, uiAr);
 const dicts = { ar, en };
 type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (k: string) => string; st: (v?: string | null) => string; fmtDate: (d?: string | null) => string; num: (n: any) => string };
 const I18n = createContext<Ctx>(null!);

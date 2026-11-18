@@ -3,7 +3,9 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, Project } from "../api";
 import { EDITORS, useAuth } from "../App";
 import { useI18n } from "../i18n";
-import { ErrorBox, Field, toast } from "../ui";
+import { ErrorBox, Field, Modal, Status, toast } from "../ui";
+import { countryLabel } from "../nav";
+import { PlaqueViewer } from "./PlaqueBadge";
 import {
   ANIMALS, applyOccasion, ARAB_FLAG_END, defaultDesign, defaultSacrificeDesign, Design, drawPlaque, DuaKind, duaText,
   exportPdf, exportPng, fileToSmallDataUrl, flagArabic, FLAGS, GRIDS, IconKey, loadAssets, MAIN_FLAG_COUNT, Occasion,
@@ -12,7 +14,7 @@ import {
 } from "./render";
 
 type Kind = "well" | "sacrifice";
-interface Saved { id: string; created_at: string; actor_label: string; filename: string; design: Design; }
+interface Saved { id: string; created_at: string; actor_label: string; filename: string; design: Design; version?: number; approved?: boolean; media_id?: number | null; }
 
 function saveBlob(blob: Blob, name: string) {
   const a = document.createElement("a");
@@ -32,23 +34,33 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [pick, setPick] = useState("");
+  const [confirm, setConfirm] = useState<null | (() => void)>(null);
+  const [viewing, setViewing] = useState<Saved | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
 
   const fresh = (rec: any) => (kind === "well" ? defaultDesign(rec || undefined) : defaultSacrificeDesign(rec || undefined));
-  const load = () => {
+  // first=true fills the design from the order (or from its approved plaque); after a save the design stays as it is.
+  const load = (first = false) => {
     if (!id) return;
     if (kind === "well") {
-      api<Project>(`/api/projects/${id}`).then((p) => { setRecord(p); setD((x) => ({ ...fresh(p), size: x.size })); }).catch((e) => setError(e.message));
-      api<Saved[]>(`/api/projects/${id}/plaques`).then(setSaved).catch(() => setSaved([]));
+      Promise.all([api<Project>(`/api/projects/${id}`), api<Saved[]>(`/api/projects/${id}/plaques`).catch(() => [] as Saved[])])
+        .then(([p, list]) => {
+          setRecord(p); setSaved(list);
+          if (first) {
+            const ok = list.find((x) => x.approved);
+            setD((x) => (ok ? { ...fresh(p), ...ok.design, size: x.size } as Design : { ...fresh(p), size: x.size }));
+          }
+        }).catch((e) => setError(e.message));
     } else {
       api<{ sacrifice: any; saved: Saved[] }>(`/api/plaques/sacrifices/${id}`).then((r) => {
-        setRecord(r.sacrifice); setSaved(r.saved); setD((x) => ({ ...fresh(r.sacrifice), size: x.size }));
+        setRecord(r.sacrifice); setSaved(r.saved);
+        if (first) setD((x) => ({ ...fresh(r.sacrifice), size: x.size }));
       }).catch((e) => setError(e.message));
     }
   };
   useEffect(() => {
     setError(null); setRecord(null); setSaved([]);
-    if (!id) setD(fresh(null)); else load();
+    if (!id) setD(fresh(null)); else load(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, kind]);
 
@@ -89,13 +101,36 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
   };
   const downloadPng = () => run("png", async () => saveBlob(await exportPng(d), `${fileBase}.png`));
   const downloadPdf = () => run("pdf", async () => saveBlob(await exportPdf(d), `${fileBase}.pdf`));
-  const saveTo = () => run("save", async () => {
+  // Every save is a new version of this order's plaque; nothing is overwritten.
+  const send = async (approve: boolean, replace = false) => {
     const png = await exportPng(d);
     const form = new FormData();
     form.append("file", new File([png], `${fileBase}.png`, { type: "image/png" }));
     form.append("design", JSON.stringify(d));
+    if (kind === "well") { form.append("approve", String(approve)); form.append("replace", String(replace)); }
     await api(kind === "well" ? `/api/projects/${id}/plaques` : `/api/plaques/sacrifices/${id}`, { form });
-    toast(kind === "well" ? t("pl_saved") : t("pl_saved_sac"));
+  };
+  const saveTo = () => run("save", async () => {
+    await send(false);
+    toast(kind === "well" ? t("plaque_draft_ok") : t("pl_saved_sac"));
+    load();
+  });
+  const approve = (replace = false) => run("approve", async () => {
+    try { await send(true, replace); }
+    catch (e: any) {
+      if (e.status === 409 && !replace) { setConfirm(() => () => approve(true)); return; }
+      throw e;
+    }
+    toast(t("plaque_approved_ok"));
+    load();
+  });
+  const approveVersion = (s: Saved, replace = false) => run("v" + s.id, async () => {
+    try { await api(`/api/projects/${id}/plaques/${s.id}/approve`, { method: "POST", query: { replace } }); }
+    catch (e: any) {
+      if (e.status === 409 && !replace) { setConfirm(() => () => approveVersion(s, true)); return; }
+      throw e;
+    }
+    toast(t("plaque_approved_ok"));
     load();
   });
   const L = (o: { en: string; ar: string }) => (lang === "ar" ? o.ar : o.en);
@@ -126,7 +161,7 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
     <>
       <div className="topbar">
         <div>
-          {id && kind === "well" ? <Link to={`/projects/${id}`} className="muted">‹ {t("well_id")} {id}</Link> : <span className="muted">{t("nav_plaque")}</span>}
+          {id && kind === "well" ? <Link to={`/projects/${id}`} className="muted">‹ {t("plaque_back")} {id}</Link> : <span className="muted">{t("nav_plaque")}</span>}
           <h1>{kind === "well" ? t("pl_title") : t("pl_title_sac")}{id ? <> · <span className="mono">{id}</span></> : null}</h1>
         </div>
         <form style={{ display: "flex", gap: 8 }} onSubmit={(e) => { e.preventDefault(); if (pick.trim()) nav(`${base}/${pick.trim()}`); }}>
@@ -140,6 +175,7 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
       </div>
       <ErrorBox error={error} />
       {!id && <p className="muted">{kind === "well" ? t("pl_no_well") : t("pl_no_sac")}</p>}
+      {id && kind === "well" && record && <OrderBox p={record} />}
       <div className="plaque-layout">
         <div className="card plaque-preview">
           <canvas ref={canvas} aria-label={t("pl_preview")} style={{ aspectRatio: `${GRIDS[d.template][0]} / ${GRIDS[d.template][1]}` }} />
@@ -149,7 +185,11 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
             </select>
             <button onClick={downloadPng} disabled={!!busy}>{busy === "png" ? "…" : t("pl_download_png")}</button>
             <button onClick={downloadPdf} disabled={!!busy}>{busy === "pdf" ? "…" : t("pl_download_pdf")}</button>
-            {id && record && can(...EDITORS) && <button className="primary" onClick={saveTo} disabled={!!busy}>{busy === "save" ? "…" : kind === "well" ? t("pl_save") : t("pl_save_sac")}</button>}
+            {id && record && can(...EDITORS) && kind === "well" && <>
+              <button onClick={saveTo} disabled={!!busy}>{busy === "save" ? "…" : t("plaque_save_draft")}</button>
+              <button className="primary" onClick={() => approve()} disabled={!!busy}>{busy === "approve" ? "…" : `✓ ${t("plaque_approve")}`}</button>
+            </>}
+            {id && record && can(...EDITORS) && kind === "sacrifice" && <button className="primary" onClick={saveTo} disabled={!!busy}>{busy === "save" ? "…" : t("pl_save_sac")}</button>}
           </div>
         </div>
         <div className="card">
@@ -185,16 +225,50 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
             <button type="button" onClick={() => setD({ ...fresh(record), size: d.size })}>{id ? t("pl_reset") : t("pl_reset_blank")}</button>
           </div>
           {id && <>
-            <h3 style={{ marginBottom: 6 }}>{t("pl_history")}</h3>
-            {saved.length ? <ul className="timeline">{saved.map((s) => (
-              <li key={s.id}><span className="muted">{fmtDate(s.created_at)} {new Date(s.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                <span><bdi className="mono" dir="ltr">{s.filename}</bdi> · {s.actor_label}{" "}
-                  <button className="sm" onClick={() => { setD({ ...fresh(record), ...s.design } as Design); window.scrollTo({ top: 0, behavior: "smooth" }); }}>{t("pl_load")}</button></span></li>))}</ul>
+            <h3 style={{ marginBottom: 6, marginTop: 16 }}>{kind === "well" ? t("plaque_versions") : t("pl_history")}</h3>
+            {saved.length ? <ul className="timeline versions">{saved.map((s) => (
+              <li key={s.id} className={s.approved ? "is-approved" : ""}>
+                <span className="muted">{s.version ? <b className="ver">{t("plaque_version")} {s.version}</b> : null} {fmtDate(s.created_at)} {new Date(s.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                <span>{s.approved && <span className="badge ok">✓ {t("plaque_approved")}</span>} <bdi className="mono" dir="ltr">{s.filename}</bdi> · {s.actor_label}
+                  <span className="row-actions">
+                    <button className="sm" onClick={() => { setD({ ...fresh(record), ...s.design } as Design); window.scrollTo({ top: 0, behavior: "smooth" }); }}>{t("pl_load")}</button>
+                    {kind === "well" && s.media_id && <button className="sm" onClick={() => setViewing(s)}>{t("plaque_view")}</button>}
+                    {kind === "well" && !s.approved && can(...EDITORS) && <button className="sm" disabled={!!busy} onClick={() => approveVersion(s)}>✓ {t("plaque_approve_this")}</button>}
+                  </span></span></li>))}</ul>
               : <p className="muted">{t("pl_none_saved")}</p>}
           </>}
         </div>
       </div>
+      {confirm && <Modal title={t("plaque_approve")} onClose={() => setConfirm(null)}>
+        <p>{t("plaque_replace_q")}</p>
+        <div className="actions"><button onClick={() => setConfirm(null)}>{t("cancel")}</button>
+          <button className="primary" onClick={() => { const f = confirm; setConfirm(null); f(); }}>✓ {t("plaque_approve")}</button></div>
+      </Modal>}
+      {viewing && record && <PlaqueViewer p={{ ...record, plaque_media_id: viewing.media_id, plaque_status: "approved",
+        plaque_approved_by: viewing.approved ? record.plaque_approved_by : null, plaque_approved_at: viewing.approved ? record.plaque_approved_at : null }}
+        onClose={() => setViewing(null)} />}
     </>
+  );
+}
+
+/** The order this plaque belongs to: filled in automatically, shown so the designer can check it. */
+function OrderBox({ p }: { p: Project }) {
+  const { t, lang, fmtDate } = useI18n();
+  const row = (k: string, v: any) => <div key={k}><span>{t(k)}</span>{v || "—"}</div>;
+  return (
+    <div className="card order-box" style={{ marginBottom: 14, background: p.contractor?.color || undefined }}>
+      <div className="plaque-card-head"><h2 style={{ margin: 0 }}>{t("plaque_order_data")}</h2>
+        {p.plaque_status === "approved" ? <span className="badge ok">✓ {t("plaque_approved")}</span> : p.plaque_status === "draft" ? <span className="badge warn">{t("plaque_draft")}</span> : <span className="badge">{t("plaque_none")}</span>}</div>
+      <div className="dl">
+        {row("well_id", <b className="well-no">{p.well_id}</b>)}{row("customer_name", p.customer_name)}{row("well_type", p.well_type)}
+        {row("contractor", p.contractor ? `${p.contractor.name} (${p.contractor.code})` : null)}
+        {row("country", p.contractor?.country ? countryLabel(p.contractor.country, lang) : p.country)}
+        {row("order_date", fmtDate(p.order_date))}{row("shopify_order", p.shopify_order)}
+        {row("construction_status", <Status v={p.construction_status} />)}
+      </div>
+      {p.dedication && <p style={{ whiteSpace: "pre-wrap", marginBottom: 0 }}><span className="muted">{t("dedication")}: </span><b>{p.dedication}</b></p>}
+      <p className="muted" style={{ marginBottom: 0, fontSize: 12.5 }}>{t("plaque_order_help")}</p>
+    </div>
   );
 }
 

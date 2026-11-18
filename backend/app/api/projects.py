@@ -5,7 +5,7 @@ import shutil
 import tempfile
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -129,18 +129,40 @@ def merge_request(body: MergeRequestIn, db: Session = Depends(get_db), user: Use
 @router.get("/{well_id}/plaques")
 def list_plaques(well_id: int, db: Session = Depends(get_db), user: User = Depends(require_roles(ALL_ROLES))):
     p = _get_visible(db, well_id, user)
-    ids = [p.id] + list(db.scalars(select(Project.id).where(Project.merged_into_id == p.id)))
-    return plaque_svc.list_plaques(db, ids)
+    return plaque_svc.list_plaques(db, p, _ids(db, p))
+
+
+def _ids(db, p: Project) -> list[int]:
+    return [p.id] + list(db.scalars(select(Project.id).where(Project.merged_into_id == p.id)))
 
 
 @router.post("/{well_id}/plaques", status_code=201)
-def save_plaque(well_id: int, file: UploadFile = File(...), design: str = Form(...), db: Session = Depends(get_db),
+def save_plaque(well_id: int, file: UploadFile = File(...), design: str = Form(...), approve: bool = Form(False),
+                replace: bool = Form(False), db: Session = Depends(get_db),
                 user: User = Depends(require_roles(PROJECT_CREATORS))):
+    """Save a new plaque version for this order; approve=true also approves it."""
     p = svc.require_project(db, well_id, for_update=True)
     parsed = plaque_svc.parse_design(design)
     with tempfile.SpooledTemporaryFile(max_size=32 * 1024 * 1024) as tmp:
         shutil.copyfileobj(file.file, tmp)
         row = plaque_svc.save_plaque(db, p, tmp, filename=file.filename, mime_type=file.content_type,
-                                     design=parsed, actor=user)
+                                     design=parsed, actor=user, approve=approve, replace=replace)
     db.commit()
     return row
+
+
+@router.post("/{well_id}/plaques/{event_id}/approve")
+def approve_plaque(well_id: int, event_id: str, replace: bool = False, db: Session = Depends(get_db),
+                   user: User = Depends(require_roles(PROJECT_CREATORS))):
+    p = svc.require_project(db, well_id, for_update=True)
+    row = plaque_svc.approve_version(db, p, event_id, user, replace=replace)
+    db.commit()
+    return row
+
+
+@router.get("/{well_id}/plaques/file/{media_id}")
+def plaque_file(well_id: int, media_id: int, db: Session = Depends(get_db), user: User = Depends(require_roles(ALL_ROLES))):
+    p = _get_visible(db, well_id, user)
+    data, mime, name = plaque_svc.plaque_file(db, _ids(db, p), media_id)
+    return Response(content=data, media_type=mime, headers={
+        "Content-Disposition": f'inline; filename="{name}"', "Cache-Control": "private, max-age=86400"})

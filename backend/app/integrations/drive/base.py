@@ -11,6 +11,8 @@ class DriveClient(Protocol):
     def find_by_sha256(self, sha256: str) -> dict | None: ...
     def upload(self, fh: BinaryIO, name: str, mime_type: str, parent_id: str, properties: dict) -> dict:
         """Returns {"id", "url"}."""
+    def download(self, file_id: str) -> bytes:
+        """The file's bytes (used to show an approved plaque again)."""
     def folder_url(self, folder_id: str) -> str: ...
     def storage_quota(self) -> dict:
         """{"limit": bytes|None, "usage": bytes}"""

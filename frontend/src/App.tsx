@@ -1,5 +1,5 @@
 import { createContext, lazy, Suspense, useContext, useEffect, useState } from "react";
-import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { api, getToken, setToken, User } from "./api";
 import { useI18n } from "./i18n";
 import { ErrorBox, Field } from "./ui";
@@ -19,6 +19,8 @@ import Review from "./pages/Review";
 import Contractors from "./pages/Contractors";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import { MonthWells, ContractorWells } from "./pages/WellPages";
+import { BottomBar, NavProvider, SideNav } from "./nav";
 
 type AuthCtx = { user: User; can: (...roles: string[]) => boolean; logout: () => void; counts: Record<string, number>; refreshCounts: () => void };
 const Auth = createContext<AuthCtx>(null!);
@@ -65,24 +67,19 @@ function Shell({ children }: { children: React.ReactNode }) {
   const [pw, setPw] = useState(false);
   const [open, setOpen] = useState(false);
   const loc = useLocation();
-  useEffect(() => setOpen(false), [loc.pathname]);
-  const items: [string, string, boolean, number?][] = [
-    ["/", "nav_dashboard", true], ["/book", "nav_book", can(...MANAGERS)], ["/sheet", "nav_sheet", true], ["/projects", "nav_projects", true], ["/construction", "nav_construction", true],
-    ["/delivery", "nav_delivery", true, counts.pending_delivery_approvals], ["/maintenance", "nav_maintenance", true],
-    ["/media", "nav_media", true], ["/plaque", "nav_plaque", can(...EDITORS)], ["/review", "nav_review", can(...MANAGERS), counts.pending_review],
-    ["/contractors", "nav_contractors", true], ["/reports", "nav_reports", true], ["/settings", "nav_settings", can(...MANAGERS)],
-  ];
+  useEffect(() => { setOpen(false); window.scrollTo(0, 0); }, [loc.pathname]);
+  useStackedTables();
   return (
-    <>
-      <div className="mobile-bar"><b>{t("app_name")}</b><button className="sm" onClick={() => setOpen(!open)} aria-label="menu">☰</button></div>
+    <NavProvider>
+      <div className="mobile-bar">
+        <span className="brand-mini"><img src="/hayah-logo.png" alt="" /><b>{t("app_name")}</b></span>
+        <button className="sm" onClick={() => setOpen(!open)} aria-label={t("nav_menu")} aria-expanded={open}>☰</button>
+      </div>
       <div className="shell">
+        {open && <div className="side-scrim" onClick={() => setOpen(false)} aria-hidden="true" />}
         <aside className={`side ${open ? "open" : ""}`}>
           <div className="brand"><img className="logo" src="/hayah-logo.png" alt="HAYAH" /><div><b>{t("app_name")}</b><small>{t("app_sub")}</small></div></div>
-          <nav className="nav">
-            {items.filter((i) => i[2]).map(([to, key, , n]) => (
-              <NavLink key={to} to={to} end={to === "/"}>{t(key)}{n ? <span className="count">{n}</span> : null}</NavLink>
-            ))}
-          </nav>
+          <SideNav counts={counts} />
           <div className="side-foot">
             <div style={{ color: "#fff" }}>{user.full_name}</div>
             <div>{t("role_" + user.role)}</div>
@@ -97,8 +94,27 @@ function Shell({ children }: { children: React.ReactNode }) {
         <main className="main">{children}</main>
         {can(...MANAGERS) && <Suspense fallback={null}><PromptBar /></Suspense>}
       </div>
-    </>
+      <BottomBar onMenu={() => setOpen(true)} />
+    </NavProvider>
   );
+}
+
+/** On a phone, plain tables become one card per row: each cell gets its column name as a label. */
+function useStackedTables() {
+  useEffect(() => {
+    const label = () => document.querySelectorAll<HTMLTableElement>(".main .table-wrap table").forEach((tb) => {
+      const heads = Array.from(tb.querySelectorAll("thead th")).map((th) => th.textContent?.trim() || "");
+      tb.querySelectorAll("tbody tr").forEach((tr) => Array.from(tr.children).forEach((td, i) => {
+        if (heads[i] && td.getAttribute("data-label") !== heads[i]) td.setAttribute("data-label", heads[i]);
+      }));
+    });
+    label();
+    let raf = 0;
+    const mo = new MutationObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(label); });
+    const main = document.querySelector(".main");
+    if (main) mo.observe(main, { childList: true, subtree: true });
+    return () => { mo.disconnect(); cancelAnimationFrame(raf); };
+  }, []);
 }
 
 export default function App() {
@@ -127,6 +143,8 @@ export default function App() {
             <Route path="/book/:kind/:id" element={<Suspense fallback={null}><Workbook /></Suspense>} />
             <Route path="/sheet" element={<Suspense fallback={null}><Sheet /></Suspense>} />
             <Route path="/projects/:wellId" element={<ProjectDetail />} />
+            <Route path="/wells/:month" element={<MonthWells />} />
+            <Route path="/contractor/:code" element={<ContractorWells />} />
             <Route path="/plaque" element={<Suspense fallback={null}><PlaqueDesigner key="well" /></Suspense>} />
             <Route path="/plaque/sacrifice" element={<Suspense fallback={null}><PlaqueDesigner kind="sacrifice" key="sac" /></Suspense>} />
             <Route path="/plaque/sacrifice/:no" element={<Suspense fallback={null}><PlaqueDesigner kind="sacrifice" key="sac" /></Suspense>} />

@@ -41,9 +41,10 @@ export function moneyCol<T>(field: string, header: string, editable: boolean, fm
 
 export const dateCol = { cellDataType: "dateString" as const, filter: "agDateColumnFilter", width: 135 };
 
-export function HayahGrid<T>({ rows, cols, totals, onEdit, rowClass, height, rowId, onCellDoubleClicked, gridRef }: {
+export function HayahGrid<T>({ rows, cols, totals, onEdit, rowClass, rowStyle, height, rowId, onCellDoubleClicked, gridRef }: {
   rows: T[]; cols: ColDef<T>[]; totals?: Partial<T>[]; onEdit?: (e: CellValueChangedEvent<T>) => void;
   rowClass?: (p: RowClassParams<T>) => string | undefined; height?: string | number; rowId: (r: T) => string;
+  rowStyle?: (p: RowClassParams<T>) => Record<string, string> | undefined;
   onCellDoubleClicked?: (e: any) => void; gridRef?: React.MutableRefObject<GridApi<T> | null>;
 }) {
   const { lang } = useI18n();
@@ -57,6 +58,8 @@ export function HayahGrid<T>({ rows, cols, totals, onEdit, rowClass, height, row
         enableRtl={lang === "ar"}
         pinnedBottomRowData={totals as any}
         getRowClass={(p) => (p.node.isRowPinned() ? "total-row" : rowClass?.(p))}
+        getRowStyle={(p) => (p.node.isRowPinned() ? undefined : rowStyle?.(p)) as any}
+        rowHeight={40}
         singleClickEdit={false}
         stopEditingWhenCellsLoseFocus
         enterNavigatesVerticallyAfterEdit

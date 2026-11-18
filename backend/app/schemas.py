@@ -158,6 +158,7 @@ class ProjectUpdate(BaseModel):
     next_maintenance_date: date | None = None
     notes: str | None = Field(default=None, max_length=10000)
     model_config = ConfigDict(extra="forbid")
+    _https = field_validator("final_video_link")(ProjectBase._https.__func__)
 
 
 class ProjectOut(ORM):

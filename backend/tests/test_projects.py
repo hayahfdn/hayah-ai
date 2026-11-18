@@ -15,6 +15,7 @@ def test_invalid_input_rejected(client, manager):
     assert client.post("/api/projects", json={"well_id": 77, "final_video_link": "javascript:alert(1)"},
                        headers=manager).status_code == 422
     assert client.patch("/api/projects/9003", json={"unknown_field": 1}, headers=manager).status_code == 422
+    assert client.patch("/api/projects/9003", json={"final_video_link": "not-a-link"}, headers=manager).status_code == 422
 
 
 def test_search_and_filters(client, manager):

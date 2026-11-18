@@ -5,6 +5,8 @@ export type Lang = "ar" | "en";
 const en: Record<string, string> = {
   app_name: "HAYAH AI", app_sub: "Operations", login: "Sign in", email: "Email", password: "Password", logout: "Sign out",
   login_title: "Sign in to HAYAH operations", login_failed: "Sign in failed",
+  nav_sheet: "Master Sheet", saving: "Saving…", all_saved: "All changes saved", clear_filters: "Clear filters",
+  sheet_help: "Works like Excel: double-click a cell (or press Enter) to edit, Enter to save, Esc to cancel, Ctrl+Z to undo. Sort and filter from the column headers. Grey columns are locked: delivery changes only through an approved confirmation. Every change is saved and logged.",
   nav_dashboard: "Dashboard", nav_projects: "Projects", nav_construction: "Construction", nav_delivery: "Delivery",
   nav_maintenance: "Maintenance", nav_media: "Media Library", nav_review: "AI Review", nav_contractors: "Contractors",
   nav_reports: "Reports", nav_settings: "Settings",
@@ -73,6 +75,8 @@ const en: Record<string, string> = {
 const ar: Record<string, string> = {
   app_name: "حياة AI", app_sub: "العمليات", login: "تسجيل الدخول", email: "البريد الإلكتروني", password: "كلمة المرور",
   logout: "تسجيل الخروج", login_title: "الدخول إلى نظام عمليات حياة", login_failed: "تعذر تسجيل الدخول",
+  nav_sheet: "الجدول الرئيسي", saving: "جارٍ الحفظ…", all_saved: "تم حفظ كل التغييرات", clear_filters: "مسح التصفية",
+  sheet_help: "يعمل مثل Excel: انقر مرتين على الخلية (أو اضغط Enter) للتعديل، Enter للحفظ، Esc للإلغاء، Ctrl+Z للتراجع. رتّب وصفِّ من عناوين الأعمدة. الأعمدة الرمادية مقفلة: التسليم يتغير فقط بعد الموافقة على تأكيد التسليم. كل تغيير يُحفظ ويُسجَّل.",
   nav_dashboard: "لوحة التحكم", nav_projects: "المشاريع", nav_construction: "الإنشاء", nav_delivery: "التسليم",
   nav_maintenance: "الصيانة", nav_media: "مكتبة الوسائط", nav_review: "مراجعة الذكاء الاصطناعي", nav_contractors: "المقاولون",
   nav_reports: "التقارير", nav_settings: "الإعدادات",

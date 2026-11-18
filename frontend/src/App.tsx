@@ -1,10 +1,11 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, lazy, Suspense, useContext, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { api, getToken, setToken, User } from "./api";
 import { useI18n } from "./i18n";
 import { ErrorBox, Field } from "./ui";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
+const Sheet = lazy(() => import("./pages/Sheet"));
 import ProjectDetail from "./pages/ProjectDetail";
 import Construction from "./pages/Construction";
 import Delivery from "./pages/Delivery";
@@ -36,7 +37,7 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
   return (
     <div className="login-wrap">
       <form className="card login" onSubmit={submit}>
-        <div className="brand"><div className="logo">H</div><div><b>{t("app_name")}</b><small className="muted">{t("app_sub")}</small></div></div>
+        <div className="brand"><img className="logo" src="/hayah-logo.jpeg" alt="HAYAH" /><div><b>{t("app_name")}</b><small className="muted">{t("app_sub")}</small></div></div>
         <h2>{t("login_title")}</h2>
         <div className="grid">
           <Field label={t("email")}><input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field>
@@ -59,7 +60,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const loc = useLocation();
   useEffect(() => setOpen(false), [loc.pathname]);
   const items: [string, string, boolean, number?][] = [
-    ["/", "nav_dashboard", true], ["/projects", "nav_projects", true], ["/construction", "nav_construction", true],
+    ["/", "nav_dashboard", true], ["/projects", "nav_projects", true], ["/sheet", "nav_sheet", true], ["/construction", "nav_construction", true],
     ["/delivery", "nav_delivery", true, counts.pending_delivery_approvals], ["/maintenance", "nav_maintenance", true],
     ["/media", "nav_media", true], ["/review", "nav_review", can(...MANAGERS), counts.pending_review],
     ["/contractors", "nav_contractors", true], ["/reports", "nav_reports", true], ["/settings", "nav_settings", can(...MANAGERS)],
@@ -69,7 +70,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <div className="mobile-bar"><b>{t("app_name")}</b><button className="sm" onClick={() => setOpen(!open)} aria-label="menu">☰</button></div>
       <div className="shell">
         <aside className={`side ${open ? "open" : ""}`}>
-          <div className="brand"><div className="logo">H</div><div><b>{t("app_name")}</b><small>{t("app_sub")}</small></div></div>
+          <div className="brand"><img className="logo" src="/hayah-logo.jpeg" alt="HAYAH" /><div><b>{t("app_name")}</b><small>{t("app_sub")}</small></div></div>
           <nav className="nav">
             {items.filter((i) => i[2]).map(([to, key, , n]) => (
               <NavLink key={to} to={to} end={to === "/"}>{t(key)}{n ? <span className="count">{n}</span> : null}</NavLink>
@@ -112,6 +113,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/projects" element={<Projects />} />
+            <Route path="/sheet" element={<Suspense fallback={null}><Sheet /></Suspense>} />
             <Route path="/projects/:wellId" element={<ProjectDetail />} />
             <Route path="/construction" element={<Construction />} />
             <Route path="/delivery" element={<Delivery />} />

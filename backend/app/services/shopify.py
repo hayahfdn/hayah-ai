@@ -179,12 +179,25 @@ ORDERS_QUERY = """query($first: Int!, $after: String, $q: String) {
     nodes { id name createdAt displayFinancialStatus cancelledAt note phone email
       customAttributes { key value }
       currentTotalPriceSet { shopMoney { amount currencyCode } }
-      customer { firstName lastName defaultPhoneNumber { phoneNumber } }
       billingAddress { name phone }
       lineItems(first: 50) { nodes { id title variantTitle quantity
         customAttributes { key value }
         originalUnitPriceSet { shopMoney { amount } }
         discountAllocations { allocatedAmountSet { shopMoney { amount } } } } } } } }"""
+
+
+# The app only has read_orders (+ read_all_orders): no `customer` (that needs read_customers).
+# If the store also blocks the billing name/phone/email (protected customer data), retry with an order-only
+# query; the donor name and WhatsApp number come from the line properties anyway.
+def orders_page(db: Session, query: str, variables: dict) -> dict:
+    try:
+        return gql(db, query, variables)["orders"]
+    except api.ShopifyError as exc:
+        if "access denied" not in str(exc).lower():
+            raise
+        log.warning("shopify: customer fields blocked, using the order-only query (%s)", exc)
+    small = query.replace("note phone email", "note").replace("      billingAddress { name phone }\n", "")
+    return gql(db, small, variables)["orders"]
 
 
 def sync_now(db: Session, *, full: bool = False, max_pages: int = 20) -> dict:
@@ -201,7 +214,7 @@ def sync_now(db: Session, *, full: bool = False, max_pages: int = 20) -> dict:
     q = " AND ".join(parts) or None
     after, counts = None, {"orders_seen": 0, "created_wells": 0, "created_sacrifices": 0, "errors": []}
     for _ in range(max_pages):
-        page = gql(db, ORDERS_QUERY, {"first": 50, "after": after, "q": q})["orders"]
+        page = orders_page(db, ORDERS_QUERY, {"first": 50, "after": after, "q": q})
         for node in page["nodes"]:
             counts["orders_seen"] += 1
             try:
@@ -256,6 +269,14 @@ def normalize_rest(o: dict) -> dict:
             "landing": o.get("landing_site"), "referrer": o.get("referring_site"), "lines": lines}
 
 
+def _first_props(n: dict) -> dict:
+    for li in (n.get("lineItems") or {}).get("nodes") or []:
+        props = _attrs(li.get("customAttributes"), "key")
+        if props:
+            return props
+    return {}
+
+
 def normalize_graphql(n: dict) -> dict:
     cust = n.get("customer") or {}
     bill = n.get("billingAddress") or {}
@@ -272,7 +293,8 @@ def normalize_graphql(n: dict) -> dict:
             "financial_status": (n.get("displayFinancialStatus") or "").lower(), "cancelled": bool(n.get("cancelledAt")),
             "total": _money(money.get("amount")), "currency": money.get("currencyCode") or "USD", "note": n.get("note"),
             "attrs": attrs,
-            "customer_name": " ".join(x for x in [cust.get("firstName"), cust.get("lastName")] if x) or bill.get("name"),
+            "customer_name": " ".join(x for x in [cust.get("firstName"), cust.get("lastName")] if x) or bill.get("name")
+            or _prop(_first_props(n), DEFAULTS["donor_keys"]),
             "phone": n.get("phone") or (cust.get("defaultPhoneNumber") or {}).get("phoneNumber") or bill.get("phone"),
             "landing": attrs.get("landing_page"), "referrer": attrs.get("referrer"), "lines": lines}
 

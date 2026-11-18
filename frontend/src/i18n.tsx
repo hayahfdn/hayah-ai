@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { bookAr, bookEn } from "./i18n-book";
 import { shopifyAr, shopifyEn } from "./i18n-shopify";
+import { uiAr, uiEn } from "./i18n-ui";
 
 export type Lang = "ar" | "en";
 
@@ -16,7 +17,7 @@ const en: Record<string, string> = {
   nav_plaque: "Plaque designer", pl_title: "Plaque designer", pl_design: "Design plaque", pl_open_well: "Well ID", pl_open: "Open",
   pl_no_well: "Type a Well ID above to fill the plaque from that well. You can also design a plaque by hand here and download it.",
   pl_preview: "Plaque preview", pl_size: "Size", pl_download_png: "Download PNG", pl_download_pdf: "Download PDF (print)",
-  pl_save: "Save to well history", pl_saved: "Plaque saved to the well", pl_name: "Name (donor or dedication)", pl_project_no: "Project number",
+  pl_save: "Save to well history", pl_saved: "Plaque saved to the well", pl_name: "Name (order owner or dedication)", pl_project_no: "Project number",
   pl_well_type: "Well type", pl_month: "Month and year", pl_flag: "Flag", pl_flag_upload: "Or upload a flag", pl_icon: "Well icon",
   pl_icon_upload: "Or upload an icon", pl_icon_well: "Hand-pump well", pl_none: "None", pl_uploaded: "Uploaded image",
   pl_dua_kind: "Prayer for", pl_short_dua: "Short prayer under the name", pl_dua: "Prayer", pl_dua_hint: "Picking who the prayer is for fills this in. You can edit it freely.",
@@ -45,7 +46,7 @@ const en: Record<string, string> = {
   delivery_status: "Delivery", delivery_date: "Delivery date", raw_media_folder: "Raw media folder",
   final_video_link: "Final video link", video_status: "Video", maintenance_status: "Maintenance",
   last_maintenance_date: "Last maintenance", next_maintenance_date: "Next maintenance", notes: "Notes",
-  last_updated: "Last updated", search: "Search Well ID, customer, village…", all: "All", new_project: "New project",
+  last_updated: "Last updated", search: "Search Well ID or customer…", all: "All", new_project: "New project",
   create: "Create", save: "Save", cancel: "Cancel", edit: "Edit", close: "Close", loading: "Loading…", none: "—",
   saved: "Saved", approve: "Approve", reject: "Reject", details: "Details", history: "History", media: "Media",
   deliveries: "Deliveries", maintenance: "Maintenance", timeline: "Timeline", back: "Back", page: "Page", of: "of",
@@ -105,7 +106,7 @@ const ar: Record<string, string> = {
   nav_plaque: "مصمم اللوحات", pl_title: "مصمم اللوحة", pl_design: "تصميم لوحة", pl_open_well: "رقم البئر", pl_open: "فتح",
   pl_no_well: "اكتب رقم البئر في الأعلى لتعبئة اللوحة من بيانات البئر. ويمكنك أيضًا تصميم لوحة يدويًا هنا وتنزيلها.",
   pl_preview: "معاينة اللوحة", pl_size: "المقاس", pl_download_png: "تنزيل PNG", pl_download_pdf: "تنزيل PDF (طباعة)",
-  pl_save: "حفظ في سجل البئر", pl_saved: "تم حفظ اللوحة في سجل البئر", pl_name: "الاسم (المتبرع أو الإهداء)", pl_project_no: "رقم المشروع",
+  pl_save: "حفظ في سجل البئر", pl_saved: "تم حفظ اللوحة في سجل البئر", pl_name: "الاسم (صاحب الطلب أو الإهداء)", pl_project_no: "رقم المشروع",
   pl_well_type: "نوع البئر", pl_month: "الشهر والسنة", pl_flag: "العلم", pl_flag_upload: "أو ارفع علمًا", pl_icon: "أيقونة البئر",
   pl_icon_upload: "أو ارفع أيقونة", pl_icon_well: "بئر بمضخة يدوية", pl_none: "بدون", pl_uploaded: "صورة مرفوعة",
   pl_dua_kind: "الدعاء لـ", pl_short_dua: "الدعاء القصير تحت الاسم", pl_dua: "الدعاء", pl_dua_hint: "اختيار صاحب الدعاء يعبّئ النص تلقائيًا، ويمكنك تعديله بحرية.",
@@ -134,7 +135,7 @@ const ar: Record<string, string> = {
   delivery_status: "التسليم", delivery_date: "تاريخ التسليم", raw_media_folder: "مجلد الوسائط الخام",
   final_video_link: "رابط الفيديو النهائي", video_status: "الفيديو", maintenance_status: "الصيانة",
   last_maintenance_date: "آخر صيانة", next_maintenance_date: "الصيانة القادمة", notes: "ملاحظات",
-  last_updated: "آخر تحديث", search: "ابحث برقم البئر أو العميل أو القرية…", all: "الكل", new_project: "مشروع جديد",
+  last_updated: "آخر تحديث", search: "ابحث برقم البئر أو اسم العميل…", all: "الكل", new_project: "مشروع جديد",
   create: "إنشاء", save: "حفظ", cancel: "إلغاء", edit: "تعديل", close: "إغلاق", loading: "جارٍ التحميل…", none: "—",
   saved: "تم الحفظ", approve: "موافقة", reject: "رفض", details: "التفاصيل", history: "السجل", media: "الوسائط",
   deliveries: "التسليمات", maintenance: "الصيانة", timeline: "التسلسل الزمني", back: "رجوع", page: "صفحة", of: "من",
@@ -186,6 +187,8 @@ Object.assign(en, bookEn);
 Object.assign(ar, bookAr);
 Object.assign(en, shopifyEn);
 Object.assign(ar, shopifyAr);
+Object.assign(en, uiEn);
+Object.assign(ar, uiAr);
 const dicts = { ar, en };
 type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (k: string) => string; st: (v?: string | null) => string; fmtDate: (d?: string | null) => string; num: (n: any) => string };
 const I18n = createContext<Ctx>(null!);

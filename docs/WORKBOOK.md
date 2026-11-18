@@ -27,3 +27,22 @@ New tabs appear by themselves: add a contractor in Contractors, or add a row wit
 Guard rails enforced by the server, not by the AI: only edit/add/void operations exist (no delete); delivery can't be changed by a prompt; a new Well ID or sacrifice number must be written in the prompt itself; contractors/accounts must match an existing code.
 
 **Setup (needs approval – paid API):** set `HAYAH_ANTHROPIC_API_KEY` on the server and turn AI on in Settings. Model `claude-opus-5-5` (change with `HAYAH_ANTHROPIC_MODEL`). Each request is costed (`HAYAH_ANTHROPIC_INPUT_USD_PER_MTOK`/`_OUTPUT_`, default $4/$20 per million tokens; a typical request is about $0.02) and stops when the monthly AI budget (default $100) is reached. Until the key is added the button explains what is missing and the sheets work normally.
+
+## Update: menu, colours, well types, phones (2026-11-18)
+
+- **Side menu**: «الآبار» and «الأضاحي» are drop-down lists of every month (current month shown by default and listed first);
+  «المقاولون» has one list per country (from the contractor's country); «المسؤولون» lists محمد، هيا، غازي (accounts MOHAMMED,
+  CLIQ, GHAZI). The Excel tabs at the bottom stay on computers; on phones a sheet picker at the top replaces them.
+- **Hidden fields**: country, city, village, construction start, received date, last updated and completion date are no longer
+  entered or shown. Their stored values stay in the database, exports and Google Sheets. Country now follows the contractor
+  automatically, so reports by country keep working.
+- **Contractor colours**: `contractors.color`. Every well row (and phone card) uses its contractor's colour in every month;
+  changing the contractor changes the colour. New contractors get an unused calm colour automatically; managers can change it
+  in Contractors. Delivery state is shown as a stripe on the Well ID (green delivered, amber finished and waiting).
+- **Well types**: only يدوي، متوسط، عميق، شمسي. Every spelling is unified on save (`app/services/well_types.py`) and migration
+  0005 unified the existing data, logging each old value in audit_log (`project.well_type_normalized`). The one old
+  "سطحي كهربائي" project is now "كهربائي", kept on that project only and never offered for new wells. Values matching no rule
+  are left untouched for a manager to review.
+- **Phones**: wells and sacrifices appear as cards with every action (edit, details, record delivery, plaque), tables become
+  stacked cards, touch-size buttons, 16 px inputs (no iOS zoom). A Table / Cards switch is on every sheet.
+- **Font**: IBM Plex Sans Arabic (self-hosted), one family for Arabic, Latin and digits.

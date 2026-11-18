@@ -135,7 +135,12 @@ export const WELL_ICONS: { key: IconKey; ar: string; en: string }[] = [
   { key: "one_tank_wall", ar: "خزان واحد مع جدار صنابير", en: "One tank with tap wall" },
   { key: "two_tanks_wall", ar: "خزانان مع جدار صنابير", en: "Two tanks with tap wall" },
 ];
-export const WELL_TYPES = ["بئر سطحي يدوي", "بئر سطحي مع خزان", "بئر ارتوازي متوسط", "بئر ارتوازي كبير", "بئر ارتوازي متوضأ", "بئر ارتوازي عميق"];
+export const WELL_TYPES = ["بئر سطحي يدوي", "بئر سطحي مع خزان", "بئر ارتوازي متوسط", "بئر ارتوازي كبير", "بئر ارتوازي متوضأ", "بئر ارتوازي عميق", "بئر بالطاقة الشمسية"];
+/** The wording printed on the plaque for each of the four well types in the system (editable on the plaque). */
+export const PLAQUE_TYPE_TEXT: Record<string, string> = {
+  "يدوي": "بئر سطحي يدوي", "متوسط": "بئر ارتوازي متوسط", "عميق": "بئر ارتوازي عميق", "شمسي": "بئر بالطاقة الشمسية",
+  "كهربائي": "بئر سطحي كهربائي",
+};
 
 /** First guess only; staff pick the icon that matches the actual build. */
 export function iconFor(wellType: string | null | undefined): IconKey {
@@ -224,7 +229,8 @@ export function defaultDesign(p?: { well_id?: number | string; well_type?: strin
   country?: string | null; contractor?: { country?: string | null } | null; completion_date?: string | null; delivery_date?: string | null; order_date?: string | null }): WellDesign {
   const name = (p?.dedication || p?.customer_name || "فاعل خير").trim();
   const kind = guessDua(name);
-  const wt = (p?.well_type || "").trim();
+  const raw = (p?.well_type || "").trim();
+  const wt = PLAQUE_TYPE_TEXT[raw] || raw;
   return {
     template: "hayah_square", size: "digital",
     well_id: p?.well_id ? String(p.well_id) : "",

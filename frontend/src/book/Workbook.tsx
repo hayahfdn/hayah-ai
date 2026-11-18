@@ -10,6 +10,7 @@ import { Account, Contractor, Tx } from "../api";
 import { useI18n } from "../i18n";
 import { ErrorBox, useApi } from "../ui";
 import { useDataReload, useMoney } from "./grid";
+import { contractorColor, countryName, deeper, PARTNERS } from "../look";
 import Summary from "./Summary";
 import WellsGrid from "./WellsGrid";
 import SacrificesGrid from "./SacrificesGrid";
@@ -45,7 +46,8 @@ export default function Workbook() {
       { key: "summary", label: t("tab_summary"), group: "summary" },
       ...banks.map((a) => ({ key: `acc/${a.code}`, label: a.code === "WISE" ? "Wise" : a.name, group: "acc" as const })),
       ...wellCons.map((c) => ({ key: `con/${c.code}`, label: c.name, group: "con" as const })),
-      ...partners.map((a) => ({ key: `acc/${a.code}`, label: a.name.replace(/\s*\(.*\)/, ""), group: "partner" as const })),
+      ...partners.map((a) => { const pp = PARTNERS.find((x) => x.code === a.code);
+        return { key: `acc/${a.code}`, label: pp ? (lang === "ar" ? pp.ar : pp.en) : a.name.replace(/\s*\(.*\)/, ""), group: "partner" as const }; }),
       ...months.wells.map((m) => ({ key: `wells/${m}`, label: monthLabel(m, lang), group: "month" as const })),
       ...sacCons.map((c) => ({ key: `con/${c.code}`, label: c.name, group: "con" as const })),
       ...months.sacrifices.map((m) => ({ key: `sac/${m}`, label: `${t("tab_smonth")} ${monthLabel(m, lang)}`, group: "smonth" as const })),
@@ -58,8 +60,13 @@ export default function Workbook() {
 
   return (
     <div className="book">
-      <div className="topbar"><h1>{current?.label || t("nav_book")}</h1></div>
-      <p className="muted" style={{ marginTop: -8 }}>{t("book_help")}</p>
+      <div className="topbar"><h1>{current?.label || t("nav_book")}</h1>
+        {tabs.length > 0 && <select className="sheet-pick" value={current ? active : ""} onChange={(e) => open(e.target.value)} aria-label={t("open_sheet")}>
+          {!current && <option value="">{t("open_sheet")}</option>}
+          {tabs.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+        </select>}
+      </div>
+      <p className="muted book-help" style={{ marginTop: -8 }}>{t("book_help")}</p>
       <ErrorBox error={wb.error} />
       <div className="book-body">
         {active === "summary" && <Summary onOpen={open} />}
@@ -105,7 +112,7 @@ function AccountSheet({ code, accounts }: { code: string; accounts: Account[] })
 }
 
 function ContractorSheet({ code }: { code: string }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const money = useMoney();
   const led = useApi<{ contractor: Contractor; payments: Tx[]; totals: Record<string, any> }>(`/api/finance/contractors/${code}/ledger`);
   const accounts = useApi<Account[]>("/api/finance/accounts");
@@ -113,6 +120,8 @@ function ContractorSheet({ code }: { code: string }) {
   if (!led.data) return <ErrorBox error={led.error} />;
   const c = led.data.contractor, tt = led.data.totals;
   return <>
+    <p className="con-head"><i className="dot lg" style={{ background: deeper(contractorColor(c), 0.3), borderColor: "#fff" }} />
+      <span>{c.name} · <span className="muted">{c.code}{c.country ? ` · ${countryName(c.country, lang)}` : ""}</span></span></p>
     <Cards items={[["wells", tt.wells], ["sacrifices", tt.sacrifices], ["invoiced", money(tt.invoiced)], ["paid", money(tt.paid)],
       ["owed", money(tt.owed), tt.owed > 0 ? "attn" : ""], ["pct_paid", tt.pct_paid == null ? "—" : `${tt.pct_paid}%`]]} />
     {(tt.wells > 0 || c.country !== "Tanzania") && <WellsGrid contractorId={c.id} title={t("wells")} height="50vh" />}

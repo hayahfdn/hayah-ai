@@ -16,7 +16,7 @@ from app.models import (
 )
 from app.schemas import (
     DeliveryOut, EventOut, MaintenanceOut, MediaOut, MergeRequestIn, ProjectCreate, ProjectOut, ProjectPage,
-    ProjectUpdate, ReviewOut,
+    PlaqueApproveIn, ProjectUpdate, ReviewOut,
 )
 from app.services import plaques as plaque_svc
 from app.services import projects as svc
@@ -130,17 +130,30 @@ def merge_request(body: MergeRequestIn, db: Session = Depends(get_db), user: Use
 def list_plaques(well_id: int, db: Session = Depends(get_db), user: User = Depends(require_roles(ALL_ROLES))):
     p = _get_visible(db, well_id, user)
     ids = [p.id] + list(db.scalars(select(Project.id).where(Project.merged_into_id == p.id)))
-    return plaque_svc.list_plaques(db, ids)
+    return plaque_svc.list_plaques(db, ids, p.plaque_media_id)
 
 
 @router.post("/{well_id}/plaques", status_code=201)
-def save_plaque(well_id: int, file: UploadFile = File(...), design: str = Form(...), db: Session = Depends(get_db),
+def save_plaque(well_id: int, file: UploadFile = File(...), design: str = Form(...),
+                approve: bool = Form(False), replace_approved: bool = Form(False), db: Session = Depends(get_db),
                 user: User = Depends(require_roles(PROJECT_CREATORS))):
+    """Save a plaque to the well's history. approve=true also makes it the approved plaque;
+    if the well already has one, replace_approved=true is required (nothing is overwritten)."""
     p = svc.require_project(db, well_id, for_update=True)
     parsed = plaque_svc.parse_design(design)
     with tempfile.SpooledTemporaryFile(max_size=32 * 1024 * 1024) as tmp:
         shutil.copyfileobj(file.file, tmp)
         row = plaque_svc.save_plaque(db, p, tmp, filename=file.filename, mime_type=file.content_type,
-                                     design=parsed, actor=user)
+                                     design=parsed, actor=user, approve_now=approve, replace_approved=replace_approved)
     db.commit()
     return row
+
+
+@router.post("/{well_id}/plaques/approve")
+def approve_plaque(well_id: int, body: PlaqueApproveIn, db: Session = Depends(get_db),
+                   user: User = Depends(require_roles(PROJECT_CREATORS))):
+    """Approve a plaque that is already in the well's history."""
+    p = svc.require_project(db, well_id, for_update=True)
+    plaque_svc.approve(db, p, body.media_id, actor=user, replace_approved=body.replace_approved)
+    db.commit()
+    return _out(p, user)

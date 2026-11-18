@@ -69,7 +69,7 @@ DEFAULTS = {
                        "ceramic", "tank", "bucket", "feeding", "add-on"],
     "sacrifice_addon_keywords": ["إطعام", "اطعام", "feeding"],
 }
-WELL_TYPES = [("شمسي", ["شمسي", "شمسية", "solar"]), ("عميق", ["عميق", "deep"]),
+WELL_TYPES = [("شمسي", ["شمسي", "شمسية", "solar"]), ("عميق", ["عميق", "متوضأ", "deep"]),
               ("متوسط", ["متوسط", "medium"]), ("يدوي", ["يدوي", "يدوية", "hand"])]
 ANIMALS = {"خروف": ["خروف", "sheep", "lamb"], "ماعز": ["ماعز", "goat"], "بقرة": ["بقرة", "عجل", "cow", "calf"]}
 COUNTRY_AR = {"باكستان": "Pakistan", "نيبال": "Nepal", "بنغلاديش": "Bangladesh", "بنجلاديش": "Bangladesh",

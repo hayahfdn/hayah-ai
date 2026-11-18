@@ -1,7 +1,7 @@
 // Shared Excel-style grid used by every sheet in the system.
 import { useEffect, useMemo, useRef } from "react";
 import { AgGridReact } from "ag-grid-react";
-import type { CellValueChangedEvent, ColDef, GridApi, RowClassParams } from "ag-grid-community";
+import type { CellValueChangedEvent, ColDef, GridApi, RowClassParams, RowStyle } from "ag-grid-community";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 import { useI18n } from "../i18n";
@@ -41,9 +41,10 @@ export function moneyCol<T>(field: string, header: string, editable: boolean, fm
 
 export const dateCol = { cellDataType: "dateString" as const, filter: "agDateColumnFilter", width: 135 };
 
-export function HayahGrid<T>({ rows, cols, totals, onEdit, rowClass, height, rowId, onCellDoubleClicked, gridRef }: {
+export function HayahGrid<T>({ rows, cols, totals, onEdit, rowClass, rowStyle, height, rowId, onCellDoubleClicked, gridRef }: {
   rows: T[]; cols: ColDef<T>[]; totals?: Partial<T>[]; onEdit?: (e: CellValueChangedEvent<T>) => void;
-  rowClass?: (p: RowClassParams<T>) => string | undefined; height?: string | number; rowId: (r: T) => string;
+  rowClass?: (p: RowClassParams<T>) => string | undefined; rowStyle?: (p: RowClassParams<T>) => RowStyle | undefined;
+  height?: string | number; rowId: (r: T) => string;
   onCellDoubleClicked?: (e: any) => void; gridRef?: React.MutableRefObject<GridApi<T> | null>;
 }) {
   const { lang } = useI18n();
@@ -52,11 +53,12 @@ export function HayahGrid<T>({ rows, cols, totals, onEdit, rowClass, height, row
       <AgGridReact<T>
         rowData={rows}
         columnDefs={cols}
-        defaultColDef={{ sortable: true, filter: true, resizable: true, floatingFilter: true, minWidth: 80, width: 130 }}
+        defaultColDef={{ sortable: true, filter: true, resizable: true, floatingFilter: true, minWidth: 60, width: 130 }}
         getRowId={(p) => rowId(p.data)}
         enableRtl={lang === "ar"}
         pinnedBottomRowData={totals as any}
         getRowClass={(p) => (p.node.isRowPinned() ? "total-row" : rowClass?.(p))}
+        getRowStyle={(p) => (p.node.isRowPinned() ? undefined : rowStyle?.(p))}
         singleClickEdit={false}
         stopEditingWhenCellsLoseFocus
         enterNavigatesVerticallyAfterEdit

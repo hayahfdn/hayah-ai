@@ -15,11 +15,12 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import (
+    select,
     BigInteger, Boolean, CheckConstraint, Date, DateTime, Enum, ForeignKey, Index, Integer,
     Numeric, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.db import Base
 
@@ -142,6 +143,8 @@ class Contractor(Base):
     phone: Mapped[str | None] = mapped_column(String(40))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str | None] = mapped_column(Text)
+    # Row colour of this contractor's wells on every sheet (#RRGGBB). Assigned automatically, editable.
+    color: Mapped[str | None] = mapped_column(String(7))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -188,12 +191,22 @@ class Project(Base):
     notes: Mapped[str | None] = mapped_column(Text)
     merged_into_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"))
     is_sample: Mapped[bool] = mapped_column(Boolean, default=False)  # seed/test data marker
+    # The approved plaque (a PLAQUE media asset). Earlier versions stay in media and the timeline.
+    plaque_media_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id", use_alter=True,
+                                                                   name="fk_projects_plaque_media"))
+    plaque_approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    plaque_approved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     version: Mapped[int] = mapped_column(Integer, default=1)  # optimistic locking
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
 
     contractor: Mapped[Contractor | None] = relationship(lazy="selectin")
     __mapper_args__ = {"version_id_col": version}
+
+    @validates("well_type")
+    def _normalize_well_type(self, _key, value):
+        from app.services.well_types import normalize
+        return normalize(value)
 
 
 class ProjectEvent(Base):
@@ -544,3 +557,22 @@ class ShopifyOrderItem(Base):
     sacrifice_id: Mapped[int | None] = mapped_column(ForeignKey("sacrifices.id"), index=True)
     match: Mapped[str | None] = mapped_column(String(20))  # past orders: sure | likely | guess | created | none
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# New contractors get their own row colour automatically (no code change needed per contractor).
+from sqlalchemy import event as _event  # noqa: E402
+from sqlalchemy.orm import Session as _Session  # noqa: E402
+
+
+@_event.listens_for(_Session, "before_flush")
+def _assign_contractor_colors(session, _ctx, _instances):
+    new = [o for o in session.new if isinstance(o, Contractor) and not o.color]
+    if not new:
+        return
+    from app.services.contractor_colors import next_color
+    with session.no_autoflush:
+        used = set(session.scalars(select(Contractor.color).where(Contractor.color.is_not(None))))
+    used |= {o.color for o in session.new if isinstance(o, Contractor) and o.color}
+    for o in new:
+        o.color = next_color(used)
+        used.add(o.color)

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from app.services.well_types import CANONICAL as WELL_TYPES
 from app.config import get_settings
 from app.db import get_db
 from app.deps import ADMINS, ALL_ROLES, MANAGERS, require_roles
@@ -155,7 +156,7 @@ def get_settings_view(db: Session = Depends(get_db), _: User = Depends(require_r
                          "app_secret_set": bool(s.whatsapp_app_secret), "phone_number_id_set": bool(s.whatsapp_phone_number_id)},
             "ai": {"backend": s.ai_backend, "api_key": anthropic_key_hint(db), "api_key_set": anthropic_key_hint(db)["set"], "model": s.anthropic_model},
         },
-        "ai": get_setting(db, "ai"), "well_types": get_setting(db, "well_types"),
+        "ai": get_setting(db, "ai"), "well_types": {"values": list(WELL_TYPES), "fixed": True},
         "countries": get_setting(db, "countries"), "animal_types": get_setting(db, "animal_types"), "branding": get_setting(db, "branding"),
         "usage_this_month": usage.summary(db), "ai_cost_this_month_usd": usage.month_ai_cost(db),
     }
@@ -189,13 +190,16 @@ def put_ai_key(body: APIKeyIn, db: Session = Depends(get_db), user: User = Depen
 @router.get("/settings/lists")
 def get_lists(db: Session = Depends(get_db), _: User = Depends(require_roles(ALL_ROLES))):
     """Dropdown values used by the sheets."""
-    return {k: get_setting(db, k).get("values", []) for k in ("well_types", "countries", "animal_types")}
+    out = {k: get_setting(db, k).get("values", []) for k in ("countries", "animal_types")}
+    return {"well_types": list(WELL_TYPES), **out}  # fixed list: the four HAYAH well types
 
 
 @router.put("/settings/lists/{key}")
 def put_list(key: str, values: list[str], db: Session = Depends(get_db), user: User = Depends(require_roles(ADMINS))):
     if key not in ("well_types", "countries", "animal_types"):
         raise HTTPException(404, "Unknown list")
+    if key == "well_types":
+        raise HTTPException(422, "Well types are fixed (يدوي، متوسط، عميق، شمسي) so that reports never count one type twice")
     clean = sorted({v.strip()[:80] for v in values if v.strip()})
     set_setting(db, key, {"values": clean}, user.id)
     audit(db, f"settings.{key}", "settings", key, actor=user, after={"values": clean})

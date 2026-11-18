@@ -120,6 +120,29 @@ def list_media(well_id: int | None = None, category: MediaCategory | None = None
     return [MediaOut.model_validate(r).model_copy(update={"well_id": w.get(r.project_id)}) for r in rows]
 
 
+@media.get("/{media_id}/content")
+def media_content(media_id: int, db: Session = Depends(get_db), user: User = Depends(require_roles(ALL_ROLES))):
+    """The stored file itself, for showing plaques and images inside the dashboard.
+    Contractors only see files of wells assigned to them."""
+    from fastapi.responses import Response
+    from app.integrations.drive import get_drive_client
+    from app.integrations.drive.base import DriveError
+    from app.models import Project, Role
+    a = db.get(MediaAsset, media_id)
+    if not a or not a.drive_file_id:
+        raise HTTPException(404, "File not found")
+    if user.role == Role.contractor:
+        p = db.get(Project, a.project_id) if a.project_id else None
+        if not p or p.contractor_id != user.contractor_id:
+            raise HTTPException(404, "File not found")
+    try:
+        data = get_drive_client().download(a.drive_file_id)
+    except DriveError as e:
+        raise HTTPException(502, f"Could not read the file from Google Drive: {e}")
+    return Response(data, media_type=a.mime_type, headers={"Cache-Control": "private, max-age=3600",
+                                                          "Content-Disposition": f'inline; filename="{a.filename}"'})
+
+
 @media.post("/upload", response_model=MediaOut, status_code=201)
 def upload(file: UploadFile = File(...), well_id: int | None = Form(None),
            category: MediaCategory = Form(MediaCategory.construction), db: Session = Depends(get_db),

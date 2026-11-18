@@ -73,6 +73,12 @@ class MockDriveClient:
             self._save(idx)
             return {"id": fid, "url": f"mock://drive/{fid}"}
 
+    def download(self, file_id):
+        f = self._idx()["files"].get(file_id)
+        if not f:
+            raise DriveError(f"No such file {file_id}")
+        return (self.root / f["path"]).read_bytes()
+
     def folder_url(self, folder_id):
         return f"mock://drive/folder/{folder_id}"
 

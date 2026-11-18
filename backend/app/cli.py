@@ -3,7 +3,7 @@
   python -m app.cli create-admin --email you@hayah.org --name "Name"   (prompts for password)
   python -m app.cli setup-workbook   # creates the standard contractor/account tabs (safe to repeat)
   python -m app.cli seed-demo        # 12 SAMPLE projects, flagged is_sample=True (never real data)
-  python -m app.cli import-workbook wells.json --actor you@hayah.org   # wells from scripts/workbook_pdf_extract.py
+  python -m app.cli import-workbook Hayah.xlsx --actor you@hayah.org   # whole workbook (.xlsx), or a wells .json from the PDF extractor
   python -m app.cli sync-sheets
   python -m app.cli export-schemas   # writes docs/schemas/*.json
 """
@@ -204,7 +204,13 @@ def main():
             actor = db.scalar(select(User).where(User.email == args.actor.lower()))
             if not actor:
                 raise SystemExit("No user with that email")
-            report = import_wells(db, json.loads(Path(args.path).read_text()), actor=actor)
+            if args.path.lower().endswith(".xlsx"):
+                from app.services.workbook_import import import_full_workbook
+                from app.services.workbook_xlsx import read_workbook
+                data = read_workbook(args.path)
+                report = import_full_workbook(db, data, actor=actor) | {"problems": data["problems"]}
+            else:
+                report = import_wells(db, json.loads(Path(args.path).read_text()), actor=actor)
             db.commit()
         print(json.dumps(report, indent=1, ensure_ascii=False, default=str))
     elif args.cmd == "sync-sheets":

@@ -24,7 +24,7 @@ from app.services.finance import ensure_workbook_defaults
 
 SOURCE = "workbook_import"
 _PREFIX = {"pak": ("PAK", "Pak", "Pakistan"), "nep": ("NEP", "Nepal", "Nepal"),
-           "bang": ("BANG", "Bangladesh", "Bangladesh"), "india": ("IND", "India", "India"),
+           "bang": ("BANG", "Bangladesh", "Bangladesh"), "india": ("IND", "India", "India"), "ind": ("IND", "India", "India"),
            "tiz": ("TZ", "Tanzania", "Tanzania"), "tz": ("TZ", "Tanzania", "Tanzania")}
 
 
@@ -104,3 +104,79 @@ def import_wells(db: Session, data: dict, *, actor: User) -> dict:
 
 def _d(v) -> date | None:
     return date.fromisoformat(v) if v else None
+
+
+# ---------------------------------------------------------------------------
+# Full workbook (.xlsx): wells, sacrifices and money rows from app.services.workbook_xlsx
+# ---------------------------------------------------------------------------
+def import_full_workbook(db: Session, data: dict, *, actor: User) -> dict:
+    from app.models import FinanceAccount, Sacrifice
+    from app.services import finance as fin
+
+    ensure_workbook_defaults(db)
+    created: list[str] = []
+    rep = {"wells": 0, "delivered": 0, "sacrifices": 0, "transactions": 0, "skipped_existing_wells": [],
+           "skipped_existing_sacrifices": [], "contractors_created": created}
+    con_cache: dict[str, Contractor] = {}
+
+    def con(code):
+        if not code:
+            return None
+        if code not in con_cache:
+            m = re.fullmatch(r"([A-Z]+)(\d+)", code)
+            con_cache[code] = contractor_for(db, f"{m.group(1).lower()} {m.group(2)}", created) if m else None
+        return con_cache[code]
+
+    for w in data["wells"]:
+        wid = w.get("well_id")
+        if not wid:
+            continue
+        if psvc.get_by_well_id(db, wid):
+            rep["skipped_existing_wells"].append(wid)
+            continue
+        c = con(w.get("contractor"))
+        sale, cost = w.get("sale_amount"), w.get("cost")
+        notes = list(w.get("notes") or []) + [f"Imported from the workbook ({w['sheet']} sheet, row {w['row']})."]
+        fields = {
+            "well_id": wid, "order_date": w.get("order_date"), "customer_name": w.get("customer_name"),
+            "well_type": w.get("well_type"), "contractor_id": c.id if c else None, "country": c.country if c else None,
+            "sale_amount": sale, "cost": cost, "payment_method": w.get("payment_method"), "extras": w.get("extras"),
+            "sales_source": w.get("sales_source"), "received_date": w.get("received_date"), "notes": "\n".join(notes),
+            "payment_status": PaymentStatus.paid if sale and sale > 0 else PaymentStatus.unpaid,
+        }
+        delivered = w.get("delivery_date")
+        if delivered:
+            fields["construction_status"] = ConstructionStatus.completed
+            fields["completion_date"] = delivered
+        p = psvc.create_project(db, {k: v for k, v in fields.items() if v is not None}, actor=actor, source=SOURCE)
+        if delivered:
+            dc = dsvc.create_pending(db, p, delivery_date=delivered, source=SOURCE, requested_by=actor,
+                                     notes=f"Delivery date written in the workbook ({w['sheet']} sheet)")
+            dsvc.decide(db, dc, approve=True, actor=actor, note="Historical delivery from the workbook import")
+            rep["delivered"] += 1
+        rep["wells"] += 1
+
+    for s in data["sacrifices"]:
+        if db.scalar(select(Sacrifice).where(Sacrifice.sacrifice_no == s["sacrifice_no"])):
+            rep["skipped_existing_sacrifices"].append(s["sacrifice_no"])
+            continue
+        c = con(s.get("contractor"))
+        notes = list(s.get("notes") or []) + [f"Imported from the workbook ({s['sheet']} sheet, row {s['row']})."]
+        fields = {k: s.get(k) for k in ("sacrifice_no", "order_date", "donor_name", "received_date", "delivery_date",
+                                         "animal_type", "cost", "sale_price", "payment_method", "extras",
+                                         "sales_source", "intention")}
+        fields |= {"contractor_id": c.id if c else None, "notes": "\n".join(notes)}
+        fin.create_sacrifice(db, {k: v for k, v in fields.items() if v is not None}, actor=actor, source=SOURCE)
+        rep["sacrifices"] += 1
+
+    accounts = {a.code: a for a in db.scalars(select(FinanceAccount))}
+    for t in sorted(data["transactions"], key=lambda t: (t["date"], t.get("reference") or "")):
+        c = con(t.get("contractor"))
+        row = {"date": t["date"], "kind": t["kind"], "direction": t["direction"],
+               "account_id": accounts[t["account"]].id if t.get("account") else None,
+               "contractor_id": c.id if c else None, "channel": t.get("channel"), "category": t.get("category"),
+               "amount": t["amount"], "description": (t.get("description") or "")[:500] or None,
+               "reference": (t.get("reference") or "")[:120] or None}
+        fin.create_transaction(db, {k: v for k, v in row.items() if v is not None}, actor=actor, source=SOURCE)
+        rep["transactions"] += 1
+    return rep

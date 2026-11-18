@@ -39,6 +39,9 @@ DEFAULT_ACCOUNTS = [
     ("CLIQ", "Haya Cliq (Jordan)", "partner", 3),
 ]
 D0 = Decimal("0")
+# An operating expense in this category, linked to a contractor, is extra work the contractor
+# billed (transport, filming, repairs): it adds to what the company owes that contractor.
+EXTRA_WORK = "Contractor extra work"
 
 
 def ensure_workbook_defaults(db: Session) -> None:
@@ -209,9 +212,13 @@ def contractor_ledger(db: Session, c: Contractor) -> dict:
     wells = list(db.scalars(_live_projects().where(Project.contractor_id == c.id).order_by(Project.well_id)))
     sac = list_sacrifices(db, contractor_id=c.id)
     payments = list_transactions(db, contractor_id=c.id, kind=TxKind.contractor_payment.value)
-    invoiced = sum((_d(p.cost) for p in wells), D0) + sum((_d(s.cost) for s in sac), D0)
+    extras = [t for t in list_transactions(db, contractor_id=c.id, kind=TxKind.operating_expense.value)
+              if not t.voided and t.category == EXTRA_WORK]
+    invoiced = (sum((_d(p.cost) for p in wells), D0) + sum((_d(s.cost) for s in sac), D0)
+                + sum((t.amount for t in extras), D0))
     paid = sum((_d(t.amount) for t in payments if not t.voided), D0)
-    return {"contractor": c, "wells": wells, "sacrifices": sac, "payments": payments,
+    rows = sorted(payments + extras, key=lambda t: (t.date, t.id))  # extra work shows on the same sheet
+    return {"contractor": c, "wells": wells, "sacrifices": sac, "payments": rows,
             "totals": _owed(invoiced, paid) | {"wells": len(wells), "sacrifices": len(sac)}}
 
 
@@ -274,10 +281,11 @@ def summary(db: Session, *, include_samples: bool = True) -> dict:
     opex_cat: dict[str, Decimal] = defaultdict(lambda: D0)
     for t in txs:
         key = t.date.strftime("%Y-%m")
+        amt = t.amount if t.direction == "out" else -t.amount  # a refund ("in") reduces the spend
         if t.kind == TxKind.ad_spend:
-            monthly[key]["ads"] += t.amount; ads_channel[t.channel or "—"] += t.amount
+            monthly[key]["ads"] += amt; ads_channel[t.channel or "—"] += amt
         elif t.kind == TxKind.operating_expense:
-            monthly[key]["opex"] += t.amount; opex_cat[t.category or "—"] += t.amount
+            monthly[key]["opex"] += amt; opex_cat[t.category or "—"] += amt
 
     by_month = []
     for k in sorted(monthly):
@@ -311,6 +319,8 @@ def summary(db: Session, *, include_samples: bool = True) -> dict:
     for t in txs:
         if t.kind == TxKind.contractor_payment and t.contractor_id:
             paid[t.contractor_id] += t.amount
+        elif t.kind == TxKind.operating_expense and t.contractor_id and t.category == EXTRA_WORK:
+            invoiced[t.contractor_id] += t.amount
     contractors = []
     for c in db.scalars(select(Contractor).order_by(Contractor.country, Contractor.code)):
         if c.id in invoiced or c.id in paid or c.is_active:

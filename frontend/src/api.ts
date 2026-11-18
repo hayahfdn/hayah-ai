@@ -45,7 +45,7 @@ export interface Project {
   id: number; well_id: number; order_date: string | null; customer_name: string | null; customer_phone: string | null;
   country: string | null; city: string | null; village: string | null; well_type: string | null; sales_source: string | null;
   contractor_id: number | null; contractor: Contractor | null; sale_amount: string | null; cost: string | null; currency: string;
-  payment_method: string | null; extras: string | null; shopify_order: string | null; received_date: string | null;
+  payment_method: string | null; extras: string | null; shopify_order: string | null; dedication?: string | null; received_date: string | null;
   payment_status: string; construction_status: string; construction_start_date: string | null; completion_date: string | null;
   delivery_status: string; delivery_date: string | null; raw_media_folder_url: string | null; final_video_link: string | null;
   video_status: string; maintenance_status: string; last_maintenance_date: string | null; next_maintenance_date: string | null;
@@ -55,7 +55,7 @@ export interface Sacrifice {
   id: number; sacrifice_no: number; order_date: string | null; donor_name: string | null; received_date: string | null;
   delivery_date: string | null; contractor_id: number | null; animal_type: string | null; cost: string | null; sale_price: string | null;
   currency: string; payment_method: string | null; extras: string | null; sales_source: string | null; shopify_order: string | null;
-  intention: string | null; notes: string | null; is_sample: boolean; version: number; updated_at: string;
+  intention: string | null; dedication?: string | null; notes: string | null; is_sample: boolean; version: number; updated_at: string;
 }
 export interface Account { id: number; code: string; name: string; kind: "bank" | "partner"; currency: string; notes: string | null; is_active: boolean; }
 export interface Tx {

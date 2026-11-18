@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 import app.services.intake  # noqa: F401  (registers handlers)
 import app.services.sheets_sync  # noqa: F401
+import app.services.shopify  # noqa: F401
 from app.db import SessionLocal
 from app.services.audit import audit
 from app.services.jobs import enqueue, handler, run_due_jobs
@@ -36,6 +37,7 @@ def main():
                 enqueue(db, "sheets_sync", {"trigger": "scheduled"}, coalesce=True)
                 today = datetime.now(timezone.utc).date().isoformat()
                 enqueue(db, "daily_health_check", {}, key=f"health:{today}")
+                enqueue(db, "shopify_sync", {"trigger": "scheduled"}, coalesce=True)
                 db.commit()
                 last_sync = now
             stats = run_due_jobs(db)

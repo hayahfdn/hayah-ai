@@ -73,6 +73,7 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
         valueFormatter: (p) => money(p.value), cellClassRules: { "neg": (p) => n(p.value) < 0 } },
       col("payment_status", { ...status(PAYMENT), width: 110 }), col("payment_method", { width: 125 }),
       col("extras", { width: 110 }), col("shopify_order", { width: 105 }), col("sales_source", { width: 120 }),
+      col("dedication", { width: 200, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true }),
       col("received_date", dateCol),
       col("construction_status", { ...status(CONSTRUCTION), width: 130 }),
       col("construction_start_date", dateCol), col("completion_date", dateCol),

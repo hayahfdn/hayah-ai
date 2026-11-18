@@ -176,7 +176,7 @@ def register_webhooks(db: Session, base_url: str) -> dict:
 ORDERS_QUERY = """query($first: Int!, $after: String, $q: String) {
   orders(first: $first, after: $after, query: $q, sortKey: UPDATED_AT) {
     pageInfo { hasNextPage endCursor }
-    nodes { id name createdAt displayFinancialStatus cancelledAt note phone email
+    nodes { id name createdAt displayFinancialStatus cancelledAt note phone
       customAttributes { key value }
       currentTotalPriceSet { shopMoney { amount currencyCode } }
       billingAddress { name phone }
@@ -196,7 +196,7 @@ def orders_page(db: Session, query: str, variables: dict) -> dict:
         if "access denied" not in str(exc).lower():
             raise
         log.warning("shopify: customer fields blocked, using the order-only query (%s)", exc)
-    small = query.replace("note phone email", "note").replace("      billingAddress { name phone }\n", "")
+    small = query.replace("note phone\n", "note\n").replace("      billingAddress { name phone }\n", "")
     return gql(db, small, variables)["orders"]
 
 
@@ -247,6 +247,20 @@ def _attrs(items, k="name", v="value") -> dict:
         if key and key not in out:
             out[key] = str(a.get(v) or "").strip()
     return out
+
+
+def slim_rest(o: dict) -> dict:
+    """Keep only what HAYAH uses from a webhook order (no address, email or payment details) before it is queued."""
+    cust, bill = o.get("customer") or {}, o.get("billing_address") or {}
+    keep = ("id", "name", "order_number", "created_at", "updated_at", "financial_status", "cancelled_at",
+            "current_total_price", "total_price", "currency", "note", "note_attributes", "phone",
+            "landing_site", "referring_site")
+    return {**{k: o.get(k) for k in keep},
+            "customer": {"first_name": cust.get("first_name"), "last_name": cust.get("last_name"), "phone": cust.get("phone")},
+            "billing_address": {"name": bill.get("name"), "phone": bill.get("phone")},
+            "line_items": [{k: li.get(k) for k in ("id", "title", "variant_title", "quantity", "price",
+                                                    "discount_allocations", "properties")}
+                           for li in o.get("line_items") or []]}
 
 
 def normalize_rest(o: dict) -> dict:

@@ -227,3 +227,23 @@ def test_shopify_errors_are_readable():
     msg = explain_oauth_error(400, html)
     assert "not installed" in msg and "<" not in msg
     assert "<" not in explain_oauth_error(500, "<html><title>Oops</title></html>")
+
+
+def test_webhook_queues_only_the_fields_hayah_uses(client, shop):
+    """Order number, items, name, phone, country (line property) and price; no address, email or payment details."""
+    payload = {**WELL_ORDER, "id": 5099, "name": "#2099", "email": "donor@example.com",
+               "billing_address": {"name": "Test Donor", "phone": "+971 1", "address1": "Street 1", "city": "Dubai"},
+               "shipping_address": {"address1": "Street 1"}, "payment_gateway_names": ["visa"],
+               "customer": {"first_name": "Test", "last_name": "Donor", "email": "donor@example.com",
+                            "default_address": {"address1": "Street 1"}}}
+    assert post_webhook(client, payload, wid="slim").status_code == 200
+    from app.db import SessionLocal
+    from app.models import Job
+    db = SessionLocal()
+    job = db.query(Job).filter(Job.kind == "shopify_order").order_by(Job.id.desc()).first()
+    text = json.dumps(job.payload, ensure_ascii=False)
+    db.close()
+    for banned in ("donor@example.com", "Street 1", "Dubai", "visa", "shipping_address"):
+        assert banned not in text
+    assert "#2099" in text and "Test Donor" in text and "الإهداء" in text
+    assert run_jobs()["failed"] == 0

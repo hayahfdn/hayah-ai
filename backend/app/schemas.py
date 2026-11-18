@@ -383,7 +383,7 @@ class ConflictResolve(BaseModel):
 
 class AISettingsIn(BaseModel):
     ai_enabled: bool
-    monthly_budget_usd: float = Field(ge=0, le=100000)
+    monthly_budget_usd: float = Field(ge=0, le=20)  # hard cap: $20 a month
     min_confidence: float = Field(ge=0.5, le=1.0)
     manual_approval_over_usd: float = Field(default=0.25, ge=0, le=1000)
 

@@ -33,7 +33,7 @@ def status(db: Session = Depends(get_db), _: User = Depends(require_roles(MANAGE
     except svc.AssistantUnavailable as e:
         ready, why, code = False, e.detail, e.code
     return {"ready": ready, "reason": why, "code": code, "model": s.anthropic_model,
-            "spent_this_month_usd": round(month_ai_cost(db), 2), "budget_usd": cfg.get("monthly_budget_usd")}
+            "spent_this_month_usd": round(month_ai_cost(db), 2), "budget_usd": min(cfg.get("monthly_budget_usd", 0), get_settings().ai_monthly_budget_max_usd)}
 
 
 @router.post("/plan")

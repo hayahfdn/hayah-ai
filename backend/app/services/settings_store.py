@@ -10,7 +10,7 @@ from app.models import AppSetting
 def defaults() -> dict:
     s = get_settings()
     return {
-        "ai": {"ai_enabled": s.ai_backend == "anthropic", "monthly_budget_usd": s.ai_monthly_budget_usd,
+        "ai": {"ai_enabled": s.ai_backend == "anthropic", "monthly_budget_usd": min(s.ai_monthly_budget_usd, s.ai_monthly_budget_max_usd),
                "min_confidence": s.ai_min_confidence, "manual_approval_over_usd": 0.25},
         # From HAYAH's workbook; editable in Settings.
         "well_types": {"values": ["يدوي", "متوسط", "عميق", "شمسي"]},

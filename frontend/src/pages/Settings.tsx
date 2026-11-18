@@ -4,6 +4,7 @@ import { useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { Empty, ErrorBox, Field, Modal, Status, toast, useApi } from "../ui";
 import { SyncPill } from "./Dashboard";
+import RecentChanges from "../admin/RecentChanges";
 import ImportWorkbook from "../admin/ImportWorkbook";
 
 export default function Settings() {
@@ -11,7 +12,7 @@ export default function Settings() {
   const { can } = useAuth();
   const admin = can("super_admin");
   const [tab, setTab] = useState("integrations");
-  const tabs = ["integrations", "sync_conflicts", "ai_settings", ...(admin ? ["users", "imp_tab"] : []), "jobs", "audit_log"];
+  const tabs = ["integrations", "sync_conflicts", "ai_settings", "undo_tab", ...(admin ? ["users", "imp_tab"] : []), "jobs", "audit_log"];
   return (
     <>
       <div className="topbar"><h1>{t("nav_settings")}</h1></div>
@@ -21,6 +22,7 @@ export default function Settings() {
       {tab === "ai_settings" && <AISettings admin={admin} />}
       {tab === "users" && <Users />}
       {tab === "imp_tab" && <ImportWorkbook />}
+      {tab === "undo_tab" && <RecentChanges />}
       {tab === "jobs" && <Jobs />}
       {tab === "audit_log" && <Audit />}
     </>
@@ -91,10 +93,10 @@ function AISettings({ admin }: { admin: boolean }) {
     catch (e: any) { toast(e.message); }
   };
   return <div className="card">
-    <div className="banner info">Claude Pro does not include API credits. Production AI uses the Anthropic API, billed per token, capped by the monthly budget below. When AI is off or the budget is reached, the free rules engine and the AI Review queue keep everything working.</div>
+    <div className="banner info">Claude Pro does not include API credits. Production AI uses the Anthropic API, billed per token, capped by the monthly budget below (never more than $20 a month). When AI is off or the budget is reached, the free rules engine and the AI Review queue keep everything working.</div>
     <div className="form-grid">
       <Field label={t("ai_enabled")}><input type="checkbox" disabled={!admin} checked={!!f.ai_enabled} onChange={(e) => setF({ ...f, ai_enabled: e.target.checked })} style={{ minHeight: 0, width: "auto" }} /></Field>
-      <Field label={t("monthly_budget")}><input type="number" min={0} disabled={!admin} value={f.monthly_budget_usd} onChange={(e) => setF({ ...f, monthly_budget_usd: e.target.value })} /></Field>
+      <Field label={t("monthly_budget")}><input type="number" min={0} max={20} disabled={!admin} value={f.monthly_budget_usd} onChange={(e) => setF({ ...f, monthly_budget_usd: e.target.value })} /></Field>
       <Field label={t("min_confidence")}><input type="number" min={0.5} max={1} step={0.01} disabled={!admin} value={f.min_confidence} onChange={(e) => setF({ ...f, min_confidence: e.target.value })} /></Field>
       <Field label={t("manual_over")}><input type="number" min={0} step={0.01} disabled={!admin} value={f.manual_approval_over_usd} onChange={(e) => setF({ ...f, manual_approval_over_usd: e.target.value })} /></Field>
       <Field label={t("ai_cost_month")}><div className="num" style={{ fontSize: 20, fontWeight: 700 }}>${num(s.data.ai_cost_this_month_usd)}</div></Field>

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { api, dataChanged } from "../api";
 import { useI18n } from "../i18n";
 import { ErrorBox, toast } from "../ui";
+import PastImports from "./PastImports";
 
 interface Problem { where: string; problem: string; kind: "action" | "check" | "info" }
 interface Report { applied: boolean; file: string; wells: number; delivered: number; sacrifices: number; transactions: number;
@@ -59,6 +60,7 @@ export default function ImportWorkbook() {
           {list.map((p, i) => <tr key={i}><td className="mono" style={{ whiteSpace: "nowrap" }}>{p.where}</td><td>{p.problem}</td></tr>)}
         </tbody></table></div>
       </div>}
+      <PastImports key={rep?.applied ? "after" : "before"} />
     </div>
   );
 }

@@ -19,7 +19,7 @@ def fake_claude(monkeypatch):
 
 
 def enable_ai(client, admin):
-    r = client.put("/api/settings/ai", headers=admin, json={"ai_enabled": True, "monthly_budget_usd": 100,
+    r = client.put("/api/settings/ai", headers=admin, json={"ai_enabled": True, "monthly_budget_usd": 20,
                                                              "min_confidence": 0.9, "manual_approval_over_usd": 0.25})
     assert r.status_code == 200
 

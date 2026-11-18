@@ -42,6 +42,14 @@ export const bookEn: Record<string, string> = {
   imp_skipped: "Already in the system, left unchanged", imp_new_contractors: "New contractor tabs", imp_action: "Needs your answer", imp_check: "Please check", imp_info: "For information",
   pw_title: "Change password", pw_current: "Current password", pw_new: "New password", pw_again: "New password again", pw_mismatch: "The two new passwords are different.",
   pw_changed: "Password changed.", pw_rule: "At least 10 characters, with letters and numbers.",
+  rm_title: "Remove an import", rm_help: "Loaded the wrong file? Remove takes out every well, sacrifice and money row that import added. Anything typed in by hand stays.",
+  rm_file: "File", rm_button: "Remove this import", rm_removed: "Removed", rm_done: "Import removed.",
+  rm_confirm: "This will remove what that import added:", rm_kept: "Kept because someone added maintenance, photos or messages to them",
+  rm_safe: "A full copy of the removed rows is kept in the audit log, and the server has a backup from before.",
+  undo_tab: "Recent changes", undo_title: "Recent changes", undo_help: "Undo puts back the values from before a change. The undo is logged too.",
+  undo_what: "What", undo_change: "Change", undo_by: "By", undo: "Undo", undo_undone: "Undone", undo_done: "Undone",
+  undo_last: "Undo", undo_last_help: "Undo my last edit", undo_nothing: "Nothing to undo",
+  undo_project_update: "Well", undo_sacrifice_update: "Sacrifice", undo_transaction_update: "Money row", undo_transaction_create: "New money row",
 };
 
 export const bookAr: Record<string, string> = {
@@ -87,4 +95,12 @@ export const bookAr: Record<string, string> = {
   imp_skipped: "موجودة مسبقاً ولم تتغير", imp_new_contractors: "تبويبات مقاولين جديدة", imp_action: "تحتاج إجابتك", imp_check: "يرجى التأكد", imp_info: "للعلم",
   pw_title: "تغيير كلمة المرور", pw_current: "كلمة المرور الحالية", pw_new: "كلمة المرور الجديدة", pw_again: "أعد كتابة كلمة المرور الجديدة", pw_mismatch: "كلمتا المرور الجديدتان غير متطابقتين.",
   pw_changed: "تم تغيير كلمة المرور.", pw_rule: "10 أحرف على الأقل، فيها حروف وأرقام.",
+  rm_title: "حذف استيراد", rm_help: "رفعت الملف الخطأ؟ الحذف يزيل كل بئر وأضحية وحركة مالية أضافها ذلك الاستيراد. ما أُدخل يدوياً يبقى.",
+  rm_file: "الملف", rm_button: "حذف هذا الاستيراد", rm_removed: "تم الحذف", rm_done: "تم حذف الاستيراد.",
+  rm_confirm: "سيتم حذف ما أضافه ذلك الاستيراد:", rm_kept: "أُبقيت لأن أحداً أضاف لها صيانة أو صوراً أو رسائل",
+  rm_safe: "نسخة كاملة من المحذوف محفوظة في سجل التدقيق، وعلى الخادم نسخة احتياطية من قبل.",
+  undo_tab: "آخر التغييرات", undo_title: "آخر التغييرات", undo_help: "التراجع يعيد القيم كما كانت قبل التغيير، ويُسجَّل أيضاً.",
+  undo_what: "ماذا", undo_change: "التغيير", undo_by: "بواسطة", undo: "تراجع", undo_undone: "تم التراجع", undo_done: "تم التراجع",
+  undo_last: "تراجع", undo_last_help: "تراجع عن آخر تعديل لي", undo_nothing: "لا يوجد ما يمكن التراجع عنه",
+  undo_project_update: "بئر", undo_sacrifice_update: "أضحية", undo_transaction_update: "حركة مالية", undo_transaction_create: "حركة مالية جديدة",
 };

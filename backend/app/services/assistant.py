@@ -188,7 +188,8 @@ def check_available(db: Session) -> None:
             "Cost stays inside the monthly AI budget you set. Until then, edit the cells directly.", "no_key")
     if not cfg.get("ai_enabled"):
         raise AssistantUnavailable("AI is turned off in Settings. An admin can turn it on there.", "ai_off")
-    if month_ai_cost(db) >= float(cfg.get("monthly_budget_usd", 0)):
+    cap = min(float(cfg.get("monthly_budget_usd", 0)), get_settings().ai_monthly_budget_max_usd)
+    if month_ai_cost(db) >= cap:
         raise AssistantUnavailable("This month's AI budget is used up. An admin can raise it in Settings, or edit the cells directly.", "budget")
 
 

@@ -8,6 +8,7 @@ import { MANAGERS, useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { ErrorBox, Modal, toast, useApi } from "../ui";
 import ProjectForm from "../pages/ProjectForm";
+import RecentChanges, { Change, undoChange } from "../admin/RecentChanges";
 import { dateCol, HayahGrid, moneyCol, n, sum, useDataReload, useMoney } from "./grid";
 
 const CONSTRUCTION = ["new_order", "scheduled", "in_progress", "completed", "on_hold", "cancelled"];
@@ -30,6 +31,14 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
   const [quick, setQuick] = useState("");
   const [saving, setSaving] = useState(0);
   const [creating, setCreating] = useState(false);
+  const [history, setHistory] = useState(false);
+  const undoLast = async () => {
+    try {
+      const [last] = await api<Change[]>("/api/undo/recent", { query: { mine: true, limit: 1 } });
+      if (!last || last.undone) { toast(t("undo_nothing")); return; }
+      if (await undoChange(last.id, t)) projects.reload();
+    } catch (e: any) { toast(e.message); }
+  };
   const manager = can(...MANAGERS);
   const isContractor = user.role === "contractor";
   const staff = user.role === "staff";
@@ -116,6 +125,8 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
           onChange={(e) => { setQuick(e.target.value); gridRef.current?.setGridOption("quickFilterText", e.target.value); }} />
         <span className="muted" aria-live="polite">{saving ? t("saving") : t("all_saved")}</span>
         <button onClick={() => gridRef.current?.setFilterModel(null)}>{t("clear_filters")}</button>
+        {(manager || staff) && <button title={t("undo_last_help")} onClick={undoLast}>↶ {t("undo_last")}</button>}
+        {(manager || staff) && <button onClick={() => setHistory(true)}>{t("undo_title")}</button>}
         {manager && !month && !contractorId && <button onClick={() => download("/api/projects/export.csv", "hayah-projects.csv")}>{t("export_csv")}</button>}
         {(manager || staff) && <button className="primary" onClick={() => setCreating(true)}>+ {t("new_project")}</button>}
       </div>
@@ -124,6 +135,9 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
         rowId={(r) => String(r.id)}
         rowClass={(p) => (p.data?.delivery_status === "delivered" ? "row-done" : p.data?.construction_status === "completed" ? "row-wait" : undefined)}
         onCellDoubleClicked={(e) => { if (e.colDef.field === "well_id" && e.data && !e.node.isRowPinned()) nav(`/projects/${e.data.well_id}`); }} />
+      {history && <Modal title={t("undo_title")} onClose={() => { setHistory(false); projects.reload(); }}>
+        <RecentChanges mine={!manager} />
+      </Modal>}
       {creating && <Modal title={t("new_project")} onClose={() => setCreating(false)}>
         <ProjectForm onCancel={() => setCreating(false)} onSaved={() => { setCreating(false); projects.reload(); refreshCounts(); dataChanged(); }} />
       </Modal>}

@@ -53,7 +53,9 @@ class Settings(BaseSettings):
     # USD per million tokens, used for the cost guard (update if Anthropic changes prices).
     anthropic_input_usd_per_mtok: float = 4.0
     anthropic_output_usd_per_mtok: float = 20.0
-    ai_monthly_budget_usd: float = 100.0
+    ai_monthly_budget_usd: float = 20.0
+    # Hard ceiling on AI spend per month, whatever is typed in Settings (Hayah, 18 Nov 2026).
+    ai_monthly_budget_max_usd: float = 20.0
     ai_min_confidence: float = 0.90
 
     # Media

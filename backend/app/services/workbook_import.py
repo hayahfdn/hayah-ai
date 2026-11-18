@@ -116,7 +116,9 @@ def import_full_workbook(db: Session, data: dict, *, actor: User) -> dict:
     ensure_workbook_defaults(db)
     created: list[str] = []
     rep = {"wells": 0, "delivered": 0, "sacrifices": 0, "transactions": 0, "skipped_existing_wells": [],
-           "skipped_existing_sacrifices": [], "contractors_created": created}
+           "skipped_existing_sacrifices": [], "contractors_created": created,
+           # exactly what this import added, so it can be removed again in one click
+           "created": {"wells": [], "sacrifices": [], "transactions": []}}
     con_cache: dict[str, Contractor] = {}
 
     def con(code):
@@ -155,6 +157,7 @@ def import_full_workbook(db: Session, data: dict, *, actor: User) -> dict:
             dsvc.decide(db, dc, approve=True, actor=actor, note="Historical delivery from the workbook import")
             rep["delivered"] += 1
         rep["wells"] += 1
+        rep["created"]["wells"].append(wid)
 
     for s in data["sacrifices"]:
         if db.scalar(select(Sacrifice).where(Sacrifice.sacrifice_no == s["sacrifice_no"])):
@@ -168,6 +171,7 @@ def import_full_workbook(db: Session, data: dict, *, actor: User) -> dict:
         fields |= {"contractor_id": c.id if c else None, "notes": "\n".join(notes)}
         fin.create_sacrifice(db, {k: v for k, v in fields.items() if v is not None}, actor=actor, source=SOURCE)
         rep["sacrifices"] += 1
+        rep["created"]["sacrifices"].append(s["sacrifice_no"])
 
     accounts = {a.code: a for a in db.scalars(select(FinanceAccount))}
     for t in sorted(data["transactions"], key=lambda t: (t["date"], t.get("reference") or "")):
@@ -177,6 +181,7 @@ def import_full_workbook(db: Session, data: dict, *, actor: User) -> dict:
                "contractor_id": c.id if c else None, "channel": t.get("channel"), "category": t.get("category"),
                "amount": t["amount"], "description": (t.get("description") or "")[:500] or None,
                "reference": (t.get("reference") or "")[:120] or None}
-        fin.create_transaction(db, {k: v for k, v in row.items() if v is not None}, actor=actor, source=SOURCE)
+        tx = fin.create_transaction(db, {k: v for k, v in row.items() if v is not None}, actor=actor, source=SOURCE)
         rep["transactions"] += 1
+        rep["created"]["transactions"].append(tx.id)
     return rep

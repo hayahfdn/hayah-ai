@@ -123,7 +123,7 @@ def fetch_orders(db: Session, start: date | None, before: date, max_pages: int =
         parts.append(f"created_at:>='{(start - timedelta(days=1)).isoformat()}'")
     after, out = None, []
     for _ in range(max_pages):
-        page = sh.gql(db, HISTORY_QUERY, {"first": 50, "after": after, "q": " AND ".join(parts)})["orders"]
+        page = sh.orders_page(db, HISTORY_QUERY, {"first": 50, "after": after, "q": " AND ".join(parts)})
         out += [sh.normalize_graphql(n) for n in page["nodes"]]
         if not page["pageInfo"]["hasNextPage"]:
             break

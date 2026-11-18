@@ -159,3 +159,44 @@ def test_history_roles_and_scope_check(client, shop):
     assert r.json()["all_orders_scope"] is True  # old cached token lacked the new scope: fetched a fresh one
     assert seen.count("token") == 2
     assert seen[-1] == "created_at:<'2026-11-01'"  # everything before the live start date
+
+
+def test_orders_query_works_with_orders_scope_only(client, shop):
+    """No `customer` field (needs read_customers); falls back when billing details are blocked too."""
+    import json
+    from app.integrations import shopify as api
+    queries = []
+
+    def handle(req: httpx.Request):
+        if req.url.path == "/admin/oauth/access_token":
+            return httpx.Response(200, json={"access_token": "tok", "expires_in": 86399})
+        q = json.loads(req.content)["query"]
+        if "currentAppInstallation" in q:
+            return httpx.Response(200, json={"data": {"currentAppInstallation": {"accessScopes": [
+                {"handle": "read_orders"}, {"handle": "read_all_orders"}]}}})
+        queries.append(q)
+        assert "customer {" not in q
+        if "billingAddress" in q:
+            return httpx.Response(200, json={"errors": [{"message": "Access denied for billingAddress field."}]})
+        node = {"id": "gid://shopify/Order/7001", "name": "#1010", "createdAt": "2026-10-20T10:00:00Z",
+                "displayFinancialStatus": "PAID", "cancelledAt": None, "note": None, "customAttributes": [],
+                "currentTotalPriceSet": {"shopMoney": {"amount": "240.0", "currencyCode": "USD"}},
+                "lineItems": {"nodes": [{"id": "gid://shopify/LineItem/71", "title": "بئر سطحي بمضخة يدوية",
+                                         "variantTitle": None, "quantity": 1,
+                                         "customAttributes": [{"key": "اسم صاحب الطلب", "value": "Ali"}],
+                                         "originalUnitPriceSet": {"shopMoney": {"amount": "240.0"}},
+                                         "discountAllocations": []}]}}
+        return httpx.Response(200, json={"data": {"orders": {"pageInfo": {"hasNextPage": False, "endCursor": None},
+                                                             "nodes": [node]}}})
+
+    api.set_transport(httpx.MockTransport(handle))
+    try:
+        r = client.post("/api/shopify/history", headers=shop, json={})
+    finally:
+        api.set_transport(None)
+    assert r.status_code == 200, r.text
+    assert r.json()["orders"] == 1 and r.json()["none"] == 1
+    assert len(queries) == 2 and "billingAddress" not in queries[1]
+    mgr = login(client, "manager@hayah.local")
+    rev = client.get("/api/shopify/history", headers=mgr).json()["review"]
+    assert rev[0]["name"] == "#1010" and rev[0]["customer_name"] == "Ali"

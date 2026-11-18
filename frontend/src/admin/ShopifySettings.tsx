@@ -3,6 +3,7 @@ import { api } from "../api";
 import { useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { Empty, ErrorBox, Field, toast, useApi } from "../ui";
+import ShopifyHistory from "./ShopifyHistory";
 
 /** Settings > Shopify. The super admin pastes the app keys; managers can see orders and run a check. */
 export default function ShopifySettings() {
@@ -71,6 +72,7 @@ export default function ShopifySettings() {
         {admin && <button disabled={!!busy || !d.configured} onClick={() => sync(true)}>{t("shop_sync_all")}</button>}
       </div>
     </div>
+    <ShopifyHistory configured={!!d.configured} onDone={() => orders.reload()} />
     <div className="card"><h2>{t("shop_orders")}</h2>
       <ErrorBox error={orders.error} />
       <div className="table-wrap"><table>
@@ -78,7 +80,7 @@ export default function ShopifySettings() {
         <tbody>{orders.data?.map((o) => <tr key={o.name}>
           <td className="mono">{o.name}</td><td>{fmtDate(o.created_at)}</td><td>{o.customer_name || "—"}</td>
           <td className="num">{num(o.total)} {o.currency}</td>
-          <td><span className={`badge ${o.status === "imported" || o.status === "already_in_workbook" ? "ok" : o.status === "needs_review" || o.status === "cancelled" ? "warn" : ""}`}>{t("shop_st_" + o.status)}</span></td>
+          <td><span className={`badge ${["imported", "already_in_workbook", "matched"].includes(o.status) ? "ok" : ["needs_review", "cancelled", "check", "not_in_workbook"].includes(o.status) ? "warn" : ""}`}>{t("shop_st_" + o.status)}</span></td>
           <td className="wrap">{[...o.well_ids.map((w: number) => `${t("well_id")} ${w}`), ...o.sacrifice_nos.map((n: number) => `${t("sacrifice_no")} ${n}`)].join(", ") || "—"}
             {o.message && o.status !== "imported" && <div className="muted" style={{ fontSize: 12 }}>{o.message}</div>}</td>
         </tr>)}</tbody>

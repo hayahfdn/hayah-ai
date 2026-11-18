@@ -542,4 +542,5 @@ class ShopifyOrderItem(Base):
     amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))  # selling price of this unit incl. its add-ons
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)
     sacrifice_id: Mapped[int | None] = mapped_column(ForeignKey("sacrifices.id"), index=True)
+    match: Mapped[str | None] = mapped_column(String(20))  # past orders: sure | likely | guess | created | none
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

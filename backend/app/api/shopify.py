@@ -12,6 +12,7 @@ from app.integrations import shopify as api
 from app.models import Role, User, utcnow
 from app.services import secrets_store
 from app.services import shopify as svc
+from app.services import shopify_history as hist
 from app.services.audit import audit
 from app.services.jobs import enqueue
 
@@ -146,3 +147,51 @@ def summary(start: date | None = None, end: date | None = None, db: Session = De
     end = end or date.today()
     start = start or end - timedelta(days=365)
     return {"start": start, "end": end, **svc.sales_summary(db, start, end)}
+
+
+# ---------------- past orders (before the live start date) ----------------
+class HistoryIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    start: date | None = None  # empty = since the store's first order
+
+
+class AddIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    order: str | None = Field(default=None, max_length=30)  # empty = every past order not in the workbook
+
+
+class LinkIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    item_id: int
+    number: int = Field(gt=0, lt=10**12)  # Well ID or sacrifice number
+
+
+@router.get("/history")
+def history(db: Session = Depends(get_db), _: User = Depends(require_roles(MANAGERS))):
+    return {**hist.summary(db), "review": hist.review_orders(db), "before": hist._cut_day(svc.config(db))}
+
+
+@router.post("/history")
+def history_run(body: HistoryIn, db: Session = Depends(get_db), user: User = Depends(require_roles(ADMINS))):
+    if not svc.is_configured(db):
+        raise HTTPException(409, "Shopify is not set up yet (Settings > Shopify)")
+    try:
+        r = hist.run(db, start=body.start, user=user)
+    except api.ShopifyError as exc:
+        _err(exc)
+    db.commit()
+    return r
+
+
+@router.post("/history/add")
+def history_add(body: AddIn, db: Session = Depends(get_db), user: User = Depends(require_roles(MANAGERS))):
+    r = hist.add_missing(db, order_name=body.order, user=user)
+    db.commit()
+    return r
+
+
+@router.post("/history/link")
+def history_link(body: LinkIn, db: Session = Depends(get_db), user: User = Depends(require_roles(MANAGERS))):
+    r = hist.link_unit(db, item_id=body.item_id, number=body.number, user=user)
+    db.commit()
+    return r

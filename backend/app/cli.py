@@ -3,6 +3,7 @@
   python -m app.cli create-admin --email you@hayah.org --name "Name"   (prompts for password)
   python -m app.cli setup-workbook   # creates the standard contractor/account tabs (safe to repeat)
   python -m app.cli seed-demo        # 12 SAMPLE projects, flagged is_sample=True (never real data)
+  python -m app.cli import-workbook wells.json --actor you@hayah.org   # wells from scripts/workbook_pdf_extract.py
   python -m app.cli sync-sheets
   python -m app.cli export-schemas   # writes docs/schemas/*.json
 """
@@ -182,6 +183,9 @@ def main():
     sub.add_parser("seed-demo")
     sub.add_parser("setup-workbook")
     sub.add_parser("sync-sheets")
+    w = sub.add_parser("import-workbook")
+    w.add_argument("path")
+    w.add_argument("--actor", required=True, help="email of the manager running the import")
     sub.add_parser("export-schemas")
     args = ap.parse_args()
     if args.cmd == "create-admin":
@@ -194,6 +198,15 @@ def main():
             ensure_workbook_defaults(db)
             db.commit()
         print("Workbook tabs ready (contractors PAK1-5, NEP1-3, BANG1, TZ1; accounts Wise, Mohammed, Ghazi, Haya Cliq)")
+    elif args.cmd == "import-workbook":
+        from app.services.workbook_import import import_wells
+        with SessionLocal() as db:
+            actor = db.scalar(select(User).where(User.email == args.actor.lower()))
+            if not actor:
+                raise SystemExit("No user with that email")
+            report = import_wells(db, json.loads(Path(args.path).read_text()), actor=actor)
+            db.commit()
+        print(json.dumps(report, indent=1, ensure_ascii=False, default=str))
     elif args.cmd == "sync-sheets":
         from app.services.sheets_sync import run_sync
         with SessionLocal() as db:

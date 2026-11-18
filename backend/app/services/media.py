@@ -5,6 +5,7 @@ Folder layout (created automatically):
     Raw Footages/<WellID>/
     Final Videos/<WellID>/
     Maintenance & Servicing/<WellID>/
+    Plaques/<WellID>/
     Unassigned Media/
     Pending Review/
 Filenames: <WellID>_<YYYY-MM-DD>_<CATEGORY>_<NNN>.<ext>
@@ -28,12 +29,12 @@ from app.services.audit import audit
 from app.services.projects import add_event, queue_sheet_sync
 from app.services.settings_store import get_setting, set_setting
 
-TOP_FOLDERS = ["Raw Footages", "Final Videos", "Maintenance & Servicing", "Unassigned Media", "Pending Review"]
+TOP_FOLDERS = ["Raw Footages", "Final Videos", "Maintenance & Servicing", "Plaques", "Unassigned Media", "Pending Review"]
 CATEGORY_FOLDER = {
     MediaCategory.construction: "Raw Footages", MediaCategory.delivery: "Raw Footages",
     MediaCategory.other: "Raw Footages", MediaCategory.final_video: "Final Videos",
     MediaCategory.maintenance: "Maintenance & Servicing", MediaCategory.maintenance_before: "Maintenance & Servicing",
-    MediaCategory.maintenance_after: "Maintenance & Servicing",
+    MediaCategory.maintenance_after: "Maintenance & Servicing", MediaCategory.plaque: "Plaques",
 }
 ALLOWED_MIME = re.compile(r"^(image/(jpeg|png|webp|heic|heif)|video/(mp4|quicktime|3gpp|webm|x-matroska)|"
                           r"audio/(ogg|mpeg|aac|mp4|amr)|application/pdf)$")

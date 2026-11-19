@@ -12,6 +12,7 @@ from app.models import (
     ConstructionStatus, Contractor, DeliveryStatus, Project, ProjectEvent, ReviewCase, ReviewKind,
     Role, User, utcnow,
 )
+from app.services import phones
 from app.services.audit import audit, jsonable, snapshot
 from app.services.jobs import enqueue
 
@@ -101,7 +102,9 @@ def create_project(db: Session, data: dict, *, actor: User | None, source: str =
     if actor and actor.role not in FINANCE_ROLES and data.get("cost") is not None:
         raise HTTPException(403, "Only managers can set the well cost")
     _check_contractor(db, data.get("contractor_id"))
+    hints = data.pop("_phone_hints", None)
     p = Project(**data, is_sample=is_sample)
+    phones.apply(p, hints=hints)
     _country_from_contractor(db, p)
     _enforce_dates(p)
     try:
@@ -141,6 +144,8 @@ def update_project(db: Session, project: Project, changes: dict, *, actor: User 
     before = snapshot(project)
     for k, v in changes.items():
         setattr(project, k, v)
+    if {"customer_phone", "customer_phone_country"} & set(changes):
+        phones.apply(project)
     if "contractor_id" in changes and "country" not in changes:
         _country_from_contractor(db, project, before.get("contractor_id"))
     _enforce_dates(project)

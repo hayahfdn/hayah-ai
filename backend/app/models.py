@@ -155,7 +155,10 @@ class Project(Base):
     well_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
     order_date: Mapped[date | None] = mapped_column(Date)
     customer_name: Mapped[str | None] = mapped_column(String(200))
-    customer_phone: Mapped[str | None] = mapped_column(String(40))
+    customer_phone: Mapped[str | None] = mapped_column(String(40))  # as typed (kept for review)
+    customer_phone_e164: Mapped[str | None] = mapped_column(String(20), index=True)  # e.g. +962791234567
+    customer_phone_country: Mapped[str | None] = mapped_column(String(2))  # ISO code of the customer's number
+    customer_phone_status: Mapped[str | None] = mapped_column(String(16))  # valid | needs_country | invalid | empty
     country: Mapped[str | None] = mapped_column(String(80), index=True)
     city: Mapped[str | None] = mapped_column(String(120))
     village: Mapped[str | None] = mapped_column(String(120))
@@ -434,6 +437,10 @@ class Sacrifice(Base):
     sacrifice_no: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
     order_date: Mapped[date | None] = mapped_column(Date, index=True)
     donor_name: Mapped[str | None] = mapped_column(String(200))
+    customer_phone: Mapped[str | None] = mapped_column(String(40))  # as typed (kept for review)
+    customer_phone_e164: Mapped[str | None] = mapped_column(String(20), index=True)
+    customer_phone_country: Mapped[str | None] = mapped_column(String(2))
+    customer_phone_status: Mapped[str | None] = mapped_column(String(16))
     received_date: Mapped[date | None] = mapped_column(Date)
     delivery_date: Mapped[date | None] = mapped_column(Date)
     contractor_id: Mapped[int | None] = mapped_column(ForeignKey("contractors.id"), index=True)

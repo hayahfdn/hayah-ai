@@ -20,7 +20,7 @@ Fields filled in: order date (store time zone), customer (or **اسم صاحب �
 - **Only paid orders** by default. An unpaid order waits and is imported when Shopify marks it paid.
 - **Cancelled or refunded** orders are never deleted. Their wells are set to payment "Refunded" and get a note, so a manager decides.
 - **Numbers:** the next number after the highest real one, or the start number you set. Never chosen by AI.
-- **Who sees what:** the selling price is visible to managers and Team members (Reports > Shopify sales, Settings > Shopify orders). Costs never come from Shopify. Contractors don't see Shopify sales. Only the Super Admin can change the connection.
+- **Who sees what:** the selling price is visible to managers and Employees (Reports > Shopify sales, Settings > Shopify orders). Costs never come from Shopify. Contractors don't see Shopify sales. Only the Super Admin can change the connection.
 - Every new record is in the audit log and the project timeline ("shopify").
 
 ## Past orders (before the start date)

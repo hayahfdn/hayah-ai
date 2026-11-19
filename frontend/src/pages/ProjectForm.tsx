@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, Contractor, Project } from "../api";
 import { useI18n } from "../i18n";
 import { ErrorBox, Field, useApi } from "../ui";
+import { PhoneField } from "../PhoneField";
 
 const CONSTRUCTION = ["new_order", "scheduled", "in_progress", "completed", "on_hold", "cancelled"];
 const PAYMENT = ["unpaid", "partial", "paid", "refunded"];
@@ -21,7 +22,7 @@ export default function ProjectForm({ project, onSaved, onCancel }: { project?: 
   }, [f.well_id, project]);
   // Country, city, village and the build dates are no longer typed here (Hayah, 2026-11-18). Their old
   // values stay in the database; the country follows the contractor and the dates fill in from the status.
-  const fields = ["order_date", "customer_name", "customer_phone", "well_type", "sales_source",
+  const fields = ["order_date", "customer_name", "customer_phone", "customer_phone_country", "well_type", "sales_source",
     "contractor_id", "sale_amount", "currency", "payment_status", "construction_status",
     "final_video_link", "video_status", "next_maintenance_date", "dedication", "notes"];
   const submit = async (e: React.FormEvent) => {
@@ -55,7 +56,9 @@ export default function ProjectForm({ project, onSaved, onCancel }: { project?: 
         {!project && <Field label={t("well_id")} tone={check?.exists ? "bad" : "ok"}
           hint={check ? (check.exists ? t("well_exists") : `${t("well_free")} · ${t("highest_well")}: ${check.highest_existing ?? "—"}`) : undefined}>
           <input type="number" min={1} required value={f.well_id || ""} onChange={set("well_id")} className="mono" /></Field>}
-        {date("order_date")}{text("customer_name")}{text("customer_phone", { dir: "ltr" })}
+        {date("order_date")}{text("customer_name")}
+        <PhoneField phone={f.customer_phone ?? ""} country={f.customer_phone_country ?? ""}
+          onPhone={(v) => setF({ ...f, customer_phone: v })} onCountry={(v) => setF({ ...f, customer_phone_country: v })} />
         <Field label={t("well_type")}><select value={f.well_type ?? ""} onChange={set("well_type")}><option value="">—</option>
           {typeOpts.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
         {text("sales_source")}

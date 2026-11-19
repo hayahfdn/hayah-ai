@@ -10,8 +10,9 @@ import {
   ANIMALS, applyOccasion, ARAB_FLAG_END, defaultDesign, defaultSacrificeDesign, Design, drawPlaque, DuaKind, duaText,
   exportPdf, exportPng, fileToSmallDataUrl, flagArabic, FLAGS, GRIDS, IconKey, loadAssets, MAIN_FLAG_COUNT, Occasion,
   OCCASIONS, SACRIFICE_DUA_KINDS, SacrificeDesign, sizeLabel, SIZES, SizeKey, WELL_DUA_KINDS, WELL_ICONS, WELL_TYPES, WellDesign,
-  DUAS,
+  DUAS, Align, textStyle,
 } from "./render";
+import { FONTS } from "./fonts";
 
 type Kind = "well" | "sacrifice";
 interface Saved { id: string; created_at: string; actor_label: string; filename: string; design: Design; version?: number; approved?: boolean; media_id?: number | null; }
@@ -82,7 +83,7 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
   const setDua = (k: DuaKind) => setD((x) => {
     const dt = duaText(k, x.template, x.name);
     const short = x.template === "sacrifice_portrait" && (x as SacrificeDesign).occasion !== "sadaqa" ? x.short_dua : dt.short;
-    return { ...x, dua_kind: k, short_dua: short, dua: dt.long } as Design;
+    return { ...x, dua_kind: k, dua_sure: true, short_dua: short, dua: dt.long } as Design;
   });
   const setFlag = (code: string) => setD((x) => x.template === "sacrifice_portrait"
     ? { ...x, flag: code, country_label: code === "custom" ? x.country_label : flagArabic(code) } : { ...x, flag: code });
@@ -195,6 +196,8 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
         <div className="card">
           {d.template === "hayah_square" ? <WellFields d={d} set={set} input={input} flagSelect={flagSelect} duaSelect={duaSelect(WELL_DUA_KINDS)} upload={upload} L={L} />
             : <SacrificeFields d={d} setD={setD} set={set} input={input} flagSelect={flagSelect} duaSelect={duaSelect(SACRIFICE_DUA_KINDS)} upload={upload} L={L} />}
+          {d.dua_sure === false && <div className="error" role="alert" style={{ marginTop: 12 }}>{t("pl_dua_unsure")}</div>}
+          <TextControls d={d} set={set} />
           <div style={{ marginTop: 12 }}>
             <Field label={t("pl_dua")} hint={t("pl_dua_hint")}><textarea dir="rtl" rows={5} value={d.dua} onChange={(e) => set("dua", e.target.value)} /></Field>
           </div>
@@ -213,11 +216,6 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
               </>}
               <Field label={t("pl_footer_org")}>{input("footer_org", d.footer_org)}</Field>
               <Field label={t("pl_footer_site")}>{input("footer_site", d.footer_site, "ltr")}</Field>
-              <Field label={t("pl_name_font")}>
-                <select value={d.name_font} onChange={(e) => set("name_font", e.target.value)}>
-                  <option value="Cairo">Cairo</option><option value="Amiri">Amiri</option><option value="Noto Naskh Arabic">Noto Naskh</option>
-                </select>
-              </Field>
               <Field label={t("pl_color")}><input type="color" value={d.name_color} onChange={(e) => set("name_color", e.target.value)} /></Field>
             </div>
           </details>
@@ -346,4 +344,44 @@ function SacrificeFields({ d, setD, input, flagSelect, duaSelect, upload, L }: F
     <datalist id="pl-animals">{ANIMALS.map((w) => <option key={w} value={w} />)}</datalist>
     <p className="muted" style={{ marginBottom: 0 }}>{t("pl_occasion_hint")}</p>
   </>;
+}
+
+/** Font, size, line spacing, alignment and weight for the name and the prayer. Every font in the
+ * list is shown in its own face; the files are bundled, so the export matches the preview. */
+function TextControls({ d, set }: { d: Design; set: (k: string, v: any) => void }) {
+  const { t, lang } = useI18n();
+  const block = (which: "name" | "dua") => {
+    const st = textStyle(d, which);
+    const k = (f: string) => `${which}_${f}`;
+    return (
+      <fieldset className="text-controls" key={which}>
+        <legend>{t(which === "name" ? "pl_text_name" : "pl_text_dua")}</legend>
+        <div className="form-grid">
+          <Field label={t("pl_font")}>
+            <select value={st.family} onChange={(e) => set(k("font"), e.target.value)} style={{ fontFamily: `'${st.family}'` }}>
+              {FONTS.map((f) => <option key={f.family} value={f.family} style={{ fontFamily: `'${f.family}'` }}>
+                {lang === "ar" ? `${f.ar} · ${f.en}` : `${f.en} · ${f.ar}`}{f.standIn ? ` (${t("pl_font_standin")} ${f.standIn})` : ""}</option>)}
+            </select>
+          </Field>
+          <Field label={`${t("pl_size_pct")} ${Math.round(st.k * 100)}%`}>
+            <input type="range" min={50} max={150} step={5} value={Math.round(st.k * 100)} onChange={(e) => set(k("size"), Number(e.target.value))} />
+          </Field>
+          <Field label={`${t("pl_line")} ${st.line.toFixed(2)}`}>
+            <input type="range" min={0.9} max={2.2} step={0.05} value={st.line} onChange={(e) => set(k("line"), Number(e.target.value))} />
+          </Field>
+          <Field label={t("pl_align")}>
+            <div className="seg">{(["right", "center", "left"] as Align[]).map((a) =>
+              <button type="button" key={a} className={st.align === a ? "on" : ""} onClick={() => set(k("align"), a)}>{t("pl_" + a)}</button>)}</div>
+          </Field>
+          <Field label={t("pl_weight")}>
+            <div className="seg">{[true, false].map((b) =>
+              <button type="button" key={String(b)} className={(st.weight > 400) === b ? "on" : ""} onClick={() => set(k("bold"), b)}>{t(b ? "pl_bold" : "pl_normal")}</button>)}</div>
+          </Field>
+        </div>
+        <p className="font-sample" dir="rtl" style={{ fontFamily: `'${st.family}'`, fontWeight: st.weight }}>
+          {which === "name" ? (d.name || "فاعل خير") : "اللهم تقبل منه واجعلها صدقة مباركة"}</p>
+      </fieldset>
+    );
+  };
+  return <div style={{ marginTop: 12 }}>{block("name")}{block("dua")}<p className="muted" style={{ fontSize: 12.5 }}>{t("pl_font_note")}</p></div>;
 }

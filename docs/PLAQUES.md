@@ -1,7 +1,7 @@
 # Plaque designer
 
 Menu: **Plaque designer** (`/plaque`), or **Design plaque** on a well's page (`/plaque/<WellID>`).
-Managers and Team members can save; contractors cannot. Rule-based: the browser draws the plaque, no AI.
+Managers and Employees can save; contractors cannot. Rule-based: the browser draws the plaque, no AI.
 
 Layout matches HAYAH's current square plaque (1080 × 1080): HAYAH logo, country flag, Bismillah and
 verse, project number pill, well type and "صدقة جارية عن:", month and year pill, the name in large red,
@@ -31,7 +31,7 @@ Code: `frontend/src/plaque/render.ts` (drawing and export), `frontend/src/plaque
   (Bismillah + Al Imran 92, the aqiqah hadith, or Al Insan 8), the title (e.g. "خروف عقيقة المولودة:"), the red line and
   the prayer (aqiqah prayers use the child's first name). All fields stay editable. Filled from the workbook: number,
   donor name (or `dedication`), animal, type (from the intention), month, flag and Arabic country name (contractor's country).
-  `GET /api/plaques/sacrifices/<No>` returns only plaque fields (never cost or price), so Team members can use it.
+  `GET /api/plaques/sacrifices/<No>` returns only plaque fields (never cost or price), so Employees can use it.
   Saved PNGs go to Drive `Plaques/Sacrifices/<No>/`; the design is kept in the audit log (`plaque.saved`).
 - **Well icons**: six HAYAH well types (hand pump, hand pump with tank, one or two tanks with 4 taps, one or two tanks
   with a tap wall) in `frontend/public/wells/`, background removed. Icon can sit left or right.

@@ -4,7 +4,7 @@
 - **الآبار** and **الأضاحي**: one drop-down each with every month; the current month is shown by default and marked "الشهر الحالي". Month pages keep their own data (filtered by order date). Each month page has previous / next month buttons.
 - **المقاولون**: one drop-down per country (Pakistan, Nepal, Bangladesh, India, Tanzania, then others). Items link by contractor code, so equal names in two countries never mix.
 - **المسؤولون**: محمد (MOHAMMED), هيا (CLIQ), غازي (GHAZI) partner ledgers.
-- Managers open these inside the workbook (`/book/...`). Team members get `/wells/<month>` and `/contractor/<code>` (wells only, no cost). Sacrifices, ledgers and partners stay managers-only (server-side, `GET /api/nav`).
+- Managers open these inside the workbook (`/book/...`). Employees get `/wells/<month>` and `/contractor/<code>` (wells only, no cost). Sacrifices, ledgers and partners stay managers-only (server-side, `GET /api/nav`).
 - The old tab strip at the bottom of the workbook was removed.
 
 ## Hidden fields

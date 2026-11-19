@@ -3,20 +3,16 @@
 //  - "sacrifice_portrait": the sacrifice plaque, laid out on a 1024 × 1536 grid
 // Each is drawn on a canvas in grid units, then scaled for screen, PNG and print PDF.
 // Rule-based: no AI is involved.
-import "@fontsource/cairo/600.css";
-import "@fontsource/cairo/700.css";
-import "@fontsource/cairo/800.css";
-import "@fontsource/cairo/900.css";
-import "@fontsource/amiri/700.css";
-import "@fontsource/noto-naskh-arabic/400.css";
-import "@fontsource/noto-naskh-arabic/700.css";
+import { cssFamily, ensureFont, weightFor } from "./fonts";
 
 export type Template = "hayah_square" | "sacrifice_portrait";
 export const GRIDS: Record<Template, [number, number]> = { hayah_square: [1080, 1080], sacrifice_portrait: [1024, 1536] };
 /** Kept for older imports: the square grid size. */
 export const GRID = 1080;
 
-export type DuaKind = "living_m" | "living_f" | "living_group" | "dead_m" | "dead_f" | "dead_group" | "aqiqa_boy" | "aqiqa_girl";
+export type DuaKind = "living_m" | "living_f" | "living_group" | "dead_m" | "dead_f" | "dead_group" | "anon_m" | "anon_f"
+  | "neutral" | "dead_neutral" | "aqiqa_boy" | "aqiqa_girl";
+export type Align = "center" | "right" | "left";
 export type IconKey = "hand_pump" | "hand_tank" | "one_tank_taps" | "two_tanks_taps" | "one_tank_wall" | "two_tanks_wall";
 export type Occasion = "sadaqa" | "aqiqa_boy" | "aqiqa_girl" | "itam_sadaqa" | "itam_aqiqa";
 
@@ -33,7 +29,25 @@ interface Common {
   footer_site: string;
   footer_org: string;
   name_color: string;
-  name_font: "Cairo" | "Amiri" | "Noto Naskh Arabic";
+  name_font: string;
+  // Text controls (older saves have none: the defaults below draw them exactly as before).
+  name_bold?: boolean; name_size?: number; name_line?: number; name_align?: Align;
+  dua_font?: string; dua_bold?: boolean; dua_size?: number; dua_line?: number; dua_align?: Align;
+  dua_sure?: boolean;  // false = gender or living/deceased unclear from the order; staff must confirm
+}
+
+/** Text settings with the template defaults filled in. size is a percentage of the template size. */
+export function textStyle(d: Design, which: "name" | "dua") {
+  const well = d.template === "hayah_square";
+  if (which === "name") {
+    const family = d.name_font || "Cairo";
+    return { family, weight: weightFor(family, d.name_bold ?? true), k: (d.name_size ?? 100) / 100,
+             line: d.name_line ?? (well ? 1.15 : 1.18), align: d.name_align ?? "center" };
+  }
+  const family = d.dua_font || (well ? "Noto Naskh Arabic" : "Cairo");
+  const bold = d.dua_bold ?? !well;
+  return { family, weight: bold ? Math.min(weightFor(family, true), 700) : 400, k: (d.dua_size ?? 100) / 100,
+           line: d.dua_line ?? (well ? 1.48 : 1.5), align: d.dua_align ?? "center" };
 }
 
 export interface WellDesign extends Common {
@@ -158,40 +172,63 @@ export const DUAS: Record<DuaKind, { en: string; ar: string; short: string; long
   living_m: {
     en: "Living, male", ar: "حي، ذكر", short: "حفظه الله",
     long: "اللهم احفظه وأطل في عمره على طاعتك، وأكرم شأنه ويسّر أمره، ووسع له في رزقه وبارك له في ماله وأهله، وألبسه ثوب الصحة والعافية، واجعل حياته سعيدة ومستقرة، واكتب له الفردوس الأعلى من الجنة بغير حساب.",
-    sacrifice: "اللهم احفظه وأطل في عمره على طاعتك، وأكرم شأنه ويسّر أمره، ووسع له في رزقه وبارك له في ماله وأهله، وألبسه ثوب الصحة والعافية، واجعله من عبادك الصالحين.",
+    sacrifice: "اللهم تقبل منه واجعلها صدقة مباركة، وبارك له في عمره ورزقه، واجعل أجرها في ميزان حسناته.",
   },
   living_f: {
     en: "Living, female", ar: "حية، أنثى", short: "حفظها الله",
     long: "اللهم احفظها وأطل في عمرها على طاعتك، وأكرم شأنها ويسّر أمرها، ووسع لها في رزقها وبارك لها في مالها وأهلها، وألبسها ثوب الصحة والعافية، واجعل حياتها سعيدة ومستقرة، واكتب لها الفردوس الأعلى من الجنة بغير حساب.",
-    sacrifice: "اللهم احفظها وبارك لها في عمرها وصحتها وأهلها، ووسّع لها في رزقها، وحقق لها الخير في الدنيا والآخرة، وألبسها ثوب العافية والطمأنينة.",
+    sacrifice: "اللهم تقبل منها واجعلها صدقة مباركة، وبارك لها في عمرها ورزقها، واجعل أجرها في ميزان حسناتها.",
   },
   living_group: {
     en: "Living, family or group", ar: "أحياء، عائلة أو مجموعة", short: "حفظهم الله",
     long: "اللهم احفظهم وأطل في أعمارهم على طاعتك، وأكرم شأنهم ويسّر أمورهم، ووسع لهم في أرزاقهم وبارك لهم في أموالهم وأهليهم، وألبسهم ثوب الصحة والعافية، واجعل حياتهم سعيدة ومستقرة، واكتب لهم الفردوس الأعلى من الجنة بغير حساب.",
-    sacrifice: "اللهم احفظهم وبارك لهم في أعمارهم وصحتهم وأهليهم، ووسّع لهم في أرزاقهم، وحقق لهم الخير في الدنيا والآخرة، وألبسهم ثوب العافية والطمأنينة.",
+    sacrifice: "اللهم تقبل منهم واجعلها صدقة مباركة، وبارك لهم في أعمارهم وأرزاقهم، واجعل أجرها في ميزان حسناتهم.",
   },
   dead_m: {
     en: "Deceased, male", ar: "متوفى، ذكر", short: "رحمه الله",
     long: "اللهم اغفر له وارحمه، وعافه واعف عنه، وأكرم نزله ووسّع مدخله، واغسله بالماء والثلج والبرد، ونقّه من الخطايا كما ينقّى الثوب الأبيض من الدنس، واجعل قبره روضة من رياض الجنة، واجعل هذه الصدقة نورًا له في قبره، وأسكنه الفردوس الأعلى من الجنة بغير حساب.",
+    sacrifice: "اللهم ارحمه واغفر له، واجعلها صدقة جارية في ميزان حسناته، ونوّر قبره واجعل مثواه الجنة.",
   },
   dead_f: {
     en: "Deceased, female", ar: "متوفاة، أنثى", short: "رحمها الله",
     long: "اللهم اغفر لها وارحمها، وعافها واعف عنها، وأكرم نزلها ووسّع مدخلها، واغسلها بالماء والثلج والبرد، ونقّها من الخطايا كما ينقّى الثوب الأبيض من الدنس، واجعل قبرها روضة من رياض الجنة، واجعل هذه الصدقة نورًا لها في قبرها، وأسكنها الفردوس الأعلى من الجنة بغير حساب.",
+    sacrifice: "اللهم ارحمها واغفر لها، واجعلها صدقة جارية في ميزان حسناتها، ونوّر قبرها واجعل مثواها الجنة.",
   },
   dead_group: {
     en: "Deceased, more than one", ar: "متوفون، أكثر من شخص", short: "رحمهم الله",
     long: "اللهم اغفر لهم وارحمهم، وعافهم واعف عنهم، وأكرم نزلهم ووسّع مدخلهم، واغسلهم بالماء والثلج والبرد، ونقّهم من الخطايا كما ينقّى الثوب الأبيض من الدنس، واجعل قبورهم روضة من رياض الجنة، واجعل هذه الصدقة نورًا لهم في قبورهم، وأسكنهم الفردوس الأعلى من الجنة بغير حساب.",
+    sacrifice: "اللهم اغفر لهم وارحمهم، واجعل هذه الصدقة في ميزان حسناتهم، واجمعهم في جنات النعيم.",
+  },
+  anon_m: {
+    en: "Anonymous donor (فاعل خير)", ar: "فاعل خير", short: "تقبّل الله منه",
+    long: "اللهم تقبّل منه هذه الصدقة الجارية واجعل عمله خالصاً لوجهك الكريم، ووسع له في رزقه وبارك له في أهله وماله، واجعلها نوراً له في الدنيا والآخرة، واكتب له الفردوس الأعلى من الجنة بغير حساب.",
+    sacrifice: "اللهم تقبل منه واجعل عمله خالصاً لوجهك الكريم، وبارك له في رزقه وأهله.",
+  },
+  anon_f: {
+    en: "Anonymous donor, female (فاعلة خير)", ar: "فاعلة خير", short: "تقبّل الله منها",
+    long: "اللهم تقبّل منها هذه الصدقة الجارية واجعل عملها خالصاً لوجهك الكريم، ووسع لها في رزقها وبارك لها في أهلها ومالها، واجعلها نوراً لها في الدنيا والآخرة، واكتب لها الفردوس الأعلى من الجنة بغير حساب.",
+    sacrifice: "اللهم تقبل منها واجعل عملها خالصاً لوجهك الكريم، وبارك لها في رزقها وأهلها.",
+  },
+  neutral: {
+    en: "Not clear (neutral wording)", ar: "غير واضح (صيغة محايدة)", short: "تقبّل الله",
+    long: "اللهم تقبّل هذه الصدقة الجارية واجعلها في ميزان الحسنات، واجعل كل قطرة ماء منها نوراً وأجراً، واكتب لصاحبها الفردوس الأعلى من الجنة بغير حساب.",
+    sacrifice: "اللهم تقبل هذه الصدقة واجعلها صدقة مباركة، واجعل أجرها في ميزان الحسنات.",
+  },
+  dead_neutral: {
+    en: "Deceased, not clear if male or female", ar: "متوفى، الجنس غير واضح", short: "رحمة الله",
+    long: "اللهم اجعل هذه الصدقة الجارية رحمةً ونوراً في القبر، واغفر وارحم من قُدّمت عنه، وأسكنه الفردوس الأعلى من الجنة بغير حساب.",
+    sacrifice: "اللهم اجعل هذه الصدقة صدقة جارية ورحمة ونوراً، واغفر وارحم من قُدّمت عنه، واجعل مثواه الجنة.",
   },
   aqiqa_boy: {
     en: "Aqiqah, boy", ar: "عقيقة مولود", short: "",
-    long: "اللهم بارك في {first}، واجعله من الصالحين المصلحين، وارزقه الصحة والعافية، ووفقه لطاعتك، واجعله بارًّا بوالديه وأهله، وارزقه الخير والطمأنينة والبركة.",
+    long: "اللهم بارك فيه، واجعله من الصالحين المصلحين، وارزقه الصحة والعافية، ووفقه لطاعتك، واجعله بارًّا بوالديه وأهله، وارزقه الخير والطمأنينة والبركة.",
   },
   aqiqa_girl: {
     en: "Aqiqah, girl", ar: "عقيقة مولودة", short: "",
-    long: "اللهم بارك في {first}، واجعلها من الصالحات، وقرّ بها أعين والديها، وارزقها الصحة والعافية، ونشأة طيبةً في طاعتك، واجعلها سببًا للخير والبركة.",
+    long: "اللهم بارك فيها، واجعلها من الصالحات، وقرّ بها أعين والديها، وارزقها الصحة والعافية، ونشأة طيبةً في طاعتك، واجعلها سببًا للخير والبركة.",
   },
 };
-export const WELL_DUA_KINDS: DuaKind[] = ["living_m", "living_f", "living_group", "dead_m", "dead_f", "dead_group"];
+export const WELL_DUA_KINDS: DuaKind[] = ["living_m", "living_f", "living_group", "dead_m", "dead_f", "dead_group", "anon_m", "anon_f", "neutral", "dead_neutral"];
 export const SACRIFICE_DUA_KINDS: DuaKind[] = ["aqiqa_boy", "aqiqa_girl", ...WELL_DUA_KINDS];
 
 /** First name for "اللهم بارك في …" (keeps compound names like عبد الله together). */
@@ -207,15 +244,29 @@ export function duaText(kind: DuaKind, template: Template, name: string): { shor
   return { short: d.short, long: long.replace("{first}", firstName(name)) };
 }
 
-/** Best guess from the name; staff can always change it. */
+/** Picks the prayer from the dedication text using clear words only (المرحوم، أم، فاعل خير ...).
+ * sure=false means gender or living/deceased is not clear: a neutral prayer is used and staff confirm.
+ * The same rules run on the server for automatic drafts (backend/app/services/prayers.py). */
+export function classifyDua(text: string): { kind: DuaKind; sure: boolean } {
+  const n = (text || "").replace(/[\u064B-\u0652]/g, "").replace(/\s+/g, " ").trim();
+  const F = "(?:والدتي|امي|أمي|جدتي|زوجتي|ابنتي|بنتي|اختي|أختي|خالتي|عمتي)";
+  const M = "(?:ابي|أبي|جدي|زوجي|ابني|اخي|أخي|خالي|عمي)";
+  if (!n) return { kind: "neutral", sure: false };
+  if (/^فاعلة (ال)?خير/.test(n)) return { kind: "anon_f", sure: true };
+  if (/^فاعل (ال)?خير/.test(n)) return { kind: "anon_m", sure: true };
+  if (/أرواح|ارواح|موتانا|موتى|المرحومين|المرحومون|الأموات|الاموات|المتوفين|رحمهم الله|روح والدي(ه|ها|نا|ّ)/.test(n)) return { kind: "dead_group", sure: true };
+  if (new RegExp(`المرحومة|المرحومه|المغفور لها|الفقيدة|المتوفاة|رحمها الله|روح ${F}`).test(n)) return { kind: "dead_f", sure: true };
+  if (new RegExp(`المرحوم|المغفور له|الفقيد|المتوفى|رحمه الله|روح ${M}`).test(n)) return { kind: "dead_m", sure: true };
+  if (/روح|وفاة|متوفى|متوفي/.test(n)) return { kind: "dead_neutral", sure: false };
+  if (/عائلة|عائله|أسرة|اسرة|^آل |والديه|والديها|والدينا|وأولاده|واولاده|وأهله|واهله|وأهلها|واهلها/.test(n)) return { kind: "living_group", sure: true };
+  if (new RegExp(`^(أم|ام|السيدة|الحاجة|الأخت|الاخت|الآنسة|الانسة|الدكتورة|المهندسة|الطفلة|المولودة) |${F}`).test(n)) return { kind: "living_f", sure: true };
+  if (new RegExp(`^(أبو|ابو|السيد|الحاج|الأخ|الاخ|الدكتور|المهندس|الطفل|المولود|الشيخ) |${M}`).test(n)) return { kind: "living_m", sure: true };
+  return { kind: "neutral", sure: false };
+}
+
+/** Older callers: the kind only. */
 export function guessDua(name: string): DuaKind {
-  const n = name.replace(/\s+/g, " ").trim();
-  if (/المرحومين|المرحومون|أرواح|ارواح/.test(n)) return "dead_group";
-  if (/المرحومة|المرحومه|المغفور لها|الفقيدة/.test(n)) return "dead_f";
-  if (/المرحوم|المغفور له|الفقيد/.test(n)) return "dead_m";
-  if (/عائلة|عائله|أسرة|اسرة|^آل |والديه|والديها|والدي/.test(n)) return "living_group";
-  if (/^فاعلة|^السيدة|^الأخت|^الاخت|^الحاجة|^أم /.test(n)) return "living_f";
-  return "living_m";
+  return classifyDua(name).kind;
 }
 
 export const MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
@@ -230,14 +281,14 @@ const FOOTER = { footer_site: "HayahFoundation.com", footer_org: "تنفيذ م�
 export function defaultDesign(p?: { well_id?: number | string; well_type?: string | null; customer_name?: string | null; dedication?: string | null;
   country?: string | null; contractor?: { country?: string | null } | null; completion_date?: string | null; delivery_date?: string | null; order_date?: string | null }): WellDesign {
   const name = (p?.dedication || p?.customer_name || "فاعل خير").trim();
-  const kind = guessDua(name);
+  const { kind, sure } = classifyDua(name);
   const wt = plaqueTypeLabel(p?.well_type);
   return {
     template: "hayah_square", size: "digital",
     well_id: p?.well_id ? String(p.well_id) : "",
     well_type: wt,
     month: monthLabel(p?.completion_date || p?.delivery_date || p?.order_date),
-    name, dua_kind: kind, short_dua: DUAS[kind].short, dua: DUAS[kind].long,
+    name, dua_kind: kind, dua_sure: sure, short_dua: DUAS[kind].short, dua: DUAS[kind].long,
     flag: flagFor(p?.country || p?.contractor?.country), icon: iconFor(wt), icon_side: "left",
     bismillah: "بسم الله الرحمن الرحيم",
     verse: "﴿وَجَعَلْنَا مِنَ الْمَاءِ كُلَّ شَيْءٍ حَيٍّ﴾",
@@ -284,7 +335,8 @@ export function applyOccasion(d: SacrificeDesign, occ: Occasion, animal = d.anim
   const o = OCCASIONS[occ];
   const kind: DuaKind = o.dua || (d.dua_kind.startsWith("aqiqa") ? guessDua(d.name) : d.dua_kind);
   const dua = duaText(kind, "sacrifice_portrait", d.name);
-  const sadaqaShort = occ === "sadaqa" ? dua.short : "";
+  // Hayah's rule (19 Nov 2026): the name stands on its own line and the prayer follows; no extra line.
+  const sadaqaShort = "";
   return { ...d, occasion: occ, animal, header1: o.header1, quote: o.quote, reference: o.reference,
            title: o.title.replace("{animal}", animal), subtitle: o.subtitle, dua_kind: kind, dua: dua.long, short_dua: sadaqaShort };
 }
@@ -293,11 +345,12 @@ export function defaultSacrificeDesign(s?: { sacrifice_no?: number | string; don
   animal_type?: string | null; intention?: string | null; extras?: string | null; order_date?: string | null; delivery_date?: string | null;
   contractor_country?: string | null }): SacrificeDesign {
   const name = (s?.dedication || s?.donor_name || "فاعل خير").trim();
+  const cls = classifyDua(name);
   const flag = flagFor(s?.contractor_country);
   const base: SacrificeDesign = {
     template: "sacrifice_portrait", size: "digital", sacrifice_no: s?.sacrifice_no ? String(s.sacrifice_no) : "",
     number_label: "ذبيحة رقم", month: monthLabel(s?.delivery_date || s?.order_date), name,
-    dua_kind: guessDua(name), short_dua: "", dua: "", flag, country_label: flagArabic(flag),
+    dua_kind: cls.kind, dua_sure: cls.sure, short_dua: "", dua: "", flag, country_label: flagArabic(flag),
     occasion: "sadaqa", animal: animalFor(s?.animal_type), header1: "", quote: "", reference: "", title: "", subtitle: "",
     footer_site: "Hayah Foundation", footer_org: FOOTER.footer_org, name_color: "#c4161c", name_font: "Cairo",
   };
@@ -318,21 +371,17 @@ export function loadImage(src: string): Promise<HTMLImageElement | null> {
   return imgCache.get(src)!;
 }
 
-let fontsReady: Promise<void> | null = null;
-export function loadFonts(): Promise<void> {
-  if (!fontsReady) {
-    const sample = "بسم الله مشروع رقم HayahFoundation 0123 ﷺ";
-    fontsReady = Promise.all([
-      "600 40px Cairo", "700 40px Cairo", "800 40px Cairo", "900 40px Cairo", "700 40px Amiri",
-      "400 40px 'Noto Naskh Arabic'", "700 40px 'Noto Naskh Arabic'",
-    ].map((f) => document.fonts.load(f, sample).catch(() => []))).then(() => undefined);
-  }
-  return fontsReady;
+/** Loads the template's fixed fonts plus the fonts chosen for the name and prayer. */
+export function loadFonts(d?: Design): Promise<void> {
+  const need: [string, number][] = [["Cairo", 600], ["Cairo", 700], ["Cairo", 800], ["Cairo", 900], ["Amiri", 700],
+    ["Noto Naskh Arabic", 400], ["Noto Naskh Arabic", 700]];
+  if (d) for (const w of ["name", "dua"] as const) { const st = textStyle(d, w); need.push([st.family, st.weight]); }
+  return Promise.all(need.map(([f, w]) => ensureFont(f, w))).then(() => undefined);
 }
 
 export interface Assets { logo: HTMLImageElement | null; flag: HTMLImageElement | null; icon: HTMLImageElement | null; }
 export async function loadAssets(d: Design): Promise<Assets> {
-  await loadFonts();
+  await loadFonts(d);
   const flagSrc = d.flag === "custom" ? d.flag_custom : d.flag ? `/flags/${d.flag}.svg` : undefined;
   let iconSrc: string | undefined;
   if (d.template === "hayah_square") {
@@ -350,7 +399,30 @@ type Ctx = CanvasRenderingContext2D;
 const INK = "#111";
 
 function font(ctx: Ctx, weight: number, size: number, family: string) {
-  ctx.font = `${weight} ${size}px ${family.includes(" ") ? `'${family}'` : family}`;
+  ctx.font = `${weight} ${size}px ${cssFamily(family)}`;
+}
+
+/** x position and canvas alignment for a line inside [left, right]. */
+function place(ctx: Ctx, align: Align, left: number, right: number): number {
+  ctx.textAlign = align;
+  return align === "center" ? (left + right) / 2 : align === "right" ? right : left;
+}
+
+/** Largest size from min to max at which one line fits the box, and the baseline that puts its
+ * ink exactly in the middle of the box (measured, so it holds for every font). */
+function fitBox(ctx: Ctx, text: string, weight: number, family: string, w: number, h: number, max: number, min: number) {
+  let lo = min, hi = max;
+  const fits = (s: number) => {
+    font(ctx, weight, s, family);
+    const m = ctx.measureText(text);
+    return m.width <= w && (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) <= h;
+  };
+  if (!fits(lo)) hi = lo;
+  while (hi - lo > 0.5) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
+  const size = Math.floor(lo * 2) / 2;
+  font(ctx, weight, size, family);
+  const m = ctx.measureText(text);
+  return { size, dy: (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2 };
 }
 
 /** Shrinks the font until the text fits maxW; returns the size used. */
@@ -448,26 +520,36 @@ function drawWell(ctx: Ctx, d: WellDesign, a: Assets) {
   const monW = Math.max(200, ctx.measureText(d.month).width + 60), monX = 18;
   pill(ctx, monX, rowY, monW, rowH, INK);
   ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(d.month, monX + monW / 2, mid);
+  // The text between the month and the project number grows when short and shrinks when long,
+  // and is always centred in that space, across and down (Hayah's rule, 19 Nov 2026).
   const midTxt = [d.well_type, d.sadaqa_label].filter(Boolean).join("  ");
-  const room = projX - (monX + monW) - 24;
-  ctx.fillStyle = INK; ctx.textAlign = "right"; fit(ctx, midTxt, 800, 34, "Cairo", room, 18);
-  ctx.fillText(midTxt, projX - 10, mid);
+  const boxL = monX + monW + 12, boxR = projX - 12;
+  if (midTxt) {
+    const fb = fitBox(ctx, midTxt, 800, "Cairo", boxR - boxL - 8, rowH - 8, 52, 14);
+    ctx.fillStyle = INK; ctx.textAlign = "center";
+    ctx.fillText(midTxt, (boxL + boxR) / 2, rowY + rowH / 2 + fb.dy);
+  }
 
   // Donor / dedication name: one big line when it fits, two lines for long names
-  ctx.textAlign = "center"; ctx.fillStyle = d.name_color;
-  const nameWeight = d.name_font === "Cairo" ? 900 : 700;
+  ctx.fillStyle = d.name_color;
+  const ns = textStyle(d, "name");
+  const nameWeight = ns.weight;
   const boxTop = 330, boxH = 175, maxNameW = 960;
-  let nSize = fit(ctx, d.name, nameWeight, d.name_font === "Cairo" ? 170 : 190, d.name_font, maxNameW, 40);
+  const nMax = Math.round((ns.family === "Cairo" ? 170 : 190) * ns.k);
+  let nSize = fit(ctx, d.name, nameWeight, nMax, ns.family, maxNameW, 40);
   let nLines = [d.name];
   if (nSize < 110 && d.name.trim().includes(" ")) {
-    for (nSize = 110; nSize >= 36; nSize -= 4) {
-      font(ctx, nameWeight, nSize, d.name_font);
+    for (nSize = Math.min(110, nMax); nSize >= 36; nSize -= 4) {
+      font(ctx, nameWeight, nSize, ns.family);
       nLines = wrap(ctx, d.name, maxNameW);
-      if (nLines.length <= 2 && nLines.every((l) => ctx.measureText(l).width <= maxNameW) && nLines.length * nSize * 1.15 <= boxH) break;
+      if (nLines.length <= 2 && nLines.every((l) => ctx.measureText(l).width <= maxNameW) && nLines.length * nSize * ns.line <= boxH) break;
     }
   }
-  const nLh = nSize * 1.15, nTop = boxTop + (boxH - nLines.length * nLh) / 2;
-  nLines.forEach((l, i) => ctx.fillText(l, G / 2, nTop + i * nLh + nSize * 0.85));
+  font(ctx, nameWeight, nSize, ns.family);
+  const nLh = nSize * ns.line, nTop = boxTop + (boxH - nLines.length * nLh) / 2;
+  const nx = place(ctx, ns.align, (G - maxNameW) / 2, (G + maxNameW) / 2);
+  nLines.forEach((l, i) => ctx.fillText(l, nx, nTop + i * nLh + nSize * 0.85));
+  ctx.textAlign = "center";
 
   // Well icon (left or right) and the short prayer beside it
   const right = d.icon_side === "right";
@@ -477,14 +559,17 @@ function drawWell(ctx: Ctx, d: WellDesign, a: Assets) {
 
   // Prayer paragraph, shrunk until it fits between y 668 and 935
   const top = 668, bottom = 935, maxW = 990;
-  let size = 44, lines: string[] = [], lh = 0;
-  for (; size >= 22; size -= 2) {
-    font(ctx, 400, size, "Noto Naskh Arabic");
-    lines = wrap(ctx, d.dua, maxW); lh = size * 1.48;
-    if (lines.length * lh <= bottom - top) break;
+  const ds = textStyle(d, "dua");
+  let size = Math.round(44 * ds.k), lines: string[] = [], lh = 0;
+  for (; size >= 18; size -= 2) {
+    font(ctx, ds.weight, size, ds.family);
+    lines = wrap(ctx, d.dua, maxW); lh = size * ds.line;
+    if (lines.length * lh <= bottom - top && lines.every((l) => ctx.measureText(l).width <= maxW)) break;
   }
   const startY = top + (bottom - top - lines.length * lh) / 2 + size * 1.05;
-  lines.forEach((l, i) => ctx.fillText(l, G / 2, startY + i * lh));
+  const dx = place(ctx, ds.align, (G - maxW) / 2, (G + maxW) / 2);
+  lines.forEach((l, i) => ctx.fillText(l, dx, startY + i * lh));
+  ctx.textAlign = "center";
 
   // Separator and footer
   ctx.strokeStyle = "#999"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(60, 950); ctx.lineTo(1030, 950); ctx.stroke();
@@ -541,27 +626,29 @@ function drawSacrifice(ctx: Ctx, d: SacrificeDesign, a: Assets) {
   // Body: title, red subtitle, red name, short prayer, prayer paragraph. Shrinks to fit.
   ctx.textAlign = "center";
   const top = 450, bottom = 1375, maxW = 930;
-  const nameWeight = d.name_font === "Cairo" ? 900 : 700;
+  const ns = textStyle(d, "name"), ds = textStyle(d, "dua");
   for (let k = 1; k >= 0.6; k -= 0.05) {
-    const parts: { lines: string[]; size: number; weight: number; family: string; color: string; lh: number; gapAfter: number }[] = [];
-    const add = (text: string, weight: number, size: number, family: string, color: string, maxLines: number, lhK: number, gapAfter: number, min = 26) => {
+    const parts: { lines: string[]; size: number; weight: number; family: string; color: string; lh: number; gapAfter: number; align: Align }[] = [];
+    const add = (text: string, weight: number, size: number, family: string, color: string, maxLines: number, lhK: number, gapAfter: number, min = 26, align: Align = "center") => {
       if (!text.trim()) return;
       const f = fitLines(ctx, text, weight, Math.round(size * k), family, maxW, maxLines, Math.round(min * k));
-      parts.push({ lines: f.lines, size: f.size, weight, family, color, lh: f.size * lhK, gapAfter });
+      parts.push({ lines: f.lines, size: f.size, weight, family, color, lh: f.size * lhK, gapAfter, align });
     };
     add(d.title, 900, 80, "Cairo", INK, 2, 1.3, 6);
     add(d.subtitle, 900, 80, "Cairo", d.name_color, 1, 1.3, 4);
-    add(d.name, nameWeight, d.name.trim().length <= 8 ? 190 : 140, d.name_font, d.name_color, 2, 1.18, 18, 40);
+    add(d.name, ns.weight, Math.round((d.name.trim().length <= 8 ? 190 : 140) * ns.k), ns.family, d.name_color, 2, ns.line, 18, 40, ns.align);
     add(d.short_dua, 800, 66, "Cairo", INK, 1, 1.35, 16);
-    add(d.dua, 700, 60, "Cairo", INK, 9, 1.5, 0, 24);
+    add(d.dua, ds.weight, Math.round(60 * ds.k), ds.family, INK, 9, ds.line, 0, 20, ds.align);
     const h = parts.reduce((s, p) => s + p.lines.length * p.lh + p.gapAfter, 0);
     if (h <= bottom - top || k <= 0.61) {
       let yy = top + Math.max(0, (bottom - top - h) / 2) * 0.6;
       for (const p of parts) {
         ctx.fillStyle = p.color; font(ctx, p.weight, p.size, p.family);
-        p.lines.forEach((l) => { ctx.fillText(l, cx, yy + p.lh * 0.78); yy += p.lh; });
+        const px = place(ctx, p.align, cx - maxW / 2, cx + maxW / 2);
+        p.lines.forEach((l) => { ctx.fillText(l, px, yy + p.lh * 0.78); yy += p.lh; });
         yy += p.gapAfter;
       }
+      ctx.textAlign = "center";
       break;
     }
   }

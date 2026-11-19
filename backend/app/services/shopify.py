@@ -553,7 +553,7 @@ def _create_unit(db: Session, row: ShopifyOrder, o: dict, x: dict, cfg: dict, pa
     item.title, item.kind, item.amount, item.match = li["title"][:300], x["kind"], x["amount"], match
     if x["kind"] == "well":
         data = {"well_id": _next_well_id(db, cfg), "order_date": day, "customer_name": (f["donor"] or "")[:200] or None,
-                "customer_phone": f["phone"], "country": f["country"], "well_type": well_type(f["title"]), "sales_source": src,
+                "customer_phone": f["phone"], "_phone_hints": [o.get("phone")], "country": f["country"], "well_type": well_type(f["title"]), "sales_source": src,
                 "sale_amount": x["amount"], "currency": o["currency"][:3], "payment_method": "Shopify",
                 "payment_status": PaymentStatus.paid if paid else PaymentStatus.unpaid,
                 "extras": extras, "shopify_order": o["name"][:60], "dedication": f["dedication"], "notes": notes}
@@ -563,6 +563,7 @@ def _create_unit(db: Session, row: ShopifyOrder, o: dict, x: dict, cfg: dict, pa
     else:
         data = {"sacrifice_no": _next_sacrifice_no(db, cfg), "order_date": day, "donor_name": (f["donor"] or "")[:200] or None,
                 "animal_type": animal_type(f["title"]), "sale_price": x["amount"],
+                "customer_phone": f["phone"], "_phone_hints": [o.get("phone")],
                 "currency": o["currency"][:3], "payment_method": "Shopify", "extras": extras, "sales_source": src,
                 "shopify_order": o["name"][:60], "intention": f["intention"],
                 "dedication": f["dedication"], "notes": "\n".join(filter(None, [notes, f"Phone: {f['phone']}" if f["phone"] else None]))}

@@ -137,7 +137,7 @@ def list_plaques(db: Session, project: Project, project_ids: list[int]) -> list[
 # Sacrifices have no media table link, so the PNG goes straight to Drive under
 # Plaques/Sacrifices/<No>/ and the design is kept in the audit log (action plaque.saved).
 def sacrifice_plaque_data(db: Session, no: int) -> dict:
-    """Only what a plaque needs. Never cost or price, so Team members can use it."""
+    """Only what a plaque needs. Never cost or price, so Employees can use it."""
     from app.models import Contractor, Sacrifice
     s = db.scalar(select(Sacrifice).where(Sacrifice.sacrifice_no == no))
     if not s:

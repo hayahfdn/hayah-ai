@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { bookAr, bookEn } from "./i18n-book";
 import { shopifyAr, shopifyEn } from "./i18n-shopify";
 import { uiAr, uiEn } from "./i18n-ui";
+import { opsAr, opsEn } from "./i18n-ops";
 
 export type Lang = "ar" | "en";
 
@@ -78,7 +79,7 @@ const en: Record<string, string> = {
   backend: "Mode", mock: "Offline test mode", configured: "Configured", not_configured: "Not configured",
   language: "العربية",
   role_super_admin: "Super Admin", role_operations_manager: "Operations Manager", role_contractor: "Contractor",
-  role_maintenance: "Maintenance Team", role_viewer: "Viewer", role_staff: "Team member (no costs)",
+  role_maintenance: "Maintenance Team", role_viewer: "Viewer", role_staff: "Employee",
   st_new_order: "New order", st_scheduled: "Scheduled", st_in_progress: "In progress", st_completed: "Completed",
   st_on_hold: "On hold", st_cancelled: "Cancelled", st_not_ready: "Not ready", st_pending: "Pending", st_delivered: "Delivered",
   st_none: "None", st_raw_received: "Raw footage received", st_processing: "Processing", st_in_review: "In review",
@@ -167,7 +168,7 @@ const ar: Record<string, string> = {
   by: "بواسطة", time: "الوقت", backend: "الوضع", mock: "وضع الاختبار دون اتصال", configured: "مُعد", not_configured: "غير مُعد",
   language: "English",
   role_super_admin: "مدير عام", role_operations_manager: "مدير العمليات", role_contractor: "مقاول",
-  role_maintenance: "فريق الصيانة", role_viewer: "مشاهد", role_staff: "موظف (بدون التكاليف)",
+  role_maintenance: "فريق الصيانة", role_viewer: "مشاهد", role_staff: "موظف",
   st_new_order: "طلب جديد", st_scheduled: "مجدول", st_in_progress: "قيد التنفيذ", st_completed: "مكتمل",
   st_on_hold: "متوقف", st_cancelled: "ملغى", st_not_ready: "غير جاهز", st_pending: "بانتظار", st_delivered: "تم التسليم",
   st_none: "لا يوجد", st_raw_received: "تم استلام الخام", st_processing: "قيد المعالجة", st_in_review: "قيد المراجعة",
@@ -189,6 +190,8 @@ Object.assign(en, shopifyEn);
 Object.assign(ar, shopifyAr);
 Object.assign(en, uiEn);
 Object.assign(ar, uiAr);
+Object.assign(en, opsEn);
+Object.assign(ar, opsAr);
 const dicts = { ar, en };
 type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (k: string) => string; st: (v?: string | null) => string; fmtDate: (d?: string | null) => string; num: (n: any) => string };
 const I18n = createContext<Ctx>(null!);

@@ -9,6 +9,7 @@ import Projects from "./pages/Projects";
 const Sheet = lazy(() => import("./pages/Sheet"));
 const Workbook = lazy(() => import("./book/Workbook"));
 const PromptBar = lazy(() => import("./book/PromptBar"));
+const HelpChat = lazy(() => import("./HelpChat"));
 const PlaqueDesigner = lazy(() => import("./plaque/PlaqueDesigner"));
 const PlaqueLists = lazy(() => import("./pages/PlaqueLists"));
 const Inbox = lazy(() => import("./pages/Inbox"));
@@ -100,6 +101,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         </aside>
         <main className="main">{children}</main>
         {can(...MANAGERS) && <Suspense fallback={null}><PromptBar /></Suspense>}
+        <Suspense fallback={null}><HelpChat /></Suspense>
       </div>
       <BottomBar onMenu={() => setOpen(true)} />
     </NavProvider>

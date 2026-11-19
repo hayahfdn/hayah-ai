@@ -56,6 +56,7 @@ export default function ProjectDetail() {
         {d.notes && <p style={{ whiteSpace: "pre-wrap", marginBottom: 0 }}><span className="muted">{t("notes")}: </span>{d.notes}</p>}
       </div>
       <PlaqueCard p={d} />
+      {can(...EDITORS) && d.customer_phone_e164 && <div className="actions" style={{ marginTop: 10 }}><Link className="btn" to={`/inbox?phone=${encodeURIComponent(d.customer_phone_e164)}`}>🟢 {t("wa_start")}</Link></div>}
       {can(...EDITORS) && <div id="final-video" style={{ marginTop: 14 }}><Suspense fallback={null}><FinalVideoSection kind="well" no={d.well_id} /></Suspense></div>}
       <div className="card" style={{ marginTop: 14 }}>
         <div className="tabs">{["timeline", "media", "maintenance", "deliveries"].map((k) => (

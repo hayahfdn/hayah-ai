@@ -124,6 +124,7 @@ export function SideNav({ counts }: { counts: Record<string, number> }) {
       {manager && partners.length > 0 && <NavPicker title={t("nav_people")} icon="👤" items={partners} />}
       {can(...EDITORS) && <>
         <div className="nav-sec">{t("nav_sec_flow")}</div>
+        {link("/inbox", "nav_inbox", counts.wa_unread, true)}
         {link("/plaques/confirm", "nav_pl_confirm", counts.pl_confirm, true)}
         {link("/plaques/approved", "nav_pl_approved", counts.pl_ready, true)}
         {link("/videos", "nav_videos", counts.vid_ready, true)}
@@ -150,7 +151,7 @@ export function BottomBar({ onMenu }: { onMenu: () => void }) {
   const cur = nav?.current || thisMonth();
   const manager = can(...MANAGERS);
   const loc = useLocation();
-  const plaques = (counts.pl_confirm || 0) + (counts.pl_ready || 0) + (counts.vid_ready || 0);
+  const plaques = (counts.pl_confirm || 0) + (counts.pl_ready || 0) + (counts.vid_ready || 0) + (counts.wa_unread || 0);
   const on = (prefix: string) => (loc.pathname.startsWith(prefix) ? "active" : "");
   return (
     <nav className="bottom-bar" aria-label={t("nav_menu")}>

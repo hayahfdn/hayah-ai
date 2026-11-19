@@ -71,7 +71,7 @@ function FlowCards() {
   const { t, num } = useI18n();
   const { can, ops } = useAuth();
   if (!can(...EDITORS) || !ops.plaques) return null;
-  const p = ops.plaques, v = ops.videos || {}, o = ops.orders || {};
+  const p = ops.plaques, v = ops.videos || {}, o = ops.orders || ({} as Record<string, number>);
   const cards: [string, number, "red" | "orange" | "green", string][] = [
     ["dash_new", o.new || 0, "red", "/projects?construction_status=new_order"],
     ["dash_confirm", (p.draft || 0) + (p.ready_for_review || 0) + (p.needs_changes || 0), "red", "/plaques/confirm"],
@@ -80,6 +80,8 @@ function FlowCards() {
     ["dash_sent_con", p.sent_to_contractor || 0, "green", "/plaques/approved"],
     ["dash_wait_video", v.waiting_upload || 0, "orange", "/videos"],
     ["dash_video_ready", (v.ready_for_delivery || 0) + (v.uploaded || 0), "red", "/videos"],
+    ...(ops.whatsapp?.enabled ? [["wa_unread_msgs", ops.whatsapp.unread_messages || 0, "red", "/inbox"] as [string, number, "red", string],
+      ["wa_waiting_chats", ops.whatsapp.waiting_reply || 0, "orange", "/inbox"] as [string, number, "orange", string]] : []),
   ];
   return <section style={{ marginBottom: 14 }}>
     <div className="flow-head"><h2 style={{ margin: 0 }}>{t("dash_flow")}</h2><span className="muted">{t("dash_legend")}</span></div>

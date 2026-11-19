@@ -56,7 +56,9 @@ def ops_counts(db: Session = Depends(get_db), user: User = Depends(get_current_u
         return {}
     new_orders = db.scalar(select(func.count()).select_from(Project).where(
         Project.merged_into_id.is_(None), Project.is_sample.is_(False), Project.construction_status == ConstructionStatus.new_order))
-    return {"plaques": plaque_flow.counts(db), "videos": final_video.counts(db), "orders": {"new": new_orders or 0}}
+    from app.services import wa_inbox
+    return {"plaques": plaque_flow.counts(db), "videos": final_video.counts(db), "orders": {"new": new_orders or 0},
+            "whatsapp": {**wa_inbox.counts(db), "enabled": wa_inbox.enabled(db)}}
 
 
 @router.get("/dashboard")

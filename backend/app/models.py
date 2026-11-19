@@ -653,3 +653,50 @@ class FinalVideo(Base):
     sent_note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class WaConversation(Base):
+    """One WhatsApp chat with one customer phone number on the business number (Cloud API inbox)."""
+    __tablename__ = "wa_conversations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    wa_id: Mapped[str] = mapped_column(String(32), unique=True)  # digits only, e.g. 962791234567
+    phone_e164: Mapped[str] = mapped_column(String(32), index=True)
+    contact_name: Mapped[str | None] = mapped_column(String(200))  # WhatsApp profile name
+    status: Mapped[str] = mapped_column(String(12), default="open", index=True)  # open | pending | closed
+    assigned_to_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)     # the order this chat is about
+    sacrifice_id: Mapped[int | None] = mapped_column(ForeignKey("sacrifices.id"), index=True)
+    last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    last_inbound_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # starts the 24-hour window
+    last_preview: Mapped[str | None] = mapped_column(String(300))
+    last_direction: Mapped[str | None] = mapped_column(String(3))  # in | out
+    unread: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WaMessage(Base):
+    """A message in a chat. Incoming ones are unique on the WhatsApp id; outgoing ones on client_ref,
+    so a retried send never creates a second message."""
+    __tablename__ = "wa_messages"
+    __table_args__ = (Index("ix_wa_messages_conv_id", "conversation_id", "id"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(ForeignKey("wa_conversations.id"))
+    direction: Mapped[str] = mapped_column(String(3))  # in | out
+    wa_message_id: Mapped[str | None] = mapped_column(String(200), unique=True)
+    client_ref: Mapped[str | None] = mapped_column(String(64), unique=True)
+    type: Mapped[str] = mapped_column(String(20), default="text")  # text image video document audio sticker template location ...
+    text: Mapped[str | None] = mapped_column(Text)
+    media_asset_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id"))
+    media: Mapped[dict] = mapped_column(JSONB, default=dict)  # {wa_media_id, mime_type, filename, size}
+    template: Mapped[dict | None] = mapped_column(JSONB)  # {name, language, params}
+    status: Mapped[str] = mapped_column(String(12), default="received", index=True)  # received queued sent delivered read failed
+    error: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(12), default="cloud_api")  # cloud_api | phone_app (sent from the WhatsApp Business app)
+    sent_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    sent_by_label: Mapped[str | None] = mapped_column(String(200))
+    reply_to_wa_id: Mapped[str | None] = mapped_column(String(200))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)  # when sent / received
+    status_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

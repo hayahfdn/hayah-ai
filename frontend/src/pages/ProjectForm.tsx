@@ -8,10 +8,10 @@ const CONSTRUCTION = ["new_order", "scheduled", "in_progress", "completed", "on_
 const PAYMENT = ["unpaid", "partial", "paid", "refunded"];
 const VIDEO = ["none", "raw_received", "processing", "in_review", "completed"];
 
-export default function ProjectForm({ project, onSaved, onCancel }: { project?: Project; onSaved: (p: Project) => void; onCancel: () => void }) {
+export default function ProjectForm({ project, onSaved, onCancel, prefill }: { project?: Project; onSaved: (p: Project) => void; onCancel: () => void; prefill?: Record<string, string> }) {
   const { t, st } = useI18n();
   const contractors = useApi<Contractor[]>("/api/contractors");
-  const [f, setF] = useState<any>(() => project ? { ...project } : { construction_status: "new_order", payment_status: "unpaid", video_status: "none", currency: "USD" });
+  const [f, setF] = useState<any>(() => project ? { ...project } : { construction_status: "new_order", payment_status: "unpaid", video_status: "none", currency: "USD", ...(prefill || {}) });
   const [check, setCheck] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });

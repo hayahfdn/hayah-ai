@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm.exc import StaleDataError
 
-from app.api import final_videos, assistant, auth, contractors, finance, intake, operations, phones, plaques, projects, system, imports, shopify, undo
+from app.api import final_videos, inbox, assistant, auth, contractors, finance, intake, operations, phones, plaques, projects, system, imports, shopify, undo
 from app.config import get_settings
 from app.integrations.drive.base import DriveError
 from app.integrations.sheets.base import SheetsError
@@ -47,7 +47,7 @@ def create_app() -> FastAPI:
         return JSONResponse({"detail": f"Google Sheets is unavailable. ({exc})"}, status_code=502)
 
     for r in (auth.router, auth.users, contractors.router, projects.router, operations.delivery, operations.maintenance,
-              operations.media, operations.review, intake.router, system.router, final_videos.router, finance.router, finance.sacrifices,
+              operations.media, operations.review, intake.router, system.router, final_videos.router, inbox.router, inbox.settings_router, finance.router, finance.sacrifices,
               assistant.router, imports.router, undo.router, shopify.router, plaques.router, phones.router):
         app.include_router(r)
     return app

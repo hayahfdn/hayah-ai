@@ -115,3 +115,54 @@ The two WhatsApp cards (unread messages, chats waiting for a reply) come with ph
 
 **Storage note.** Videos are stored on the server disk (the `appdata` volume), like the other
 media. The nightly backup copies the database, not the files.
+
+## Phase 4: WhatsApp inbox (official WhatsApp Business Platform, Cloud API)
+
+**Number.** Hayah chose to connect the current WhatsApp Business number with Meta's
+Coexistence onboarding, so the WhatsApp Business app on the phone keeps working. Replies typed on
+the phone arrive as `smb_message_echoes` and show in the same chat as «أُرسلت من الهاتف». The
+team's intake number and its stored messages are unchanged; webhook messages are routed by the
+receiving `phone_number_id`.
+
+**Page «واتساب»** (`/inbox`, employees and managers):
+- chat list with name, number, last message and time, unread count, status, assignee, linked
+  order and a red «اللوحة غير مؤكدة» tag; search by name, number or order number; boxes: all,
+  mine, unassigned, unread, waiting for a reply, follow-up, closed;
+- chat view: full history, new messages every 4 seconds, send text, files from the device
+  (images, PDF, video, documents, audio files), the linked order's plaque and final video;
+  delivery ticks (sent, delivered, read, failed with the reason and «إعادة الإرسال»);
+- orders with the same number are listed; one order is linked automatically, several are picked
+  by the employee; link to any order by number or open a new order with the number filled in;
+- assign, transfer, follow-up, close (a customer writing again reopens the chat). Employees can
+  take unassigned chats or hand over their own; managers can assign any chat;
+- every sent message records who sent it; sending a plaque or final video is written on the
+  order's timeline, and sending the final video marks it «تم إرساله للعميل».
+
+**Meta rules.** Free replies only within 24 hours of the customer's last message; after that the
+chat offers the approved templates (read from the WhatsApp Business Account) with their values.
+Files follow WhatsApp's limits: images 5 MB, video and audio 16 MB, documents 100 MB (a bigger
+final video is sent as a document up to 100 MB). Profile photos are not available through the
+Cloud API, so chats show initials.
+
+**Reliability and security.**
+- Webhook signatures (`X-Hub-Signature-256`) are checked with the app secret; Meta re-sends are
+  stored once (unique WhatsApp id).
+- Each outgoing message carries a `client_ref` made once by the browser: a double click or a
+  retried request never sends twice. A message WhatsApp did not accept because it could not be
+  reached is retried by the worker; a refusal from Meta is shown with its reason.
+- Incoming media is downloaded by the worker into `WhatsApp Inbox/<number>/`. Files are served
+  through 2-hour signed links; programs are refused; only images, audio and video open in the page.
+- Access token, app secret and verify token come from the server environment or are pasted in
+  Settings → WhatsApp (admins), stored encrypted, never sent to the browser.
+
+**To connect (Hayah, in Meta):**
+1. Meta Business Suite / developers.facebook.com: create (or use) a Meta app of type Business with
+   the WhatsApp product, and onboard the current number with the "WhatsApp Business app"
+   (Coexistence) option. The phone must run a recent WhatsApp Business app version.
+2. Create a system user with a permanent access token (permissions `whatsapp_business_messaging`,
+   `whatsapp_business_management`).
+3. In the app's WhatsApp → Configuration, set the webhook URL `https://<site>/webhooks/whatsapp`,
+   the verify token, and subscribe to `messages` and `smb_message_echoes`.
+4. In HAYAH Settings → WhatsApp: phone number ID, WhatsApp Business Account ID, the token, the app
+   secret and the verify token; then «اختبار الاتصال».
+5. Create the message templates you want for messages after 24 hours (Meta approves them).

@@ -1,3 +1,4 @@
+import hmac
 import json
 import uuid
 
@@ -12,6 +13,7 @@ from app.deps import FIELD_WRITERS, MANAGERS, require_roles
 from app.integrations.whatsapp import parse_webhook, verify_signature
 from app.models import InboundMessage, User, utcnow
 from app.schemas import ManualMessageIn
+from app.services import wa_inbox
 from app.services.intake import process_message, store_inbound
 
 router = APIRouter(tags=["intake"])
@@ -19,9 +21,9 @@ router = APIRouter(tags=["intake"])
 
 @router.get("/webhooks/whatsapp", response_class=PlainTextResponse)
 def verify(hub_mode: str = Query(None, alias="hub.mode"), hub_verify_token: str = Query(None, alias="hub.verify_token"),
-           hub_challenge: str = Query(None, alias="hub.challenge")):
-    s = get_settings()
-    if hub_mode == "subscribe" and s.whatsapp_verify_token and hub_verify_token == s.whatsapp_verify_token:
+           hub_challenge: str = Query(None, alias="hub.challenge"), db: Session = Depends(get_db)):
+    expected = wa_inbox.verify_token(db)
+    if hub_mode == "subscribe" and expected and hmac.compare_digest(hub_verify_token or "", expected):
         return hub_challenge or ""
     raise HTTPException(403, "Verification failed")
 
@@ -32,8 +34,9 @@ async def receive(request: Request, db: Session = Depends(get_db)):
     body = await request.body()
     if len(body) > 2 * 1024 * 1024:
         raise HTTPException(413, "Payload too large")
-    if s.whatsapp_app_secret:
-        if not verify_signature(body, request.headers.get("X-Hub-Signature-256"), s.whatsapp_app_secret):
+    secret = wa_inbox.app_secret(db)
+    if secret:
+        if not verify_signature(body, request.headers.get("X-Hub-Signature-256"), secret):
             raise HTTPException(401, "Bad signature")
     elif s.env == "production":
         raise HTTPException(503, "Webhook secret not configured")
@@ -42,7 +45,10 @@ async def receive(request: Request, db: Session = Depends(get_db)):
     except ValueError:
         raise HTTPException(400, "Invalid JSON")
     stored = 0
+    taken = wa_inbox.handle_webhook(db, payload)  # customer chats on the business number (inbox)
     for m in parse_webhook(payload):
+        if m["external_id"] in taken:
+            continue
         _, created = store_inbound(db, m)
         stored += created
     db.commit()

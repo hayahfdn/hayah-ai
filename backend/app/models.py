@@ -164,6 +164,7 @@ class Project(Base):
     village: Mapped[str | None] = mapped_column(String(120))
     well_type: Mapped[str | None] = mapped_column(String(80))
     sales_source: Mapped[str | None] = mapped_column(String(120))
+    source_group: Mapped[str | None] = mapped_column(String(40), index=True)  # unified source (app/services/sales_sources.py)
     contractor_id: Mapped[int | None] = mapped_column(ForeignKey("contractors.id"), index=True)
     sale_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))  # what the contractor charges for this well
@@ -452,6 +453,7 @@ class Sacrifice(Base):
     payment_method: Mapped[str | None] = mapped_column(String(60))
     extras: Mapped[str | None] = mapped_column(String(200))
     sales_source: Mapped[str | None] = mapped_column(String(120))
+    source_group: Mapped[str | None] = mapped_column(String(40), index=True)  # unified source (app/services/sales_sources.py)
     shopify_order: Mapped[str | None] = mapped_column(String(60))
     intention: Mapped[str | None] = mapped_column(String(120))  # صدقة / عقيقة / بنية الشفاء ...
     dedication: Mapped[str | None] = mapped_column(Text)  # الإهداء

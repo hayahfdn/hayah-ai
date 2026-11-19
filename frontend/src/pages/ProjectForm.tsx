@@ -61,7 +61,10 @@ export default function ProjectForm({ project, onSaved, onCancel, prefill }: { p
           onPhone={(v) => setF({ ...f, customer_phone: v })} onCountry={(v) => setF({ ...f, customer_phone_country: v })} />
         <Field label={t("well_type")}><select value={f.well_type ?? ""} onChange={set("well_type")}><option value="">—</option>
           {typeOpts.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
-        {text("sales_source")}
+        <Field label={t("sales_source")} hint={f.sales_source && f.sales_source !== f.source_group ? `${t("src_original")}: ${f.sales_source}` : undefined}>
+          <select value={(lists.data?.sales_sources || []).includes(f.sales_source) ? f.sales_source : (f.source_group ?? "")}
+            onChange={(e) => setF({ ...f, sales_source: e.target.value, source_group: e.target.value })}>
+            <option value="">—</option>{(lists.data?.sales_sources || []).map((s) => <option key={s} value={s}>{s}</option>)}</select></Field>
         <Field label={t("contractor")}><select value={f.contractor_id ?? ""} onChange={set("contractor_id")}><option value="">—</option>
           {(contractors.data || []).map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select></Field>
         {text("sale_amount", { type: "number", min: 0, step: "0.01", className: "num" })}{text("currency", { maxLength: 3 })}

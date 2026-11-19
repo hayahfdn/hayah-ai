@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import app.services.intake  # noqa: F401  (registers handlers)
 import app.services.sheets_sync  # noqa: F401
 import app.services.shopify  # noqa: F401
+import app.services.sales_sources  # noqa: F401  (keeps the unified source current)
 import app.services.wa_inbox  # noqa: F401  (WhatsApp inbox: media download, send retries)
 from app.db import SessionLocal
 from app.services.audit import audit

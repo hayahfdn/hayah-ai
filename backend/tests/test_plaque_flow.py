@@ -76,9 +76,16 @@ def test_full_path_to_contractor(client, seeded, mocks):
     r = client.post(f"/api/plaques/{pid}/status", headers=staff, json={"to": "customer_approved"}).json()
     # customer approval moves it straight to the approved section
     assert r["status"] == "approved_for_contractor" and r["file_version_id"]
+    mgr = login(client, "manager@hayah.local")
     c = client.get("/api/plaques/counts", headers=staff).json()
-    assert c["needs_confirmation"] == 0 and c["ready_for_contractor"] == 1
-    assert [x["id"] for x in client.get("/api/plaques?group=approved", headers=staff).json()] == [pid]
+    assert c["needs_confirmation"] == 0 and c["ready_for_contractor"] == 0  # the manager's step: not counted for employees
+    assert client.get("/api/plaques/counts", headers=mgr).json()["ready_for_contractor"] == 1
+    assert client.get("/api/plaques?group=approved", headers=staff).status_code == 403
+    assert [x["id"] for x in client.get("/api/plaques?group=approved", headers=mgr).json()] == [pid]
+    # employees: out of their lists and search, but still open by number; managers see it everywhere
+    assert 7002 not in [p["well_id"] for p in client.get("/api/projects", headers=staff, params={"page_size": 500}).json()["items"]]
+    assert 7002 not in [p["well_id"] for p in client.get("/api/projects", headers=staff, params={"q": "7002"}).json()["items"]]
+    assert 7002 in [p["well_id"] for p in client.get("/api/projects", headers=mgr, params={"page_size": 500}).json()["items"]]
     p = client.get("/api/projects/7002", headers=staff).json()
     assert p["plaque_status"] == "approved" and p["plaque_media_id"]
     # download one and several
@@ -88,12 +95,16 @@ def test_full_path_to_contractor(client, seeded, mocks):
     assert len(zipfile.ZipFile(io.BytesIO(z.content)).namelist()) == 1
     # stays in the list until sending is recorded; needs a contractor and country
     cons = client.get("/api/contractors", headers=staff).json()
-    assert client.post(f"/api/plaques/{pid}/send-to-contractor", headers=staff, json={"contractor_id": 999999}).status_code == 422
-    r = client.post(f"/api/plaques/{pid}/send-to-contractor", headers=staff,
+    assert client.post(f"/api/plaques/{pid}/send-to-contractor", headers=staff, json={"contractor_id": cons[0]["id"]}).status_code == 403
+    assert client.post(f"/api/plaques/{pid}/send-to-contractor", headers=mgr, json={"contractor_id": 999999}).status_code == 422
+    r = client.post(f"/api/plaques/{pid}/send-to-contractor", headers=mgr,
                     json={"contractor_id": cons[0]["id"], "country": "Pakistan", "sent_on": "2026-11-19"}).json()
     assert r["status"] == "sent_to_contractor" and r["contractor"]["id"] == cons[0]["id"] and r["sent_to_contractor_on"] == "2026-11-19"
     assert client.get("/api/plaques/counts", headers=staff).json()["ready_for_contractor"] == 0
     assert client.get("/api/projects/7002", headers=staff).json()["contractor_id"] == cons[0]["id"]
+    # once sent and assigned, the employee sees it again (lists and the contractor's page)
+    assert 7002 in [p["well_id"] for p in client.get("/api/projects", headers=staff, params={"contractor_id": cons[0]["id"]}).json()["items"]]
+    assert 7002 in [p["well_id"] for p in client.get("/api/projects", headers=staff, params={"page_size": 500}).json()["items"]]
     # every step is on the order's timeline
     events = [e["event_type"] for e in client.get("/api/projects/7002/history", headers=staff).json()["events"]]
     assert "plaque_draft_created" in events and "plaque_sent_to_contractor" in events and events.count("plaque_status") >= 5

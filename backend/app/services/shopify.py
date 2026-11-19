@@ -68,6 +68,12 @@ DEFAULTS = {
     "addon_keywords": ["إضافة", "اضافة", "سيراميك", "خزان", "دلو", "إطعام", "اطعام",
                        "ceramic", "tank", "bucket", "feeding", "add-on"],
     "sacrifice_addon_keywords": ["إطعام", "اطعام", "feeding"],
+    # Add-ons that are projects of their own: e.g. the 99 USD sheep bought with a well becomes a normal
+    # sacrifice (own number, plaque, video) linked to the same Shopify order. Matched by the Shopify
+    # product ID first, then by the exact product title. More products can be added here later.
+    "standalone_addons": [{"product_ids": [15429437489372], "titles": ["خروف", "Sheep", "Lamb"],
+                           "kind": "sacrifice", "intention": "صدقة", "animal": "خروف"}],
+    "standalone_from_order": 1225,  # orders before this number keep the old behaviour (Hayah, 2026-11-19)
 }
 WELL_TYPES = [("شمسي", ["شمسي", "شمسية", "solar"]), ("عميق", ["عميق", "deep"]),
               ("متوسط", ["متوسط", "medium"]), ("يدوي", ["يدوي", "يدوية", "hand"])]
@@ -181,6 +187,7 @@ ORDERS_QUERY = """query($first: Int!, $after: String, $q: String) {
       currentTotalPriceSet { shopMoney { amount currencyCode } }
       billingAddress { name phone }
       lineItems(first: 50) { nodes { id title variantTitle quantity
+        product { id }
         customAttributes { key value }
         originalUnitPriceSet { shopMoney { amount } }
         discountAllocations { allocatedAmountSet { shopMoney { amount } } } } } } } }"""
@@ -196,7 +203,8 @@ def orders_page(db: Session, query: str, variables: dict) -> dict:
         if "access denied" not in str(exc).lower():
             raise
         log.warning("shopify: customer fields blocked, using the order-only query (%s)", exc)
-    small = query.replace("note phone\n", "note\n").replace("      billingAddress { name phone }\n", "")
+    # (also without the product ID, in case the app lacks read_products: add-ons then match by title)
+    small = query.replace("note phone\n", "note\n").replace("      billingAddress { name phone }\n", "").replace("        product { id }\n", "")
     return gql(db, small, variables)["orders"]
 
 
@@ -230,6 +238,14 @@ def sync_now(db: Session, *, full: bool = False, max_pages: int = 20) -> dict:
         if not page["pageInfo"]["hasNextPage"]:
             break
         after = page["pageInfo"]["endCursor"]
+    try:
+        split = split_imported_addons(db)
+        if split:
+            counts["addons_split"] = split
+        db.commit()
+    except Exception:  # never let this stop the sync itself
+        db.rollback()
+        log.exception("shopify: splitting imported add-ons failed")
     _state(db, last_sync_at=started.isoformat(), last_sync_result=counts)
     db.commit()
     return counts
@@ -258,7 +274,7 @@ def slim_rest(o: dict) -> dict:
     return {**{k: o.get(k) for k in keep},
             "customer": {"first_name": cust.get("first_name"), "last_name": cust.get("last_name"), "phone": cust.get("phone")},
             "billing_address": {"name": bill.get("name"), "phone": bill.get("phone")},
-            "line_items": [{k: li.get(k) for k in ("id", "title", "variant_title", "quantity", "price",
+            "line_items": [{k: li.get(k) for k in ("id", "product_id", "title", "variant_title", "quantity", "price",
                                                     "discount_allocations", "properties")}
                            for li in o.get("line_items") or []]}
 
@@ -272,7 +288,8 @@ def normalize_rest(o: dict) -> dict:
         disc = sum((_money(d.get("amount")) for d in li.get("discount_allocations") or []), Decimal(0))
         lines.append({"id": int(li["id"]), "title": li.get("title") or "", "variant_title": li.get("variant_title"),
                       "quantity": int(li.get("quantity") or 1), "unit_price": _money(li.get("price")),
-                      "discount": disc, "props": _attrs(li.get("properties"))})
+                      "discount": disc, "props": _attrs(li.get("properties")),
+                      "product_id": int(li["product_id"]) if li.get("product_id") else None})
     return {"id": int(o["id"]), "name": o.get("name") or f"#{o.get('order_number')}",
             "created_at": o.get("created_at"), "financial_status": (o.get("financial_status") or "").lower(),
             "cancelled": bool(o.get("cancelled_at")), "total": _money(o.get("current_total_price") or o.get("total_price")),
@@ -300,7 +317,8 @@ def normalize_graphql(n: dict) -> dict:
         lines.append({"id": api.gid_number(li["id"]), "title": li.get("title") or "", "variant_title": li.get("variantTitle"),
                       "quantity": int(li.get("quantity") or 1),
                       "unit_price": _money(li["originalUnitPriceSet"]["shopMoney"]["amount"]),
-                      "discount": disc, "props": _attrs(li.get("customAttributes"), "key")})
+                      "discount": disc, "props": _attrs(li.get("customAttributes"), "key"),
+                      "product_id": api.gid_number(li["product"]["id"]) if (li.get("product") or {}).get("id") else None})
     money = (n.get("currentTotalPriceSet") or {}).get("shopMoney") or {}
     attrs = _attrs(n.get("customAttributes"), "key")
     return {"id": api.gid_number(n["id"]), "name": n["name"], "created_at": n.get("createdAt"),
@@ -362,14 +380,30 @@ def country(value: str | None, known: list[str]) -> str | None:
     return COUNTRY_AR.get(v)
 
 
+ORGANIC_MEDIUMS = {"", "social", "bio", "link_in_bio", "profile", "organic", "story", "post"}
+
+
 def sales_source(o: dict) -> str:
-    src = (o["attrs"].get("utm_source") or "").strip()
-    if "{{" in src:
-        src = ""
-    if not src and o.get("referrer"):
+    """The order's source as received, e.g. "Shopify (Instagram)" or "Shopify (Insta Ads · Gulf - Reels)".
+    Insta Ads: an Instagram visit that came from an ad (a campaign name, or Meta's unfilled {{...}} ad template);
+    the bio link (utm_content link_in_bio, medium social) is plain Instagram (Hayah, 2026-11-19).
+    The unified group used by reports is worked out from this text (app/services/sales_sources.py)."""
+    a = o["attrs"]
+    src = (a.get("utm_source") or "").strip()
+    medium = (a.get("utm_medium") or "").strip()
+    template = "{{" in src
+    if template:
+        src, medium = "", ""
+    host = ""
+    if o.get("referrer"):
         host = urlparse(o["referrer"] if "//" in o["referrer"] else "//" + o["referrer"]).hostname or ""
-        src = host.removeprefix("www.").removeprefix("l.").removeprefix("m.").split(".")[0]
-    nice = SOURCES.get(src.lower().split(".")[0], src) if src else ""
+        host = host.removeprefix("www.").removeprefix("l.").removeprefix("m.").split(".")[0]
+    nice = SOURCES.get((src or host).lower().split(".")[0], src or host) if (src or host) else ""
+    if nice == "Instagram" and (template or medium.lower() not in ORGANIC_MEDIUMS
+                                or (a.get("utm_content") or "").lower() not in {"", "link_in_bio"} and medium.lower() != "social"):
+        camp = (a.get("utm_campaign") or "").strip()
+        camp = "" if "{{" in camp else camp
+        return (f"Shopify (Insta Ads · {camp})" if camp else "Shopify (Insta Ads)")[:120]
     return f"Shopify ({nice})"[:120] if nice else "Shopify"
 
 
@@ -502,6 +536,16 @@ def _plan(db: Session, row: ShopifyOrder, o: dict, cfg: dict) -> tuple[list[dict
             units.append({"kind": kind, "line": li, "unit": u, "amount": _net(li), "extras": []})
     problems = []
     have = {(i.line_item_id, i.unit) for i in db.scalars(select(ShopifyOrderItem).where(ShopifyOrderItem.order_id == row.id))}
+    own = [] if _order_number(o["name"]) < int(cfg.get("standalone_from_order") or 0) else \
+        [(li, rule) for li in [li for _, li in addons] if (rule := standalone_rule(li, cfg))]
+    own_ids = {li["id"] for li, _ in own}
+    addons = [(k, li) for k, li in addons if li["id"] not in own_ids]
+    for li, rule in own:  # e.g. a sheep bought with a well: its own sacrifice, details from that well
+        target = (_prop(li["props"], cfg["addon_keys"]) or "").strip()
+        parents = [x for x in units if x["line"]["title"].strip() == target] or [x for x in units if x["kind"] == "well"] or units
+        for u in range(1, li["quantity"] + 1):
+            units.append({"kind": rule["kind"], "line": li, "unit": u, "amount": _net(li), "extras": [],
+                          "parent": parents[(u - 1) % len(parents)] if parents else None, "rule": rule})
     for _, li in addons:
         target = (_prop(li["props"], cfg["addon_keys"]) or li.get("variant_title") or "").strip()
         matches = [x for x in units if x["line"]["title"].strip() == target]
@@ -527,7 +571,28 @@ def _plan(db: Session, row: ShopifyOrder, o: dict, cfg: dict) -> tuple[list[dict
     return units, problems
 
 
+def standalone_rule(li: dict, cfg: dict) -> dict | None:
+    """The rule that makes this add-on line a project of its own, if any (product ID, else exact title)."""
+    if not _prop(li["props"], cfg["addon_keys"]):
+        return None
+    for rule in cfg.get("standalone_addons") or []:
+        if li.get("product_id") and li["product_id"] in (rule.get("product_ids") or []):
+            return rule
+        if li["title"].strip().lower() in {t.strip().lower() for t in rule.get("titles") or []}:
+            return rule
+    return None
+
+
+def _order_number(name: str) -> int:
+    no = _order_no(name)
+    return int(no) if no.isdigit() else 0
+
+
 def _unit_fields(db: Session, o: dict, x: dict, cfg: dict) -> dict:
+    if x.get("parent"):  # an add-on of its own: who it is for comes from the well it was bought with
+        f = _unit_fields(db, o, x["parent"], cfg)
+        return {**f, "intention": (x.get("rule") or {}).get("intention") or f["intention"],
+                "title": f"{x['line']['title']} {x['line'].get('variant_title') or ''}"}
     li, props = x["line"], x["line"]["props"]
     return {"donor": _prop(props, cfg["donor_keys"]) or o.get("customer_name"),
             "phone": (_prop(props, cfg["phone_keys"]) or o.get("phone") or "")[:40] or None,
@@ -545,6 +610,9 @@ def _create_unit(db: Session, row: ShopifyOrder, o: dict, x: dict, cfg: dict, pa
     mapped = {k.lower() for k in cfg["dedication_keys"] + cfg["phone_keys"] + cfg["donor_keys"]
               + cfg["intention_keys"] + cfg["country_keys"]}
     extra_props = [f"{k}: {v}" for k, v in props.items() if not k.startswith("_") and k.lower() not in mapped and v]
+    if x.get("parent"):
+        p_li = x["parent"]["line"]
+        extra_props = [f"Add-on bought with {p_li['title']} in the same order"]
     notes = "\n".join([f"From Shopify order {o['name']}" + (f" ({x['unit']} of {li['quantity']})" if li["quantity"] > 1 else "")]
                       + extra_props + ([f"Order note: {o['note']}"] if o.get("note") else []))
     extras = ", ".join(x["extras"])[:200] or None
@@ -559,10 +627,11 @@ def _create_unit(db: Session, row: ShopifyOrder, o: dict, x: dict, cfg: dict, pa
                 "extras": extras, "shopify_order": o["name"][:60], "dedication": f["dedication"], "notes": notes}
         p = psvc.create_project(db, data, actor=None, source="shopify")
         item.project_id = p.id
+        x["created_project"] = p
         label = f"well {p.well_id}"
     else:
         data = {"sacrifice_no": _next_sacrifice_no(db, cfg), "order_date": day, "donor_name": (f["donor"] or "")[:200] or None,
-                "animal_type": animal_type(f["title"]), "sale_price": x["amount"],
+                "animal_type": (x.get("rule") or {}).get("animal") or animal_type(f["title"]), "sale_price": x["amount"],
                 "customer_phone": f["phone"], "_phone_hints": [o.get("phone")],
                 "currency": o["currency"][:3], "payment_method": "Shopify", "extras": extras, "sales_source": src,
                 "shopify_order": o["name"][:60], "intention": f["intention"],
@@ -570,9 +639,73 @@ def _create_unit(db: Session, row: ShopifyOrder, o: dict, x: dict, cfg: dict, pa
         sac = fin.create_sacrifice(db, data, actor=None, source="shopify")
         item.sacrifice_id = sac.id
         label = f"sacrifice {sac.sacrifice_no}"
+        well = (x.get("parent") or {}).get("created_project")
+        if well is not None:
+            psvc.update_project(db, well, {"notes": ((well.notes or "") + f"\n{li['title']} add-on: sacrifice {sac.sacrifice_no}").strip()},
+                                actor=None, source="shopify")
     db.add(item)
     db.flush()
     return label
+
+
+def split_imported_addons(db: Session) -> list[str]:
+    """Orders imported before the standalone add-on rule (from #standalone_from_order on) whose sheep was
+    folded into the well: create the sacrifice now, take only its price off the well and drop it from the
+    well's extras. Safe to run any number of times (the add-on item is converted, so it runs once)."""
+    cfg = config(db)
+    start = int(cfg.get("standalone_from_order") or 0)
+    done = []
+    rows = db.scalars(select(ShopifyOrder).where(ShopifyOrder.status.in_(["imported", "needs_review"]),
+                                                 ShopifyOrder.cancelled.is_(False), ShopifyOrder.raw.is_not(None)))
+    for row in list(rows):
+        if _order_number(row.name) < start:
+            continue
+        o = _from_raw_order(row.raw)
+        before = len(done)
+        items = list(db.scalars(select(ShopifyOrderItem).where(ShopifyOrderItem.order_id == row.id)))
+        folded = [i for i in items if i.kind == "addon"]
+        for li in o["lines"]:
+            rule = standalone_rule(li, cfg)
+            item = next((i for i in folded if i.line_item_id == li["id"]), None)
+            if not rule or item is None:
+                continue
+            target = (_prop(li["props"], cfg["addon_keys"]) or "").strip()
+            wells = [i for i in items if i.kind == "well" and i.project_id]
+            parent_items = [i for i in wells if (i.title or "").strip() == target] or wells
+            if not parent_items:
+                continue
+            parent_line = next((p for p in o["lines"] if p["id"] == parent_items[0].line_item_id), None)
+            if parent_line is None:
+                continue
+            net = _net(li)
+            for u in range(1, li["quantity"] + 1):
+                pi = parent_items[(u - 1) % len(parent_items)]
+                well = db.get(Project, pi.project_id)
+                parent = {"kind": "well", "line": parent_line, "unit": pi.unit, "amount": well.sale_amount,
+                          "extras": [], "created_project": well}
+                x = {"kind": rule["kind"], "line": li, "unit": u, "amount": net, "extras": [], "parent": parent, "rule": rule}
+                if u == 1:
+                    db.delete(item)  # the folded add-on row becomes unit 1 of the new sacrifice
+                    db.flush()
+                label = _create_unit(db, row, o, x, cfg, paid=True)
+                extras = [e.strip() for e in (well.extras or "").split(",")]
+                if li["title"] in extras:
+                    extras.remove(li["title"])
+                psvc.update_project(db, well, {"sale_amount": (well.sale_amount or Decimal(0)) - net,
+                                               "extras": ", ".join(e for e in extras if e) or None},
+                                    actor=None, source="shopify")
+                pi.amount = (pi.amount or Decimal(0)) - net
+                done.append(f"{row.name}: {label} (well {well.well_id} -{net})")
+        if len(done) > before:
+            audit(db, "shopify.addon_split", "shopify_order", row.name, actor_label="Shopify", after={"done": done[before:]})
+    return done
+
+
+def _from_raw_order(raw: dict) -> dict:
+    o = dict(raw)
+    o["lines"] = [{**li, "unit_price": Decimal(str(li["unit_price"])), "discount": Decimal(str(li.get("discount") or 0))}
+                  for li in raw.get("lines") or []]
+    return o
 
 
 def _linked(db: Session, row: ShopifyOrder):
@@ -632,7 +765,7 @@ def sales_summary(db: Session, start: date, end: date) -> dict:
     orders = db.scalar(text("""select count(*) from shopify_orders where not cancelled
                                and created_at_shop::date between :s and :e"""), {"s": start, "e": end})
     by_source = db.execute(text("""
-        select coalesce(p.sales_source, s.sales_source, 'Shopify') src, count(*), coalesce(sum(i.amount), 0)
+        select coalesce(p.source_group, s.source_group, 'Unknown') src, count(*), coalesce(sum(i.amount), 0)
         from shopify_order_items i join shopify_orders o on o.id = i.order_id
         left join projects p on p.id = i.project_id left join sacrifices s on s.id = i.sacrifice_id
         where i.kind in ('well', 'sacrifice') and not o.cancelled

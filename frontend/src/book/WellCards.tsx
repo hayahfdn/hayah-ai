@@ -8,7 +8,7 @@ import { useI18n } from "../i18n";
 import { Modal, Status, toast } from "../ui";
 import ProjectForm from "../pages/ProjectForm";
 import PlaqueBadge from "../plaque/PlaqueBadge";
-import { sum, useMoney } from "./grid";
+import { newestFirst, sum, useMoney } from "./grid";
 
 const PAGE = 60;
 
@@ -25,7 +25,7 @@ export default function WellCards({ rows, quick, colorById, contractors, showSal
   const nameById = useMemo(() => Object.fromEntries(contractors.map((c) => [c.id, c.name])), [contractors]);
   const list = useMemo(() => {
     const q = quick.trim().toLowerCase();
-    const sorted = [...rows].sort((a, b) => b.well_id - a.well_id);
+    const sorted = [...rows].sort(newestFirst((p) => p.well_id));
     if (!q) return sorted;
     return sorted.filter((r) => [r.well_id, r.customer_name, r.dedication, r.well_type, r.customer_phone, r.shopify_order,
       r.contractor_id ? nameById[r.contractor_id] : ""].some((v) => String(v ?? "").toLowerCase().includes(q)));

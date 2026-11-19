@@ -76,8 +76,9 @@ function FlowCards() {
     ["dash_new", o.new || 0, "red", "/projects?construction_status=new_order"],
     ["dash_confirm", (p.draft || 0) + (p.ready_for_review || 0) + (p.needs_changes || 0), "red", "/plaques/confirm"],
     ["dash_customer", p.awaiting_customer || 0, "orange", "/plaques/confirm"],
-    ["dash_contractor", p.ready_for_contractor || 0, "red", "/plaques/approved"],
-    ["dash_sent_con", p.sent_to_contractor || 0, "green", "/plaques/approved"],
+    // approved and waiting for the contractor is the manager's step: employees do not see these two cards
+    ...(can(...MANAGERS) ? [["dash_contractor", p.ready_for_contractor || 0, "red", "/plaques/approved"] as [string, number, "red", string],
+      ["dash_sent_con", p.sent_to_contractor || 0, "green", "/plaques/approved"] as [string, number, "green", string]] : []),
     ["dash_wait_video", v.waiting_upload || 0, "orange", "/videos"],
     ["dash_video_ready", (v.ready_for_delivery || 0) + (v.uploaded || 0), "red", "/videos"],
     ...(ops.whatsapp?.enabled ? [["wa_unread_msgs", ops.whatsapp.unread_messages || 0, "red", "/inbox"] as [string, number, "red", string],

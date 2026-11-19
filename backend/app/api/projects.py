@@ -40,11 +40,12 @@ def list_projects(q: str | None = None, country: str | None = None, construction
                   delivery_status: str | None = None, contractor_id: int | None = None,
                   month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$"),
                   page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=5000),
-                  sort: str = Query("-well_id", pattern=r"^-?(well_id|order_date|updated_at|country|construction_status)$"),
+                  sort: str = Query("-order_date", pattern=r"^-?(well_id|order_date|updated_at|country|construction_status)$"),
                   db: Session = Depends(get_db), user: User = Depends(require_roles(ALL_ROLES))):
     items, total = svc.list_projects(db, q=q, country=country, construction_status=construction_status,
                                      delivery_status=delivery_status, contractor_id=contractor_id, page=page,
-                                     page_size=page_size, sort=sort, contractor_scope=_scope(user), month=month)
+                                     page_size=page_size, sort=sort, contractor_scope=_scope(user), month=month,
+                                     hide_waiting_contractor=user.role == Role.staff and not contractor_id)
     return ProjectPage(items=[_out(p, user) for p in items], total=total, page=page, page_size=page_size)
 
 

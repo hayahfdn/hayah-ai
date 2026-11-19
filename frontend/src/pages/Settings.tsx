@@ -8,13 +8,15 @@ import RecentChanges from "../admin/RecentChanges";
 import ImportWorkbook from "../admin/ImportWorkbook";
 import ShopifySettings from "../admin/ShopifySettings";
 import WhatsAppSettings from "../admin/WhatsAppSettings";
+import SalesSources from "../admin/SalesSources";
 
 export default function Settings() {
   const { t } = useI18n();
   const { can } = useAuth();
   const admin = can("super_admin");
   const [tab, setTab] = useState("integrations");
-  const tabs = ["integrations", "shopify_tab", "sync_conflicts", "ai_settings", "undo_tab", ...(admin ? ["was_tab", "users", "imp_tab"] : []), "jobs", "audit_log"];
+  const manager = can("super_admin", "operations_manager");
+  const tabs = ["integrations", "shopify_tab", ...(manager ? ["src_tab"] : []), "sync_conflicts", "ai_settings", "undo_tab", ...(admin ? ["was_tab", "users", "imp_tab"] : []), "jobs", "audit_log"];
   return (
     <>
       <div className="topbar"><h1>{t("nav_settings")}</h1></div>
@@ -22,6 +24,7 @@ export default function Settings() {
       {tab === "integrations" && <Integrations />}
       {tab === "shopify_tab" && <ShopifySettings />}
       {tab === "was_tab" && <WhatsAppSettings />}
+      {tab === "src_tab" && <SalesSources />}
       {tab === "sync_conflicts" && <Conflicts />}
       {tab === "ai_settings" && <AISettings admin={admin} />}
       {tab === "users" && <Users />}

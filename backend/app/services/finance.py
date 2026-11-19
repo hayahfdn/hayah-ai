@@ -127,7 +127,7 @@ def list_sacrifices(db: Session, *, month: str | None = None, contractor_id: int
         q = q.where(Sacrifice.order_date >= a, Sacrifice.order_date < b)
     if contractor_id:
         q = q.where(Sacrifice.contractor_id == contractor_id)
-    return list(db.scalars(q.order_by(Sacrifice.sacrifice_no)))
+    return list(db.scalars(q.order_by(Sacrifice.order_date.desc().nulls_last(), Sacrifice.sacrifice_no.desc())))
 
 
 # ---------------- transactions ----------------
@@ -216,7 +216,8 @@ def _live_projects():
 
 
 def contractor_ledger(db: Session, c: Contractor) -> dict:
-    wells = list(db.scalars(_live_projects().where(Project.contractor_id == c.id).order_by(Project.well_id)))
+    wells = list(db.scalars(_live_projects().where(Project.contractor_id == c.id)
+                            .order_by(Project.order_date.desc().nulls_last(), Project.well_id.desc())))
     sac = list_sacrifices(db, contractor_id=c.id)
     payments = list_transactions(db, contractor_id=c.id, kind=TxKind.contractor_payment.value)
     extras = [t for t in list_transactions(db, contractor_id=c.id, kind=TxKind.operating_expense.value)

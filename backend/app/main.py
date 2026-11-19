@@ -13,6 +13,7 @@ from app.integrations.sheets.base import SheetsError
 # register job handlers
 import app.services.sheets_sync  # noqa: F401,E402
 import app.services.intake  # noqa: F401,E402
+import app.services.sales_sources  # noqa: F401,E402  (keeps the unified source current)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 

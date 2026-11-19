@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, Project } from "../api";
 import { EDITORS, MANAGERS, useAuth } from "../App";
@@ -7,6 +7,7 @@ import { Empty, ErrorBox, Field, Modal, Status, toast, useApi } from "../ui";
 import ProjectForm from "./ProjectForm";
 import { MediaTable } from "./MediaLibrary";
 import PlaqueBadge, { usePlaqueImage } from "../plaque/PlaqueBadge";
+const FinalVideoSection = lazy(() => import("./FinalVideos").then((m) => ({ default: m.FinalVideoSection })));
 
 export default function ProjectDetail() {
   const { wellId } = useParams();
@@ -40,7 +41,9 @@ export default function ProjectDetail() {
       </div>
       <div className="card">
         <div className="dl">
-          {item("customer_name", d.customer_name)}{item("customer_phone", d.customer_phone && <span dir="ltr">{d.customer_phone}</span>)}
+          {item("customer_name", d.customer_name)}{item("customer_phone", d.customer_phone && <span dir="ltr">{d.customer_phone_e164 || d.customer_phone}
+            {d.customer_phone_e164 && d.customer_phone_e164 !== d.customer_phone && <span className="muted"> ({t("ph_original")}: {d.customer_phone})</span>}
+            {d.customer_phone_status && d.customer_phone_status !== "valid" && <span className="badge warn" dir="auto"> {t(d.customer_phone_status === "invalid" ? "ph_invalid" : "ph_needs_country")}</span>}</span>)}
           {item("well_type", d.well_type)}
           {item("sales_source", d.sales_source)}{item("contractor", d.contractor ? `${d.contractor.code} · ${d.contractor.name}` : null)}
           {item("sale_amount", d.sale_amount && `${num(d.sale_amount)} ${d.currency}`)}{item("order_date", fmtDate(d.order_date))}
@@ -53,6 +56,8 @@ export default function ProjectDetail() {
         {d.notes && <p style={{ whiteSpace: "pre-wrap", marginBottom: 0 }}><span className="muted">{t("notes")}: </span>{d.notes}</p>}
       </div>
       <PlaqueCard p={d} />
+      {can(...EDITORS) && d.customer_phone_e164 && <div className="actions" style={{ marginTop: 10 }}><Link className="btn" to={`/inbox?phone=${encodeURIComponent(d.customer_phone_e164)}`}>🟢 {t("wa_start")}</Link></div>}
+      {can(...EDITORS) && <div id="final-video" style={{ marginTop: 14 }}><Suspense fallback={null}><FinalVideoSection kind="well" no={d.well_id} /></Suspense></div>}
       <div className="card" style={{ marginTop: 14 }}>
         <div className="tabs">{["timeline", "media", "maintenance", "deliveries"].map((k) => (
           <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{t(k)} {h.data && k !== "timeline" ? `(${h.data[k].length})` : ""}</button>))}</div>

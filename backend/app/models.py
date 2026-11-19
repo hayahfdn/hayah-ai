@@ -155,7 +155,10 @@ class Project(Base):
     well_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
     order_date: Mapped[date | None] = mapped_column(Date)
     customer_name: Mapped[str | None] = mapped_column(String(200))
-    customer_phone: Mapped[str | None] = mapped_column(String(40))
+    customer_phone: Mapped[str | None] = mapped_column(String(40))  # as typed (kept for review)
+    customer_phone_e164: Mapped[str | None] = mapped_column(String(20), index=True)  # e.g. +962791234567
+    customer_phone_country: Mapped[str | None] = mapped_column(String(2))  # ISO code of the customer's number
+    customer_phone_status: Mapped[str | None] = mapped_column(String(16))  # valid | needs_country | invalid | empty
     country: Mapped[str | None] = mapped_column(String(80), index=True)
     city: Mapped[str | None] = mapped_column(String(120))
     village: Mapped[str | None] = mapped_column(String(120))
@@ -324,6 +327,7 @@ class MediaAsset(Base):
     __tablename__ = "media_assets"
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)
+    sacrifice_id: Mapped[int | None] = mapped_column(ForeignKey("sacrifices.id"), index=True)
     maintenance_id: Mapped[int | None] = mapped_column(ForeignKey("maintenance_records.id"))
     category: Mapped[MediaCategory] = mapped_column(_enum(MediaCategory, "media_category"), index=True)
     filename: Mapped[str] = mapped_column(String(300))
@@ -434,6 +438,10 @@ class Sacrifice(Base):
     sacrifice_no: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
     order_date: Mapped[date | None] = mapped_column(Date, index=True)
     donor_name: Mapped[str | None] = mapped_column(String(200))
+    customer_phone: Mapped[str | None] = mapped_column(String(40))  # as typed (kept for review)
+    customer_phone_e164: Mapped[str | None] = mapped_column(String(20), index=True)
+    customer_phone_country: Mapped[str | None] = mapped_column(String(2))
+    customer_phone_status: Mapped[str | None] = mapped_column(String(16))
     received_date: Mapped[date | None] = mapped_column(Date)
     delivery_date: Mapped[date | None] = mapped_column(Date)
     contractor_id: Mapped[int | None] = mapped_column(ForeignKey("contractors.id"), index=True)
@@ -559,4 +567,136 @@ class ShopifyOrderItem(Base):
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)
     sacrifice_id: Mapped[int | None] = mapped_column(ForeignKey("sacrifices.id"), index=True)
     match: Mapped[str | None] = mapped_column(String(20))  # past orders: sure | likely | guess | created | none
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PlaqueStatus(str, enum.Enum):
+    draft = "draft"                                       # قيد الإنشاء (information missing)
+    ready_for_review = "ready_for_review"                 # جاهزة للمراجعة
+    awaiting_customer = "awaiting_customer"               # بانتظار موافقة العميل
+    needs_changes = "needs_changes"                       # تحتاج إلى تعديل
+    customer_approved = "customer_approved"               # تم اعتمادها من العميل
+    approved_for_contractor = "approved_for_contractor"   # معتمدة وجاهزة للإرسال للمقاول
+    sent_to_contractor = "sent_to_contractor"             # تم إرسال اللوحة للمقاول
+
+
+class Plaque(Base):
+    """The plaque of one order (a well or a sacrifice) and where it is in the workflow.
+    Its versions are never overwritten; version 1 is the automatic draft."""
+    __tablename__ = "plaques"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(10))  # well | sacrifice
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), unique=True)
+    sacrifice_id: Mapped[int | None] = mapped_column(ForeignKey("sacrifices.id"), unique=True)
+    status: Mapped[PlaqueStatus] = mapped_column(_enum(PlaqueStatus, "plaque_status"), default=PlaqueStatus.draft, index=True)
+    missing: Mapped[list] = mapped_column(JSONB, default=list)  # e.g. ["name", "gender_state"]
+    honoree_gender: Mapped[str | None] = mapped_column(String(10))  # male | female | group
+    honoree_state: Mapped[str | None] = mapped_column(String(10))   # living | deceased
+    anonymous: Mapped[bool] = mapped_column(Boolean, default=False)  # فاعل خير
+    dua_kind: Mapped[str | None] = mapped_column(String(20))
+    current_version_id: Mapped[int | None] = mapped_column(ForeignKey("plaque_versions.id", use_alter=True, name="fk_plaques_current_version"))
+    approved_version_id: Mapped[int | None] = mapped_column(ForeignKey("plaque_versions.id", use_alter=True, name="fk_plaques_approved_version"))
+    sent_to_customer_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    customer_decision_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    customer_decision_by: Mapped[str | None] = mapped_column(String(200))
+    customer_note: Mapped[str | None] = mapped_column(Text)
+    contractor_id: Mapped[int | None] = mapped_column(ForeignKey("contractors.id"))
+    contractor_country: Mapped[str | None] = mapped_column(String(80))
+    sent_to_contractor_on: Mapped[date | None] = mapped_column(Date)
+    sent_to_contractor_by: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    contractor: Mapped[Contractor | None] = relationship(lazy="selectin")
+
+
+class PlaqueVersion(Base):
+    __tablename__ = "plaque_versions"
+    __table_args__ = (UniqueConstraint("plaque_id", "version", name="uq_plaque_versions_no"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    plaque_id: Mapped[int] = mapped_column(ForeignKey("plaques.id"), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    design: Mapped[dict] = mapped_column(JSONB, default=dict)
+    media_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id"))  # None for the automatic draft (drawn in the browser)
+    drive_file_id: Mapped[str | None] = mapped_column(String(200))  # older sacrifice plaques saved straight to Drive
+    filename: Mapped[str | None] = mapped_column(String(300))
+    source: Mapped[str] = mapped_column(String(20), default="dashboard")  # auto | dashboard | import
+    event_id: Mapped[str | None] = mapped_column(String(40))  # the matching plaque_saved timeline event (wells)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    actor_label: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class FinalVideoStatus(str, enum.Enum):
+    not_uploaded = "not_uploaded"            # لم يتم رفع الفيديو
+    uploaded = "uploaded"                    # تم رفع الفيديو
+    ready_for_delivery = "ready_for_delivery"  # جاهز للتسليم
+    sent_to_customer = "sent_to_customer"    # تم إرساله للعميل
+
+
+class FinalVideo(Base):
+    """The final delivery video of one order. Every uploaded file is kept as a media asset
+    (category final_video, linked to this order); current_media_id is the one to deliver."""
+    __tablename__ = "final_videos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(10))  # well | sacrifice
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), unique=True)
+    sacrifice_id: Mapped[int | None] = mapped_column(ForeignKey("sacrifices.id"), unique=True)
+    status: Mapped[FinalVideoStatus] = mapped_column(_enum(FinalVideoStatus, "final_video_status"),
+                                                     default=FinalVideoStatus.not_uploaded, index=True)
+    current_media_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id"))
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    uploaded_by: Mapped[str | None] = mapped_column(String(200))
+    ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ready_by: Mapped[str | None] = mapped_column(String(200))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sent_by: Mapped[str | None] = mapped_column(String(200))
+    sent_note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class WaConversation(Base):
+    """One WhatsApp chat with one customer phone number on the business number (Cloud API inbox)."""
+    __tablename__ = "wa_conversations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    wa_id: Mapped[str] = mapped_column(String(32), unique=True)  # digits only, e.g. 962791234567
+    phone_e164: Mapped[str] = mapped_column(String(32), index=True)
+    contact_name: Mapped[str | None] = mapped_column(String(200))  # WhatsApp profile name
+    status: Mapped[str] = mapped_column(String(12), default="open", index=True)  # open | pending | closed
+    assigned_to_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)     # the order this chat is about
+    sacrifice_id: Mapped[int | None] = mapped_column(ForeignKey("sacrifices.id"), index=True)
+    last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    last_inbound_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # starts the 24-hour window
+    last_preview: Mapped[str | None] = mapped_column(String(300))
+    last_direction: Mapped[str | None] = mapped_column(String(3))  # in | out
+    unread: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WaMessage(Base):
+    """A message in a chat. Incoming ones are unique on the WhatsApp id; outgoing ones on client_ref,
+    so a retried send never creates a second message."""
+    __tablename__ = "wa_messages"
+    __table_args__ = (Index("ix_wa_messages_conv_id", "conversation_id", "id"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(ForeignKey("wa_conversations.id"))
+    direction: Mapped[str] = mapped_column(String(3))  # in | out
+    wa_message_id: Mapped[str | None] = mapped_column(String(200), unique=True)
+    client_ref: Mapped[str | None] = mapped_column(String(64), unique=True)
+    type: Mapped[str] = mapped_column(String(20), default="text")  # text image video document audio sticker template location ...
+    text: Mapped[str | None] = mapped_column(Text)
+    media_asset_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id"))
+    media: Mapped[dict] = mapped_column(JSONB, default=dict)  # {wa_media_id, mime_type, filename, size}
+    template: Mapped[dict | None] = mapped_column(JSONB)  # {name, language, params}
+    status: Mapped[str] = mapped_column(String(12), default="received", index=True)  # received queued sent delivered read failed
+    error: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(12), default="cloud_api")  # cloud_api | phone_app (sent from the WhatsApp Business app)
+    sent_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    sent_by_label: Mapped[str | None] = mapped_column(String(200))
+    reply_to_wa_id: Mapped[str | None] = mapped_column(String(200))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)  # when sent / received
+    status_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

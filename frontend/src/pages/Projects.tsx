@@ -12,7 +12,9 @@ export default function Projects() {
   const { can, refreshCounts } = useAuth();
   const nav = useNavigate();
   const [params, setParams] = useSearchParams();
-  const [creating, setCreating] = useState(false);
+  // ?new=1&phone=…&name=… (from a WhatsApp chat): open the new-order form already filled in
+  const [creating, setCreating] = useState(() => params.get("new") === "1");
+  const prefill = params.get("new") === "1" ? { customer_phone: params.get("phone") || "", customer_name: params.get("name") || "", sales_source: "WhatsApp" } : undefined;
   const q = Object.fromEntries(params.entries());
   const page = Number(q.page || 1);
   const { data, error, reload } = useApi<{ items: Project[]; total: number; page_size: number }>("/api/projects", { ...q, page, page_size: 50 });
@@ -67,7 +69,7 @@ export default function Projects() {
         <button className="sm" disabled={page >= pages} onClick={() => setParams({ ...q, page: String(page + 1) })}>›</button>
       </div>
       {creating && <Modal title={t("new_project")} onClose={() => setCreating(false)}>
-        <ProjectForm onCancel={() => setCreating(false)} onSaved={(p) => { setCreating(false); reload(); refreshCounts(); nav(`/projects/${p.well_id}`); }} />
+        <ProjectForm prefill={prefill} onCancel={() => setCreating(false)} onSaved={(p) => { setCreating(false); reload(); refreshCounts(); nav(`/projects/${p.well_id}`); }} />
       </Modal>}
     </>
   );

@@ -38,6 +38,8 @@ CATEGORY_FOLDER = {
 }
 ALLOWED_MIME = re.compile(r"^(image/(jpeg|png|webp|heic|heif)|video/(mp4|quicktime|3gpp|webm|x-matroska)|"
                           r"audio/(ogg|mpeg|aac|mp4|amr)|application/pdf)$")
+INBOX_MIME = re.compile(r"^(image/|video/|audio/|text/plain$|text/csv$|application/(pdf|zip|msword|vnd\.openxmlformats-officedocument\.|"
+                        r"vnd\.ms-excel|vnd\.ms-powerpoint|vnd\.oasis\.opendocument\.|rtf$|octet-stream$))")
 # magic numbers for common types so a renamed .exe is not accepted as a .jpg
 MAGIC = {b"\xff\xd8\xff": "image/jpeg", b"\x89PNG": "image/png", b"%PDF": "application/pdf",
          b"RIFF": "image/webp", b"OggS": "audio/ogg", b"\x1aE\xdf\xa3": "video/webm"}
@@ -75,7 +77,17 @@ def well_folder(db: Session, top: str, well_id: int) -> str:
     return cache["wells"][key]
 
 
-def build_filename(db: Session, well_id: int | None, day: date, category: MediaCategory, ext: str) -> str:
+def sacrifice_folder(db: Session, top: str, no: int) -> str:
+    cache = ensure_structure(db)
+    key = f"{top}/S{no}"
+    if not cache["wells"].get(key):
+        drive = get_drive_client()
+        cache["wells"][key] = drive.ensure_folder(str(no), drive.ensure_folder("Sacrifices", cache[top]))
+        set_setting(db, "drive_folders", dict(cache))
+    return cache["wells"][key]
+
+
+def build_filename(db: Session, well_id: int | str | None, day: date, category: MediaCategory, ext: str) -> str:
     prefix = f"{well_id if well_id else 'UNASSIGNED'}_{day.isoformat()}_{category.value}_"
     n = db.scalar(select(func.count()).select_from(MediaAsset).where(MediaAsset.filename.like(prefix + "%"))) or 0
     return f"{prefix}{n + 1:03d}{ext}"
@@ -84,17 +96,24 @@ def build_filename(db: Session, well_id: int | None, day: date, category: MediaC
 def store_media(db: Session, fh: BinaryIO, *, original_filename: str | None, mime_type: str | None,
                 project: Project | None, category: MediaCategory, source: str, sender: str | None = None,
                 actor: User | None = None, inbound_message_id: int | None = None,
-                captured_at: datetime | None = None, maintenance_id: int | None = None) -> tuple[MediaAsset, bool]:
+                captured_at: datetime | None = None, maintenance_id: int | None = None,
+                sacrifice=None, inbox_chat: str | None = None) -> tuple[MediaAsset, bool]:
     """Returns (asset, created). created=False means an identical file was already stored."""
     s = get_settings()
     mime_type = (mime_type or mimetypes.guess_type(original_filename or "")[0] or "application/octet-stream").split(";")[0]
-    if not ALLOWED_MIME.match(mime_type):
+    if inbox_chat is not None:
+        # WhatsApp chat files: any document type a customer can send, but never a program
+        if not INBOX_MIME.match(mime_type):
+            raise HTTPException(415, f"File type {mime_type} is not allowed")
+    elif not ALLOWED_MIME.match(mime_type):
         raise HTTPException(415, f"File type {mime_type} is not allowed")
     sha, size = hashlib.sha256(), 0
     fh.seek(0)
     head = fh.read(16)
     fh.seek(0)
-    if not sniff_ok(head, mime_type):
+    if head.startswith((b"MZ", b"\x7fELF", b"#!")):
+        raise HTTPException(415, "Programs cannot be stored")
+    if inbox_chat is None and not sniff_ok(head, mime_type):
         raise HTTPException(415, "File content does not match its type")
     for chunk in iter(lambda: fh.read(1024 * 1024), b""):
         sha.update(chunk)
@@ -116,16 +135,24 @@ def store_media(db: Session, fh: BinaryIO, *, original_filename: str | None, mim
     if project:
         top = CATEGORY_FOLDER[category]
         folder_id = well_folder(db, top, project.well_id)
+    elif sacrifice is not None:  # sacrifices: <top>/Sacrifices/<No>/ (same place older sacrifice plaques went)
+        folder_id = sacrifice_folder(db, CATEGORY_FOLDER[category], sacrifice.sacrifice_no)
+    elif inbox_chat is not None:  # <root>/WhatsApp Inbox/<customer number>/
+        root = ensure_structure(db)["root"]
+        folder_id = drive.ensure_folder(inbox_chat, drive.ensure_folder("WhatsApp Inbox", root))
     else:
         folder_id = ensure_structure(db)["Unassigned Media"]
-    name = build_filename(db, project.well_id if project else None, day, category, ext)
+    label = project.well_id if project else (f"S{sacrifice.sacrifice_no}" if sacrifice is not None else ("WA" if inbox_chat is not None else None))
+    name = build_filename(db, label, day, category, ext)
 
     remote = drive.find_by_sha256(digest)  # survives a crash between upload and DB commit
     if not remote:
         remote = drive.upload(fh, name, mime_type, folder_id, {"sha256": digest,
                                                                 "well_id": project.well_id if project else "",
+                                                                "sacrifice_no": sacrifice.sacrifice_no if sacrifice is not None else "",
                                                                 "category": category.value})
-    asset = MediaAsset(project_id=project.id if project else None, category=category, filename=name,
+    asset = MediaAsset(project_id=project.id if project else None, sacrifice_id=sacrifice.id if sacrifice is not None else None,
+                       category=category, filename=name,
                        original_filename=original_filename, mime_type=mime_type, size_bytes=size, sha256=digest,
                        drive_file_id=remote["id"], drive_folder_id=folder_id, drive_url=remote.get("url"),
                        source=source, sender=sender, inbound_message_id=inbound_message_id,
@@ -143,7 +170,7 @@ def store_media(db: Session, fh: BinaryIO, *, original_filename: str | None, mim
         add_event(db, project, "media_added", source=source, actor=actor, actor_label=sender,
                   summary=f"{category.value}: {name}", payload={"media_id": asset.id, "drive_file_id": asset.drive_file_id})
         queue_sheet_sync(db)
-    else:
+    elif sacrifice is None and inbox_chat is None:
         db.add(ReviewCase(kind=ReviewKind.unassigned_media, media_asset_id=asset.id,
                           inbound_message_id=inbound_message_id, dedupe_key=f"media:{asset.id}",
                           reason="Media received without a confident Well ID",

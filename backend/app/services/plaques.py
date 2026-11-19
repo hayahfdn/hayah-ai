@@ -52,8 +52,12 @@ def save_plaque(db: Session, project: Project, fh: BinaryIO, *, filename: str | 
     if project.plaque_status is None:
         project.plaque_status = "draft"
     db.flush()
+    from app.services import plaque_flow
+    v = plaque_flow.add_version(db, project, design=design, actor=actor, media_id=asset.id, filename=asset.filename,
+                                event_id=str(ev.id))
     if approve:
         _approve(db, project, ev, actor)
+        plaque_flow.approve_from_designer(db, project, v, actor)
     return _row(ev, asset.filename, project)
 
 
@@ -99,6 +103,11 @@ def approve_version(db: Session, project: Project, event_id: str, actor: User, *
         return _row(ev, None, project)
     _check_replace(project, replace)
     _approve(db, project, ev, actor)
+    from app.models import PlaqueVersion
+    from app.services import plaque_flow
+    v = db.scalar(select(PlaqueVersion).where(PlaqueVersion.event_id == str(ev.id)))
+    if v:
+        plaque_flow.approve_from_designer(db, project, v, actor)
     return _row(ev, None, project)
 
 
@@ -137,7 +146,7 @@ def list_plaques(db: Session, project: Project, project_ids: list[int]) -> list[
 # Sacrifices have no media table link, so the PNG goes straight to Drive under
 # Plaques/Sacrifices/<No>/ and the design is kept in the audit log (action plaque.saved).
 def sacrifice_plaque_data(db: Session, no: int) -> dict:
-    """Only what a plaque needs. Never cost or price, so Team members can use it."""
+    """Only what a plaque needs. Never cost or price, so Employees can use it."""
     from app.models import Contractor, Sacrifice
     s = db.scalar(select(Sacrifice).where(Sacrifice.sacrifice_no == no))
     if not s:
@@ -149,32 +158,28 @@ def sacrifice_plaque_data(db: Session, no: int) -> dict:
             "contractor_country": c.country if c else None}
 
 
-def save_sacrifice_plaque(db: Session, no: int, fh: BinaryIO, *, mime_type: str | None, design: dict, actor: User) -> dict:
-    import hashlib
-    from app.integrations.drive import get_drive_client
-    from app.models import AuditLog
-    from app.services.media import ensure_structure, sniff_ok
+def save_sacrifice_plaque(db: Session, no: int, fh: BinaryIO, *, mime_type: str | None, design: dict, actor: User,
+                          approve: bool = False) -> dict:
+    """Stored like every other file (media_assets, Drive Plaques/Sacrifices/<No>/) and added as a
+    new version of the sacrifice's plaque. The audit row keeps the design for the history list."""
+    from app.models import Sacrifice
+    from app.services import plaque_flow
+    from app.services.media import sniff_ok
     sacrifice_plaque_data(db, no)  # 404 if unknown
+    s = db.scalar(select(Sacrifice).where(Sacrifice.sacrifice_no == no))
     mime = (mime_type or "").split(";")[0]
     fh.seek(0)
     if mime != "image/png" or not sniff_ok(fh.read(16), mime):
         raise HTTPException(415, "A plaque must be a PNG file")
     fh.seek(0)
-    digest = hashlib.sha256(fh.read()).hexdigest()
-    fh.seek(0)
-    drive = get_drive_client()
-    remote = drive.find_by_sha256(digest)
-    if not remote:
-        cache = ensure_structure(db)
-        folder = drive.ensure_folder(str(no), drive.ensure_folder("Sacrifices", cache["Plaques"]))
-        n = db.scalar(select(func.count()).select_from(AuditLog).where(
-            AuditLog.action == "plaque.saved", AuditLog.entity_type == "sacrifice", AuditLog.entity_id == str(no))) or 0
-        name = f"S{no}_{utcnow().date().isoformat()}_PLAQUE_{n + 1:03d}.png"
-        remote = drive.upload(fh, name, mime, folder, {"sha256": digest, "sacrifice_no": no, "category": "PLAQUE"})
-        remote = {**remote, "name": name}
+    asset, _ = store_media(db, fh, original_filename=f"sacrifice-plaque-{no}.png", mime_type=mime, project=None,
+                           category=MediaCategory.plaque, source="dashboard", sender=actor.full_name, actor=actor, sacrifice=s)
     row = audit(db, "plaque.saved", "sacrifice", no, actor=actor,
-                after={"filename": remote.get("name"), "drive_file_id": remote["id"], "design": design})
+                after={"filename": asset.filename, "drive_file_id": asset.drive_file_id, "media_id": asset.id, "design": design})
     db.flush()
+    v = plaque_flow.add_version(db, s, design=design, actor=actor, media_id=asset.id, filename=asset.filename)
+    if approve:
+        plaque_flow.approve_from_designer(db, s, v, actor)
     return _audit_row(row)
 
 

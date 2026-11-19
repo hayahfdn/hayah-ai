@@ -10,6 +10,10 @@ const Sheet = lazy(() => import("./pages/Sheet"));
 const Workbook = lazy(() => import("./book/Workbook"));
 const PromptBar = lazy(() => import("./book/PromptBar"));
 const PlaqueDesigner = lazy(() => import("./plaque/PlaqueDesigner"));
+const PlaqueLists = lazy(() => import("./pages/PlaqueLists"));
+const Inbox = lazy(() => import("./pages/Inbox"));
+const FinalVideos = lazy(() => import("./pages/FinalVideos"));
+const FinalVideoPage = lazy(() => import("./pages/FinalVideos").then((m) => ({ default: m.FinalVideoPage })));
 import ProjectDetail from "./pages/ProjectDetail";
 import Construction from "./pages/Construction";
 import Delivery from "./pages/Delivery";
@@ -22,7 +26,10 @@ import Settings from "./pages/Settings";
 import { MonthWells, ContractorWells } from "./pages/WellPages";
 import { BottomBar, NavProvider, SideNav } from "./nav";
 
-type AuthCtx = { user: User; can: (...roles: string[]) => boolean; logout: () => void; counts: Record<string, number>; refreshCounts: () => void };
+type AuthCtx = { user: User; can: (...roles: string[]) => boolean; logout: () => void; counts: Record<string, number>; refreshCounts: () => void; ops: Ops };
+/** Live operations counts (no money): plaques, final videos, new orders. Empty for roles that do not use them. */
+export type Ops = { plaques?: Record<string, number>; videos?: Record<string, number>; orders?: Record<string, number>;
+  whatsapp?: { unread_messages?: number; unread_chats?: number; waiting_reply?: number; unassigned?: number; enabled?: boolean } };
 const Auth = createContext<AuthCtx>(null!);
 export const useAuth = () => useContext(Auth);
 export const MANAGERS = ["super_admin", "operations_manager"];
@@ -122,16 +129,26 @@ export default function App() {
   const [checked, setChecked] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const { setLang } = useI18n();
-  const refreshCounts = () => { api("/api/dashboard").then((d) => setCounts(d.kpis)).catch(() => {}); };
+  const [ops, setOps] = useState<Ops>({});
+  // Plaque counts are small and change often: re-read every 10 s while the tab is open (no websockets on the small server).
+  const refreshOps = () => { api<Ops>("/api/ops/counts").then(setOps).catch(() => {}); };
+  const refreshCounts = () => { api("/api/dashboard").then((d) => setCounts(d.kpis)).catch(() => {}); refreshOps(); };
   useEffect(() => {
     if (!getToken()) { setChecked(true); return; }
     api<User>("/api/auth/me").then(setUser).catch(() => setToken(null)).finally(() => setChecked(true));
   }, []);
   useEffect(() => { const h = () => setUser(null); window.addEventListener("hayah:logout", h); return () => window.removeEventListener("hayah:logout", h); }, []);
   useEffect(() => { if (user) refreshCounts(); }, [user]);
+  useEffect(() => {
+    if (!user) return;
+    const id = window.setInterval(() => { if (document.visibilityState === "visible") refreshOps(); }, 10000);
+    return () => window.clearInterval(id);
+  }, [user]);
   if (!checked) return null;
   if (!user) return <Login onLogin={(u) => { setUser(u); setLang(u.preferred_lang); }} />;
-  const ctx: AuthCtx = { user, can: (...r) => r.includes(user.role), logout: () => { setToken(null); setUser(null); }, counts, refreshCounts };
+  const ctx: AuthCtx = { user, can: (...r) => r.includes(user.role), logout: () => { setToken(null); setUser(null); }, counts: { ...counts, ...(ops.plaques ? { pl_confirm: ops.plaques.needs_confirmation, pl_ready: ops.plaques.ready_for_contractor } : {}),
+    ...(ops.videos ? { vid_ready: ops.videos.ready_for_delivery + ops.videos.uploaded } : {}),
+    ...(ops.whatsapp ? { wa_unread: ops.whatsapp.unread_chats || 0 } : {}) }, refreshCounts, ops };
   return (
     <Auth.Provider value={ctx}>
       <BrowserRouter>
@@ -149,6 +166,12 @@ export default function App() {
             <Route path="/plaque/sacrifice" element={<Suspense fallback={null}><PlaqueDesigner kind="sacrifice" key="sac" /></Suspense>} />
             <Route path="/plaque/sacrifice/:no" element={<Suspense fallback={null}><PlaqueDesigner kind="sacrifice" key="sac" /></Suspense>} />
             <Route path="/plaque/:wellId" element={<Suspense fallback={null}><PlaqueDesigner key="well" /></Suspense>} />
+            <Route path="/plaques/confirm" element={<Suspense fallback={null}><PlaqueLists mode="confirm" key="c" /></Suspense>} />
+            <Route path="/plaques/approved" element={<Suspense fallback={null}><PlaqueLists mode="approved" key="a" /></Suspense>} />
+            <Route path="/videos" element={<Suspense fallback={null}><FinalVideos /></Suspense>} />
+            <Route path="/videos/:kind/:no" element={<Suspense fallback={null}><FinalVideoPage /></Suspense>} />
+            <Route path="/inbox" element={<Suspense fallback={null}><Inbox /></Suspense>} />
+            <Route path="/inbox/:id" element={<Suspense fallback={null}><Inbox /></Suspense>} />
             <Route path="/construction" element={<Construction />} />
             <Route path="/delivery" element={<Delivery />} />
             <Route path="/maintenance" element={<Maintenance />} />

@@ -10,8 +10,10 @@ import {
   ANIMALS, applyOccasion, ARAB_FLAG_END, defaultDesign, defaultSacrificeDesign, Design, drawPlaque, DuaKind, duaText,
   exportPdf, exportPng, fileToSmallDataUrl, flagArabic, FLAGS, GRIDS, IconKey, loadAssets, MAIN_FLAG_COUNT, Occasion,
   OCCASIONS, SACRIFICE_DUA_KINDS, SacrificeDesign, sizeLabel, SIZES, SizeKey, WELL_DUA_KINDS, WELL_ICONS, WELL_TYPES, WellDesign,
-  DUAS,
+  DUAS, Align, textStyle,
 } from "./render";
+import { FONTS } from "./fonts";
+import { MissingList, PlaqueActions, PlaqueRow, PlaqueStatusBadge } from "./flow";
 
 type Kind = "well" | "sacrifice";
 interface Saved { id: string; created_at: string; actor_label: string; filename: string; design: Design; version?: number; approved?: boolean; media_id?: number | null; }
@@ -36,30 +38,37 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
   const [pick, setPick] = useState("");
   const [confirm, setConfirm] = useState<null | (() => void)>(null);
   const [viewing, setViewing] = useState<Saved | null>(null);
+  const [flow, setFlow] = useState<PlaqueRow | null | undefined>(undefined);
   const canvas = useRef<HTMLCanvasElement>(null);
 
   const fresh = (rec: any) => (kind === "well" ? defaultDesign(rec || undefined) : defaultSacrificeDesign(rec || undefined));
   // first=true fills the design from the order (or from its approved plaque); after a save the design stays as it is.
+  // The order's plaque in the workflow (status, missing information); null when it has none yet.
+  const loadFlow = () => api<PlaqueRow | null>(`/api/plaques/order/${kind}/${id}`).then((f) => { setFlow(f); return f; }).catch(() => { setFlow(null); return null; });
+  // The design to start from: the approved plaque, else the employee's latest saved version,
+  // else a fresh design from the order (an automatic draft holds only what the order says).
+  const startFrom = (rec: any, list: Saved[], f: PlaqueRow | null) => {
+    const ok = list.find((x) => x.approved);
+    const latest = !ok && f?.design && !f.design.auto && f.design.template ? f.design : null;
+    setD((x) => ({ ...fresh(rec), ...(ok ? ok.design : latest || {}), size: x.size }) as Design);
+  };
   const load = (first = false) => {
     if (!id) return;
     if (kind === "well") {
-      Promise.all([api<Project>(`/api/projects/${id}`), api<Saved[]>(`/api/projects/${id}/plaques`).catch(() => [] as Saved[])])
-        .then(([p, list]) => {
+      Promise.all([api<Project>(`/api/projects/${id}`), api<Saved[]>(`/api/projects/${id}/plaques`).catch(() => [] as Saved[]), loadFlow()])
+        .then(([p, list, f]) => {
           setRecord(p); setSaved(list);
-          if (first) {
-            const ok = list.find((x) => x.approved);
-            setD((x) => (ok ? { ...fresh(p), ...ok.design, size: x.size } as Design : { ...fresh(p), size: x.size }));
-          }
+          if (first) startFrom(p, list, f);
         }).catch((e) => setError(e.message));
     } else {
-      api<{ sacrifice: any; saved: Saved[] }>(`/api/plaques/sacrifices/${id}`).then((r) => {
+      Promise.all([api<{ sacrifice: any; saved: Saved[] }>(`/api/plaques/sacrifices/${id}`), loadFlow()]).then(([r, f]) => {
         setRecord(r.sacrifice); setSaved(r.saved);
-        if (first) setD((x) => ({ ...fresh(r.sacrifice), size: x.size }));
+        if (first) startFrom(r.sacrifice, [], f);
       }).catch((e) => setError(e.message));
     }
   };
   useEffect(() => {
-    setError(null); setRecord(null); setSaved([]);
+    setError(null); setRecord(null); setSaved([]); setFlow(undefined);
     if (!id) setD(fresh(null)); else load(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, kind]);
@@ -82,7 +91,7 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
   const setDua = (k: DuaKind) => setD((x) => {
     const dt = duaText(k, x.template, x.name);
     const short = x.template === "sacrifice_portrait" && (x as SacrificeDesign).occasion !== "sadaqa" ? x.short_dua : dt.short;
-    return { ...x, dua_kind: k, short_dua: short, dua: dt.long } as Design;
+    return { ...x, dua_kind: k, dua_sure: true, short_dua: short, dua: dt.long } as Design;
   });
   const setFlag = (code: string) => setD((x) => x.template === "sacrifice_portrait"
     ? { ...x, flag: code, country_label: code === "custom" ? x.country_label : flagArabic(code) } : { ...x, flag: code });
@@ -107,11 +116,13 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
     const form = new FormData();
     form.append("file", new File([png], `${fileBase}.png`, { type: "image/png" }));
     form.append("design", JSON.stringify(d));
-    if (kind === "well") { form.append("approve", String(approve)); form.append("replace", String(replace)); }
+    form.append("approve", String(approve));
+    if (kind === "well") form.append("replace", String(replace));
     await api(kind === "well" ? `/api/projects/${id}/plaques` : `/api/plaques/sacrifices/${id}`, { form });
   };
+  const { refreshCounts } = useAuth();
   const saveTo = () => run("save", async () => {
-    await send(false);
+    await send(false); refreshCounts();
     toast(kind === "well" ? t("plaque_draft_ok") : t("pl_saved_sac"));
     load();
   });
@@ -121,7 +132,7 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
       if (e.status === 409 && !replace) { setConfirm(() => () => approve(true)); return; }
       throw e;
     }
-    toast(t("plaque_approved_ok"));
+    toast(t("plaque_approved_ok")); refreshCounts();
     load();
   });
   const approveVersion = (s: Saved, replace = false) => run("v" + s.id, async () => {
@@ -176,6 +187,7 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
       <ErrorBox error={error} />
       {!id && <p className="muted">{kind === "well" ? t("pl_no_well") : t("pl_no_sac")}</p>}
       {id && kind === "well" && record && <OrderBox p={record} />}
+      {id && record && flow !== undefined && can(...EDITORS) && <FlowPanel flow={flow} kind={kind} id={id} onChange={(f) => { setFlow(f); load(); }} />}
       <div className="plaque-layout">
         <div className="card plaque-preview">
           <canvas ref={canvas} aria-label={t("pl_preview")} style={{ aspectRatio: `${GRIDS[d.template][0]} / ${GRIDS[d.template][1]}` }} />
@@ -189,12 +201,17 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
               <button onClick={saveTo} disabled={!!busy}>{busy === "save" ? "…" : t("plaque_save_draft")}</button>
               <button className="primary" onClick={() => approve()} disabled={!!busy}>{busy === "approve" ? "…" : `✓ ${t("plaque_approve")}`}</button>
             </>}
-            {id && record && can(...EDITORS) && kind === "sacrifice" && <button className="primary" onClick={saveTo} disabled={!!busy}>{busy === "save" ? "…" : t("pl_save_sac")}</button>}
+            {id && record && can(...EDITORS) && kind === "sacrifice" && <>
+              <button onClick={saveTo} disabled={!!busy}>{busy === "save" ? "…" : t("pl_save_sac")}</button>
+              <button className="primary" onClick={() => approve(true)} disabled={!!busy || !!flow?.missing.length}>{busy === "approve" ? "…" : `✓ ${t("pl_approve_sac")}`}</button>
+            </>}
           </div>
         </div>
         <div className="card">
           {d.template === "hayah_square" ? <WellFields d={d} set={set} input={input} flagSelect={flagSelect} duaSelect={duaSelect(WELL_DUA_KINDS)} upload={upload} L={L} />
             : <SacrificeFields d={d} setD={setD} set={set} input={input} flagSelect={flagSelect} duaSelect={duaSelect(SACRIFICE_DUA_KINDS)} upload={upload} L={L} />}
+          {d.dua_sure === false && <div className="error" role="alert" style={{ marginTop: 12 }}>{t("pl_dua_unsure")}</div>}
+          <TextControls d={d} set={set} />
           <div style={{ marginTop: 12 }}>
             <Field label={t("pl_dua")} hint={t("pl_dua_hint")}><textarea dir="rtl" rows={5} value={d.dua} onChange={(e) => set("dua", e.target.value)} /></Field>
           </div>
@@ -213,11 +230,6 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
               </>}
               <Field label={t("pl_footer_org")}>{input("footer_org", d.footer_org)}</Field>
               <Field label={t("pl_footer_site")}>{input("footer_site", d.footer_site, "ltr")}</Field>
-              <Field label={t("pl_name_font")}>
-                <select value={d.name_font} onChange={(e) => set("name_font", e.target.value)}>
-                  <option value="Cairo">Cairo</option><option value="Amiri">Amiri</option><option value="Noto Naskh Arabic">Noto Naskh</option>
-                </select>
-              </Field>
               <Field label={t("pl_color")}><input type="color" value={d.name_color} onChange={(e) => set("name_color", e.target.value)} /></Field>
             </div>
           </details>
@@ -251,14 +263,37 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
   );
 }
 
+/** Where this order's plaque is in the workflow, what is missing, and the next steps. */
+function FlowPanel({ flow, kind, id, onChange }: { flow: PlaqueRow | null; kind: Kind; id: string; onChange: (f: PlaqueRow) => void }) {
+  const { t, fmtDate } = useI18n();
+  const [busy, setBusy] = useState(false);
+  if (!flow) return (
+    <div className="card pl-flow" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+      <span className="muted">{t("pla_none")}</span>
+      <button className="sm" disabled={busy} onClick={async () => {
+        setBusy(true);
+        try { onChange(await api<PlaqueRow>(`/api/plaques/order/${kind}/${id}`, { method: "POST" })); } catch (e: any) { toast(e.message); } finally { setBusy(false); }
+      }}>{t("pla_create")}</button>
+    </div>);
+  return (
+    <div className={`card pl-flow${flow.missing.length || flow.status === "needs_changes" ? " alert" : ""}`}>
+      <div className="pl-head"><b>{t("pla_status")}:</b> <PlaqueStatusBadge s={flow.status} />
+        {flow.version ? <span className="muted">{t("pla_version")} {flow.version}</span> : null}
+        {flow.sent_to_contractor_on && <span className="muted">{t("pla_sent_on")} {fmtDate(flow.sent_to_contractor_on)}{flow.contractor ? ` · ${flow.contractor.name}` : ""}</span>}</div>
+      <MissingList missing={flow.missing} />
+      {flow.customer_note && <div className="pl-note">{t("pla_customer_note")}: <b dir="auto">{flow.customer_note}</b></div>}
+      <div className="actions" style={{ flexWrap: "wrap" }}><PlaqueActions p={flow} onDone={onChange} /></div>
+    </div>
+  );
+}
+
 /** The order this plaque belongs to: filled in automatically, shown so the designer can check it. */
 function OrderBox({ p }: { p: Project }) {
   const { t, lang, fmtDate } = useI18n();
   const row = (k: string, v: any) => <div key={k}><span>{t(k)}</span>{v || "—"}</div>;
   return (
     <div className="card order-box" style={{ marginBottom: 14, background: p.contractor?.color || undefined }}>
-      <div className="plaque-card-head"><h2 style={{ margin: 0 }}>{t("plaque_order_data")}</h2>
-        {p.plaque_status === "approved" ? <span className="badge ok">✓ {t("plaque_approved")}</span> : p.plaque_status === "draft" ? <span className="badge warn">{t("plaque_draft")}</span> : <span className="badge">{t("plaque_none")}</span>}</div>
+      <div className="plaque-card-head"><h2 style={{ margin: 0 }}>{t("plaque_order_data")}</h2></div>
       <div className="dl">
         {row("well_id", <b className="well-no">{p.well_id}</b>)}{row("customer_name", p.customer_name)}{row("well_type", p.well_type)}
         {row("contractor", p.contractor ? `${p.contractor.name} (${p.contractor.code})` : null)}
@@ -346,4 +381,44 @@ function SacrificeFields({ d, setD, input, flagSelect, duaSelect, upload, L }: F
     <datalist id="pl-animals">{ANIMALS.map((w) => <option key={w} value={w} />)}</datalist>
     <p className="muted" style={{ marginBottom: 0 }}>{t("pl_occasion_hint")}</p>
   </>;
+}
+
+/** Font, size, line spacing, alignment and weight for the name and the prayer. Every font in the
+ * list is shown in its own face; the files are bundled, so the export matches the preview. */
+function TextControls({ d, set }: { d: Design; set: (k: string, v: any) => void }) {
+  const { t, lang } = useI18n();
+  const block = (which: "name" | "dua") => {
+    const st = textStyle(d, which);
+    const k = (f: string) => `${which}_${f}`;
+    return (
+      <fieldset className="text-controls" key={which}>
+        <legend>{t(which === "name" ? "pl_text_name" : "pl_text_dua")}</legend>
+        <div className="form-grid">
+          <Field label={t("pl_font")}>
+            <select value={st.family} onChange={(e) => set(k("font"), e.target.value)} style={{ fontFamily: `'${st.family}'` }}>
+              {FONTS.map((f) => <option key={f.family} value={f.family} style={{ fontFamily: `'${f.family}'` }}>
+                {lang === "ar" ? `${f.ar} · ${f.en}` : `${f.en} · ${f.ar}`}{f.standIn ? ` (${t("pl_font_standin")} ${f.standIn})` : ""}</option>)}
+            </select>
+          </Field>
+          <Field label={`${t("pl_size_pct")} ${Math.round(st.k * 100)}%`}>
+            <input type="range" min={50} max={150} step={5} value={Math.round(st.k * 100)} onChange={(e) => set(k("size"), Number(e.target.value))} />
+          </Field>
+          <Field label={`${t("pl_line")} ${st.line.toFixed(2)}`}>
+            <input type="range" min={0.9} max={2.2} step={0.05} value={st.line} onChange={(e) => set(k("line"), Number(e.target.value))} />
+          </Field>
+          <Field label={t("pl_align")}>
+            <div className="seg">{(["right", "center", "left"] as Align[]).map((a) =>
+              <button type="button" key={a} className={st.align === a ? "on" : ""} onClick={() => set(k("align"), a)}>{t("pl_" + a)}</button>)}</div>
+          </Field>
+          <Field label={t("pl_weight")}>
+            <div className="seg">{[true, false].map((b) =>
+              <button type="button" key={String(b)} className={(st.weight > 400) === b ? "on" : ""} onClick={() => set(k("bold"), b)}>{t(b ? "pl_bold" : "pl_normal")}</button>)}</div>
+          </Field>
+        </div>
+        <p className="font-sample" dir="rtl" style={{ fontFamily: `'${st.family}'`, fontWeight: st.weight }}>
+          {which === "name" ? (d.name || "فاعل خير") : "اللهم تقبل منه واجعلها صدقة مباركة"}</p>
+      </fieldset>
+    );
+  };
+  return <div style={{ marginTop: 12 }}>{block("name")}{block("dua")}<p className="muted" style={{ fontSize: 12.5 }}>{t("pl_font_note")}</p></div>;
 }

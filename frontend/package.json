@@ -10,10 +10,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/alexandria": "5.2.5",
     "@fontsource/amiri": "5.1.0",
+    "@fontsource/aref-ruqaa": "5.2.5",
     "@fontsource/cairo": "5.1.0",
+    "@fontsource/el-messiri": "5.2.5",
     "@fontsource/ibm-plex-sans-arabic": "5.1.0",
+    "@fontsource/kufam": "5.2.5",
     "@fontsource/noto-naskh-arabic": "5.1.0",
+    "@fontsource/reem-kufi": "5.2.5",
+    "@fontsource/tajawal": "5.2.5",
     "ag-grid-community": "32.3.3",
     "ag-grid-react": "32.3.3",
     "react": "18.3.1",

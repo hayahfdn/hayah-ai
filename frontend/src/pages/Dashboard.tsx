@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import { MANAGERS, useAuth } from "../App";
+import { EDITORS, MANAGERS, useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { Bars, ErrorBox, Status, toast, useApi } from "../ui";
 
@@ -40,6 +40,7 @@ export default function Dashboard() {
   return (
     <>
       <div className="topbar"><h1>{t("nav_dashboard")}</h1><SyncPill s={data.sheets} onSynced={reload} /></div>
+      <FlowCards />
       <div className="grid kpis">
         {tiles.map(([key, v, attn, to]) => {
           const body = <><div className="label">{t(key)}</div><div className="value">{num(v)}</div></>;
@@ -62,6 +63,34 @@ export default function Dashboard() {
       </div>
     </>
   );
+}
+
+/** The order workflow at a glance, live (re-read every 10 s with the menu counts). No money.
+ * Red: needs action. Orange: in progress. Green: done, or nothing waiting. */
+function FlowCards() {
+  const { t, num } = useI18n();
+  const { can, ops } = useAuth();
+  if (!can(...EDITORS) || !ops.plaques) return null;
+  const p = ops.plaques, v = ops.videos || {}, o = ops.orders || ({} as Record<string, number>);
+  const cards: [string, number, "red" | "orange" | "green", string][] = [
+    ["dash_new", o.new || 0, "red", "/projects?construction_status=new_order"],
+    ["dash_confirm", (p.draft || 0) + (p.ready_for_review || 0) + (p.needs_changes || 0), "red", "/plaques/confirm"],
+    ["dash_customer", p.awaiting_customer || 0, "orange", "/plaques/confirm"],
+    ["dash_contractor", p.ready_for_contractor || 0, "red", "/plaques/approved"],
+    ["dash_sent_con", p.sent_to_contractor || 0, "green", "/plaques/approved"],
+    ["dash_wait_video", v.waiting_upload || 0, "orange", "/videos"],
+    ["dash_video_ready", (v.ready_for_delivery || 0) + (v.uploaded || 0), "red", "/videos"],
+    ...(ops.whatsapp?.enabled ? [["wa_unread_msgs", ops.whatsapp.unread_messages || 0, "red", "/inbox"] as [string, number, "red", string],
+      ["wa_waiting_chats", ops.whatsapp.waiting_reply || 0, "orange", "/inbox"] as [string, number, "orange", string]] : []),
+  ];
+  return <section style={{ marginBottom: 14 }}>
+    <div className="flow-head"><h2 style={{ margin: 0 }}>{t("dash_flow")}</h2><span className="muted">{t("dash_legend")}</span></div>
+    <div className="grid kpis flow-cards">
+      {cards.map(([key, n, tone, to]) => (
+        <Link key={key} to={to} className={`card kpi flow ${n === 0 && tone !== "green" ? "green" : tone}`} style={{ color: "inherit", textDecoration: "none" }}>
+          <div className="label">{t(key)}</div><div className="value">{num(n)}</div></Link>))}
+    </div>
+  </section>;
 }
 
 function BarsStatus({ rows }: { rows: any[] }) {

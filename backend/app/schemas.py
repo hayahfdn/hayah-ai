@@ -109,6 +109,7 @@ class ProjectBase(BaseModel):
     order_date: date | None = None
     customer_name: str | None = Field(default=None, max_length=200)
     customer_phone: str | None = PHONE
+    customer_phone_country: str | None = Field(default=None, max_length=2, pattern="^[A-Za-z]{2}$")
     country: str | None = Field(default=None, max_length=80)
     city: str | None = Field(default=None, max_length=120)
     village: str | None = Field(default=None, max_length=120)
@@ -160,6 +161,7 @@ class ProjectUpdate(BaseModel):
     order_date: date | None = None
     customer_name: str | None = Field(default=None, max_length=200)
     customer_phone: str | None = PHONE
+    customer_phone_country: str | None = Field(default=None, max_length=2, pattern="^[A-Za-z]{2}$")
     country: str | None = Field(default=None, max_length=80)
     city: str | None = Field(default=None, max_length=120)
     village: str | None = Field(default=None, max_length=120)
@@ -193,6 +195,9 @@ class ProjectOut(ORM):
     order_date: date | None
     customer_name: str | None
     customer_phone: str | None
+    customer_phone_e164: str | None = None
+    customer_phone_country: str | None = None
+    customer_phone_status: str | None = None
     country: str | None
     city: str | None
     village: str | None
@@ -423,6 +428,8 @@ MONEY = dict(ge=0, max_digits=12, decimal_places=2)
 class SacrificeFields(BaseModel):
     order_date: date | None = None
     donor_name: str | None = Field(default=None, max_length=200)
+    customer_phone: str | None = PHONE
+    customer_phone_country: str | None = Field(default=None, max_length=2, pattern="^[A-Za-z]{2}$")
     received_date: date | None = None
     delivery_date: date | None = None
     contractor_id: int | None = None
@@ -453,6 +460,10 @@ class SacrificeOut(ORM):
     sacrifice_no: int
     order_date: date | None
     donor_name: str | None
+    customer_phone: str | None = None
+    customer_phone_e164: str | None = None
+    customer_phone_country: str | None = None
+    customer_phone_status: str | None = None
     received_date: date | None
     delivery_date: date | None
     contractor_id: int | None

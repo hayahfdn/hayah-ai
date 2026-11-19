@@ -43,6 +43,7 @@ export interface User { id: number; email: string; full_name: string; role: Role
 export interface Contractor { id: number; code: string; name: string; country: string | null; phone: string | null; is_active: boolean; notes: string | null; color?: string | null; }
 export interface Project {
   id: number; well_id: number; order_date: string | null; customer_name: string | null; customer_phone: string | null;
+  customer_phone_e164?: string | null; customer_phone_country?: string | null; customer_phone_status?: string | null;
   country: string | null; city: string | null; village: string | null; well_type: string | null; sales_source: string | null;
   contractor_id: number | null; contractor: Contractor | null; sale_amount: string | null; cost: string | null; currency: string;
   payment_method: string | null; extras: string | null; shopify_order: string | null; dedication?: string | null; received_date: string | null;

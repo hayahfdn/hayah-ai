@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     Contractor, FinanceAccount, Project, Sacrifice, Transaction, TX_DEFAULT_DIRECTION, TxKind, User, utcnow,
 )
+from app.services import phones
 from app.services.audit import audit, snapshot
 
 # The tabs HAYAH asked for. Codes are stable; names can be edited in Contractors.
@@ -80,7 +81,9 @@ def create_sacrifice(db: Session, data: dict, *, actor: User | None, is_sample: 
     if db.scalar(select(Sacrifice).where(Sacrifice.sacrifice_no == data["sacrifice_no"])):
         raise HTTPException(409, f"Sacrifice number {data['sacrifice_no']} already exists")
     _check_contractor(db, data.get("contractor_id"))
+    hints = data.pop("_phone_hints", None)
     s = Sacrifice(**data, is_sample=is_sample)
+    phones.apply(s, hints=hints)
     try:
         with db.begin_nested():
             db.add(s)
@@ -89,6 +92,8 @@ def create_sacrifice(db: Session, data: dict, *, actor: User | None, is_sample: 
         raise HTTPException(409, f"Sacrifice number {data['sacrifice_no']} already exists")
     audit(db, "sacrifice.create", "sacrifice", s.sacrifice_no, actor=actor, actor_label=_label(actor, source),
           after=snapshot(s))
+    from app.services.plaque_flow import maybe_create_for_new_order
+    maybe_create_for_new_order(db, s, source=source, is_sample=is_sample, actor=actor)
     return s
 
 
@@ -104,6 +109,8 @@ def update_sacrifice(db: Session, s: Sacrifice, changes: dict, *, actor: User | 
     before = snapshot(s)
     for k, v in changes.items():
         setattr(s, k, v)
+    if {"customer_phone", "customer_phone_country"} & set(changes):
+        phones.apply(s)
     if snapshot(s) == before:
         return s
     s.updated_at = utcnow()

@@ -92,6 +92,8 @@ def create_sacrifice(db: Session, data: dict, *, actor: User | None, is_sample: 
         raise HTTPException(409, f"Sacrifice number {data['sacrifice_no']} already exists")
     audit(db, "sacrifice.create", "sacrifice", s.sacrifice_no, actor=actor, actor_label=_label(actor, source),
           after=snapshot(s))
+    from app.services.plaque_flow import maybe_create_for_new_order
+    maybe_create_for_new_order(db, s, source=source, is_sample=is_sample, actor=actor)
     return s
 
 

@@ -327,6 +327,7 @@ class MediaAsset(Base):
     __tablename__ = "media_assets"
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)
+    sacrifice_id: Mapped[int | None] = mapped_column(ForeignKey("sacrifices.id"), index=True)
     maintenance_id: Mapped[int | None] = mapped_column(ForeignKey("maintenance_records.id"))
     category: Mapped[MediaCategory] = mapped_column(_enum(MediaCategory, "media_category"), index=True)
     filename: Mapped[str] = mapped_column(String(300))
@@ -566,4 +567,60 @@ class ShopifyOrderItem(Base):
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)
     sacrifice_id: Mapped[int | None] = mapped_column(ForeignKey("sacrifices.id"), index=True)
     match: Mapped[str | None] = mapped_column(String(20))  # past orders: sure | likely | guess | created | none
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PlaqueStatus(str, enum.Enum):
+    draft = "draft"                                       # قيد الإنشاء (information missing)
+    ready_for_review = "ready_for_review"                 # جاهزة للمراجعة
+    awaiting_customer = "awaiting_customer"               # بانتظار موافقة العميل
+    needs_changes = "needs_changes"                       # تحتاج إلى تعديل
+    customer_approved = "customer_approved"               # تم اعتمادها من العميل
+    approved_for_contractor = "approved_for_contractor"   # معتمدة وجاهزة للإرسال للمقاول
+    sent_to_contractor = "sent_to_contractor"             # تم إرسال اللوحة للمقاول
+
+
+class Plaque(Base):
+    """The plaque of one order (a well or a sacrifice) and where it is in the workflow.
+    Its versions are never overwritten; version 1 is the automatic draft."""
+    __tablename__ = "plaques"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(10))  # well | sacrifice
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), unique=True)
+    sacrifice_id: Mapped[int | None] = mapped_column(ForeignKey("sacrifices.id"), unique=True)
+    status: Mapped[PlaqueStatus] = mapped_column(_enum(PlaqueStatus, "plaque_status"), default=PlaqueStatus.draft, index=True)
+    missing: Mapped[list] = mapped_column(JSONB, default=list)  # e.g. ["name", "gender_state"]
+    honoree_gender: Mapped[str | None] = mapped_column(String(10))  # male | female | group
+    honoree_state: Mapped[str | None] = mapped_column(String(10))   # living | deceased
+    anonymous: Mapped[bool] = mapped_column(Boolean, default=False)  # فاعل خير
+    dua_kind: Mapped[str | None] = mapped_column(String(20))
+    current_version_id: Mapped[int | None] = mapped_column(ForeignKey("plaque_versions.id", use_alter=True, name="fk_plaques_current_version"))
+    approved_version_id: Mapped[int | None] = mapped_column(ForeignKey("plaque_versions.id", use_alter=True, name="fk_plaques_approved_version"))
+    sent_to_customer_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    customer_decision_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    customer_decision_by: Mapped[str | None] = mapped_column(String(200))
+    customer_note: Mapped[str | None] = mapped_column(Text)
+    contractor_id: Mapped[int | None] = mapped_column(ForeignKey("contractors.id"))
+    contractor_country: Mapped[str | None] = mapped_column(String(80))
+    sent_to_contractor_on: Mapped[date | None] = mapped_column(Date)
+    sent_to_contractor_by: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    contractor: Mapped[Contractor | None] = relationship(lazy="selectin")
+
+
+class PlaqueVersion(Base):
+    __tablename__ = "plaque_versions"
+    __table_args__ = (UniqueConstraint("plaque_id", "version", name="uq_plaque_versions_no"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    plaque_id: Mapped[int] = mapped_column(ForeignKey("plaques.id"), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    design: Mapped[dict] = mapped_column(JSONB, default=dict)
+    media_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id"))  # None for the automatic draft (drawn in the browser)
+    drive_file_id: Mapped[str | None] = mapped_column(String(200))  # older sacrifice plaques saved straight to Drive
+    filename: Mapped[str | None] = mapped_column(String(300))
+    source: Mapped[str] = mapped_column(String(20), default="dashboard")  # auto | dashboard | import
+    event_id: Mapped[str | None] = mapped_column(String(40))  # the matching plaque_saved timeline event (wells)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    actor_label: Mapped[str | None] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

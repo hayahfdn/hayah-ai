@@ -362,3 +362,34 @@ td.row-head { white-space: nowrap; }
 .text-controls legend { font-weight: 700; padding: 0 6px; }
 .text-controls input[type=range] { width: 100%; }
 .font-sample { font-size: 26px; margin: 4px 0 8px; text-align: center; color: #333; overflow-wrap: anywhere; }
+
+/* ---- plaque workflow: confirm list and approved section ---- */
+.nav .count.red, .count-pill { background: var(--bad); color: #fff; }
+.count-pill { display: inline-block; border-radius: 999px; padding: 0 9px; font-size: 14px; margin-inline-start: 8px; vertical-align: middle; }
+.btn.sm { padding: 3px 10px; min-height: 30px; font-size: 13px; text-decoration: none; }
+.bottom-bar button { position: relative; }
+.dot-count { position: absolute; top: 4px; inset-inline-end: 22%; background: var(--bad); color: #fff; border-radius: 999px; font-size: 11px; padding: 0 6px; line-height: 17px; }
+.inline-check { display: inline-flex; gap: 6px; align-items: center; font-weight: 600; }
+.missing { display: block; color: var(--bad); font-weight: 600; font-size: 13px; margin-top: 4px; }
+.pl-note { background: var(--warn-soft); border-radius: 8px; padding: 6px 10px; margin-top: 6px; font-size: 13px; }
+.pl-list { display: grid; gap: 10px; }
+.pl-item { display: grid; grid-template-columns: 112px 1fr; gap: 14px; align-items: start; }
+.pl-item.alert { border-inline-start: 4px solid var(--bad); }
+.pl-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pl-name { font-weight: 700; font-size: 16px; margin: 4px 0 2px; }
+.pl-body .actions { margin-top: 8px; flex-wrap: wrap; }
+.pl-thumb { display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 1; padding: 0; border-radius: 8px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--line, #dde5e3); min-height: 0; }
+.pl-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.pl-thumb.empty { font-size: 12px; color: var(--ink-2); text-align: center; padding: 6px; }
+.pl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.pl-card { display: flex; flex-direction: column; gap: 6px; }
+.pl-card.on { outline: 2px solid var(--brand); }
+.pl-card .actions { flex-wrap: wrap; margin-top: auto; }
+.pl-big .pl-thumb { aspect-ratio: auto; max-height: 75vh; background: none; border: 0; }
+.pl-flow { border-inline-start: 4px solid var(--brand); margin-bottom: 14px; }
+.pl-flow.alert { border-inline-start-color: var(--bad); }
+@media (max-width: 640px) {
+  .pl-item { grid-template-columns: 76px 1fr; gap: 10px; }
+  .pl-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pl-card .actions button { flex: 1 1 auto; }
+}

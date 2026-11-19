@@ -104,8 +104,8 @@ export function SideNav({ counts }: { counts: Record<string, number> }) {
   }, [nav?.contractors, L]);
   const partners: Item[] = PARTNERS.filter((p) => nav?.partners.some((x) => x.code === p.code))
     .map((p) => ({ key: p.code, label: lang === "ar" ? p.ar : p.en, to: L.acc(p.code) }));
-  const link = (to: string, key: string, n?: number) => (
-    <NavLink to={to} end={to === "/" || to === "/book"}>{t(key)}{n ? <span className="count">{n}</span> : null}</NavLink>);
+  const link = (to: string, key: string, n?: number, red?: boolean) => (
+    <NavLink to={to} end={to === "/" || to === "/book"}>{t(key)}{n ? <span className={`count${red ? " red" : ""}`}>{n}</span> : null}</NavLink>);
   const cur = nav?.current || thisMonth();
   return (
     <nav className="nav">
@@ -122,6 +122,11 @@ export function SideNav({ counts }: { counts: Record<string, number> }) {
         {byCountry.map(([country, items]) => <NavPicker key={country} title={countryLabel(country, lang)} items={items} />)}
       </>}
       {manager && partners.length > 0 && <NavPicker title={t("nav_people")} icon="👤" items={partners} />}
+      {can(...EDITORS) && <>
+        <div className="nav-sec">{t("pla_status")}</div>
+        {link("/plaques/confirm", "nav_pl_confirm", counts.pl_confirm, true)}
+        {link("/plaques/approved", "nav_pl_approved", counts.pl_ready, true)}
+      </>}
       <div className="nav-sec">{t("nav_sec_work")}</div>
       {link("/sheet", "nav_sheet")}{link("/projects", "nav_projects")}{link("/construction", "nav_construction")}
       {link("/delivery", "nav_delivery", counts.pending_delivery_approvals)}{link("/maintenance", "nav_maintenance")}
@@ -138,12 +143,13 @@ export function SideNav({ counts }: { counts: Record<string, number> }) {
 /** Phone only: the pages people open most, one tap away. */
 export function BottomBar({ onMenu }: { onMenu: () => void }) {
   const { t } = useI18n();
-  const { can } = useAuth();
+  const { can, counts } = useAuth();
   const nav = useNav();
   const L = useLinks();
   const cur = nav?.current || thisMonth();
   const manager = can(...MANAGERS);
   const loc = useLocation();
+  const plaques = (counts.pl_confirm || 0) + (counts.pl_ready || 0);
   const on = (prefix: string) => (loc.pathname.startsWith(prefix) ? "active" : "");
   return (
     <nav className="bottom-bar" aria-label={t("nav_menu")}>
@@ -155,7 +161,7 @@ export function BottomBar({ onMenu }: { onMenu: () => void }) {
       {can(...EDITORS)
         ? <NavLink to="/plaque"><i aria-hidden="true">🖼</i><span>{t("plaque")}</span></NavLink>
         : <NavLink to="/reports"><i aria-hidden="true">📊</i><span>{t("nav_reports")}</span></NavLink>}
-      <button type="button" onClick={onMenu}><i aria-hidden="true">☰</i><span>{t("nav_menu")}</span></button>
+      <button type="button" onClick={onMenu}><i aria-hidden="true">☰</i><span>{t("nav_menu")}</span>{plaques > 0 && <b className="dot-count">{plaques}</b>}</button>
     </nav>
   );
 }

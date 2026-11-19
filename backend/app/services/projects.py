@@ -116,6 +116,8 @@ def create_project(db: Session, data: dict, *, actor: User | None, source: str =
     add_event(db, p, "project_created", source=source, actor=actor, summary=f"Project {p.well_id} created",
               payload={"fields": snapshot(p)})
     audit(db, "project.create", "project", p.well_id, actor=actor, after=snapshot(p), ip=ip)
+    from app.services.plaque_flow import maybe_create_for_new_order
+    maybe_create_for_new_order(db, p, source=source, is_sample=is_sample, actor=actor)
     queue_sheet_sync(db)
     return p
 

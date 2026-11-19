@@ -46,6 +46,17 @@ def nav(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return out
 
 
+@router.get("/ops/counts")
+def ops_counts(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The live red/orange/green numbers for the menu and dashboard (polled every few seconds).
+    Counts only, never money. Employees and managers only."""
+    from app.deps import PROJECT_CREATORS
+    from app.services import plaque_flow
+    if user.role not in PROJECT_CREATORS:
+        return {}
+    return {"plaques": plaque_flow.counts(db)}
+
+
 @router.get("/dashboard")
 def dashboard(db: Session = Depends(get_db), _: User = Depends(require_roles(ALL_ROLES))):
     live = Project.merged_into_id.is_(None)

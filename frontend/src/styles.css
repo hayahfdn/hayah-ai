@@ -467,3 +467,8 @@ td.row-head { white-space: nowrap; }
   .chat-back { display: inline-flex; }
   .bubble { max-width: 88%; }
 }
+
+/* WhatsApp button on a prepared plaque */
+button.wa-btn { display: inline-flex; align-items: center; gap: 6px; background: #1faa53; border-color: #1a9449; color: #fff; }
+button.wa-btn:hover:not(:disabled) { background: #1a9449; }
+button.wa-btn:disabled { background: #a9d9bb; border-color: #a9d9bb; color: #fff; opacity: 1; cursor: not-allowed; }

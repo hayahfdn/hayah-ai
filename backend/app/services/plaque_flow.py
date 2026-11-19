@@ -282,6 +282,8 @@ def row(db: Session, pl: Plaque, rec=None, versions: bool = False) -> dict:
         "sent_to_contractor_on": pl.sent_to_contractor_on.isoformat() if pl.sent_to_contractor_on else None,
         "sent_to_contractor_by": pl.sent_to_contractor_by, "updated_at": pl.updated_at, "created_at": pl.created_at,
     }
+    from app.services import plaque_whatsapp
+    out["whatsapp"] = plaque_whatsapp.info(db, pl, rec)
     if versions:
         vs = db.scalars(select(PlaqueVersion).where(PlaqueVersion.plaque_id == pl.id).order_by(PlaqueVersion.version.desc()))
         out["versions"] = [{"id": v.id, "version": v.version, "source": v.source, "actor_label": v.actor_label,

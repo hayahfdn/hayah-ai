@@ -13,7 +13,7 @@ import {
   DUAS, Align, textStyle,
 } from "./render";
 import { FONTS } from "./fonts";
-import { MissingList, PlaqueActions, PlaqueRow, PlaqueStatusBadge } from "./flow";
+import { MissingList, PlaqueActions, PlaqueRow, PlaqueStatusBadge, PlaqueWhatsApp } from "./flow";
 
 type Kind = "well" | "sacrifice";
 interface Saved { id: string; created_at: string; actor_label: string; filename: string; design: Design; version?: number; approved?: boolean; media_id?: number | null; }
@@ -282,7 +282,7 @@ function FlowPanel({ flow, kind, id, onChange }: { flow: PlaqueRow | null; kind:
         {flow.sent_to_contractor_on && <span className="muted">{t("pla_sent_on")} {fmtDate(flow.sent_to_contractor_on)}{flow.contractor ? ` · ${flow.contractor.name}` : ""}</span>}</div>
       <MissingList missing={flow.missing} />
       {flow.customer_note && <div className="pl-note">{t("pla_customer_note")}: <b dir="auto">{flow.customer_note}</b></div>}
-      <div className="actions" style={{ flexWrap: "wrap" }}><PlaqueActions p={flow} onDone={onChange} /></div>
+      <div className="actions" style={{ flexWrap: "wrap" }}><PlaqueWhatsApp p={flow} onDone={onChange} label /><PlaqueActions p={flow} onDone={onChange} /></div>
     </div>
   );
 }

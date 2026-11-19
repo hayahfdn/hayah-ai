@@ -7,6 +7,7 @@ import { Empty, ErrorBox, Field, Modal, Status, toast, useApi } from "../ui";
 import ProjectForm from "./ProjectForm";
 import { MediaTable } from "./MediaLibrary";
 import PlaqueBadge, { usePlaqueImage } from "../plaque/PlaqueBadge";
+import { PlaqueRow, PlaqueWhatsApp } from "../plaque/flow";
 const FinalVideoSection = lazy(() => import("./FinalVideos").then((m) => ({ default: m.FinalVideoSection })));
 
 export default function ProjectDetail() {
@@ -103,11 +104,13 @@ function PlaqueCard({ p }: { p: Project }) {
   const { t, fmtDate } = useI18n();
   const { can } = useAuth();
   const img = usePlaqueImage(p.well_id, p.plaque_status === "approved" ? p.plaque_media_id : null);
+  const flow = useApi<PlaqueRow | null>(can(...EDITORS) ? `/api/plaques/order/well/${p.well_id}` : null);
   return (
     <div className="card plaque-card" style={{ marginTop: 14 }}>
       <div className="plaque-card-head">
         <h2 style={{ margin: 0 }}>{t("plaque")}</h2>
         <PlaqueBadge p={p} />
+        {flow.data && <PlaqueWhatsApp p={flow.data} label onDone={() => flow.reload()} />}
       </div>
       {p.plaque_status === "approved" ? <div className="plaque-card-body">
         {img.url ? <img className="plaque-thumb" src={img.url} alt={`${t("plaque")} ${p.well_id}`} /> : <ErrorBox error={img.error} />}

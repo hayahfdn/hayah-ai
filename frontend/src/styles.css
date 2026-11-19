@@ -393,3 +393,18 @@ td.row-head { white-space: nowrap; }
   .pl-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .pl-card .actions button { flex: 1 1 auto; }
 }
+
+/* ---- final videos and the order-workflow cards ---- */
+.fv-player { width: 100%; max-height: 70vh; background: #000; border-radius: 10px; display: block; margin: 8px 0; }
+.progress { position: relative; height: 26px; border-radius: 8px; background: var(--surface-2); overflow: hidden; margin: 8px 0; }
+.progress > div { position: absolute; inset-block: 0; inset-inline-start: 0; background: var(--brand-soft); transition: width .2s; }
+.progress > span { position: relative; display: block; text-align: center; line-height: 26px; font-size: 13px; font-weight: 600; }
+.final-video .actions a.btn { text-decoration: none; }
+.flow-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-bottom: 8px; }
+.kpi.flow { border-inline-start: 5px solid; }
+.kpi.flow.red { border-color: #e7b3ad; border-inline-start-color: var(--bad); background: #fff6f5; }
+.kpi.flow.red .value { color: var(--bad); }
+.kpi.flow.orange { border-color: #f2d38a; border-inline-start-color: #e08a00; background: #fffbf1; }
+.kpi.flow.orange .value { color: #b86e00; }
+.kpi.flow.green { border-inline-start-color: var(--ok); }
+.kpi.flow.green .value { color: var(--ok); }

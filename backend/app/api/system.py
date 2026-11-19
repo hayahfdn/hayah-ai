@@ -51,10 +51,12 @@ def ops_counts(db: Session = Depends(get_db), user: User = Depends(get_current_u
     """The live red/orange/green numbers for the menu and dashboard (polled every few seconds).
     Counts only, never money. Employees and managers only."""
     from app.deps import PROJECT_CREATORS
-    from app.services import plaque_flow
+    from app.services import final_video, plaque_flow
     if user.role not in PROJECT_CREATORS:
         return {}
-    return {"plaques": plaque_flow.counts(db)}
+    new_orders = db.scalar(select(func.count()).select_from(Project).where(
+        Project.merged_into_id.is_(None), Project.is_sample.is_(False), Project.construction_status == ConstructionStatus.new_order))
+    return {"plaques": plaque_flow.counts(db), "videos": final_video.counts(db), "orders": {"new": new_orders or 0}}
 
 
 @router.get("/dashboard")

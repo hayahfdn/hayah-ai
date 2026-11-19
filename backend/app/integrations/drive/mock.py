@@ -79,6 +79,11 @@ class MockDriveClient:
             raise DriveError(f"No file {file_id}")
         return (self.root / f["path"]).read_bytes()
 
+    def local_path(self, file_id):
+        """The file on this server's disk, so large videos can be streamed (with seeking) instead of read into memory."""
+        f = self._idx()["files"].get(file_id)
+        return (self.root / f["path"]) if f else None
+
     def folder_url(self, folder_id):
         return f"mock://drive/folder/{folder_id}"
 

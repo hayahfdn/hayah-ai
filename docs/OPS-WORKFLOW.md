@@ -84,3 +84,34 @@ The designer shows the plaque's state, what is missing and the same buttons.
 
 **Existing plaques** are carried over by the migration as versions: approved well plaques land in
 the approved section (so the team can record which were already sent), the rest are «جاهزة للمراجعة».
+
+## Phase 3: final delivery video, dashboard cards
+
+**«الفيديو النهائي للمشروع»** is on every well's order page and, for sacrifices, on
+`/videos/sacrifice/<number>`. MP4 and MOV only. Upload shows progress; the video plays in the page
+(with seeking), downloads, shares (on a phone the file goes to WhatsApp through the share sheet) and
+opens the customer's WhatsApp chat. Every upload is kept as a file of that one order (category
+`final_video`); a newer upload becomes the current one and goes back to «تم رفع الفيديو». The same
+file cannot be attached to two orders, so videos never mix. Uploader and date are recorded; every
+step is on the order's timeline and in the audit log.
+
+States: «لم يتم رفع الفيديو» → «تم رفع الفيديو» → «جاهز للتسليم» → «تم إرساله للعميل».
+
+New table `final_videos` (migration 0008). Wells that already had a final video file get a row
+with «تم رفع الفيديو»; final video links typed earlier stay as they are.
+
+Playing and downloading use a signed link that works for 2 hours and only for that file, made for a
+logged-in employee or manager (a video player cannot send the login header). Files are streamed from
+disk, not read into memory.
+
+**«الفيديوهات النهائية»** page: waiting for video (orders whose plaque was sent to the contractor and
+have no final video yet), uploaded, ready for delivery, sent.
+
+**Dashboard «عمل اليوم»** (employees and managers, live every 10 seconds, no money): new orders,
+waiting for plaque confirmation, waiting for the customer, approved plaques to send to the
+contractor, plaques sent to contractors, waiting for the final video, videos ready for delivery.
+Red needs action, orange is in progress, green is done (a red card with nothing waiting turns green).
+The two WhatsApp cards (unread messages, chats waiting for a reply) come with phase 4.
+
+**Storage note.** Videos are stored on the server disk (the `appdata` volume), like the other
+media. The nightly backup copies the database, not the files.

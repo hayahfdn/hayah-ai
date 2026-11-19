@@ -624,3 +624,32 @@ class PlaqueVersion(Base):
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     actor_label: Mapped[str | None] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class FinalVideoStatus(str, enum.Enum):
+    not_uploaded = "not_uploaded"            # لم يتم رفع الفيديو
+    uploaded = "uploaded"                    # تم رفع الفيديو
+    ready_for_delivery = "ready_for_delivery"  # جاهز للتسليم
+    sent_to_customer = "sent_to_customer"    # تم إرساله للعميل
+
+
+class FinalVideo(Base):
+    """The final delivery video of one order. Every uploaded file is kept as a media asset
+    (category final_video, linked to this order); current_media_id is the one to deliver."""
+    __tablename__ = "final_videos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(10))  # well | sacrifice
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), unique=True)
+    sacrifice_id: Mapped[int | None] = mapped_column(ForeignKey("sacrifices.id"), unique=True)
+    status: Mapped[FinalVideoStatus] = mapped_column(_enum(FinalVideoStatus, "final_video_status"),
+                                                     default=FinalVideoStatus.not_uploaded, index=True)
+    current_media_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id"))
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    uploaded_by: Mapped[str | None] = mapped_column(String(200))
+    ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ready_by: Mapped[str | None] = mapped_column(String(200))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sent_by: Mapped[str | None] = mapped_column(String(200))
+    sent_note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)

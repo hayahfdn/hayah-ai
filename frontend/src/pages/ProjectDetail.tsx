@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, Project } from "../api";
 import { EDITORS, MANAGERS, useAuth } from "../App";
@@ -7,6 +7,7 @@ import { Empty, ErrorBox, Field, Modal, Status, toast, useApi } from "../ui";
 import ProjectForm from "./ProjectForm";
 import { MediaTable } from "./MediaLibrary";
 import PlaqueBadge, { usePlaqueImage } from "../plaque/PlaqueBadge";
+const FinalVideoSection = lazy(() => import("./FinalVideos").then((m) => ({ default: m.FinalVideoSection })));
 
 export default function ProjectDetail() {
   const { wellId } = useParams();
@@ -55,6 +56,7 @@ export default function ProjectDetail() {
         {d.notes && <p style={{ whiteSpace: "pre-wrap", marginBottom: 0 }}><span className="muted">{t("notes")}: </span>{d.notes}</p>}
       </div>
       <PlaqueCard p={d} />
+      {can(...EDITORS) && <div id="final-video" style={{ marginTop: 14 }}><Suspense fallback={null}><FinalVideoSection kind="well" no={d.well_id} /></Suspense></div>}
       <div className="card" style={{ marginTop: 14 }}>
         <div className="tabs">{["timeline", "media", "maintenance", "deliveries"].map((k) => (
           <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{t(k)} {h.data && k !== "timeline" ? `(${h.data[k].length})` : ""}</button>))}</div>

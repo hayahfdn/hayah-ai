@@ -8,6 +8,7 @@ import { useI18n } from "../i18n";
 import { Modal, Status, toast } from "../ui";
 import ProjectForm from "../pages/ProjectForm";
 import PlaqueBadge from "../plaque/PlaqueBadge";
+import OpenIcon from "../OpenIcon";
 import { newestFirst, sum, useMoney } from "./grid";
 
 const PAGE = 60;
@@ -50,7 +51,7 @@ export default function WellCards({ rows, quick, colorById, contractors, showSal
             <article key={p.id} className="well-card" style={color ? { background: color } : undefined}
               onClick={() => go(`/projects/${p.well_id}`)}>
               <header>
-                <span className="well-no">{p.well_id}</span>
+                <span className="well-no">{p.well_id}</span><OpenIcon no={p.well_id} />
                 {p.well_type && <span className="chip">{p.well_type}</span>}
                 <span className="grow" />
                 <PlaqueBadge p={p} compact />

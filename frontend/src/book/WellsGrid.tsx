@@ -1,5 +1,6 @@
 // Excel-style wells sheet. Used by the Master Sheet, each month's tab and each contractor tab.
 // Every cell edit is a normal audited project update (validated, versioned, logged).
+import OpenIcon from "../OpenIcon";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { CellValueChangedEvent, ColDef, GridApi } from "ag-grid-community";
 import { useNavigate } from "react-router-dom";
@@ -65,6 +66,7 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
     const c: (ColDef<Project> | false)[] = [
       col("well_id", { editable: false, pinned: lang === "ar" ? "right" : "left", width: 96, filter: "agNumberColumnFilter",
         cellClass: "well-no cell-link", sort: "desc", sortIndex: 1, valueFormatter: (p) => (p.node?.isRowPinned() ? t("total_row") : String(p.value ?? "")),
+        cellRenderer: (p: any) => (p.node.isRowPinned() || !p.data ? p.valueFormatted : <span className="no-cell">{p.value}<OpenIcon no={p.value} /></span>),
         cellClassRules: { "id-done": (p) => p.data?.delivery_status === "delivered", "id-wait": (p) => p.data?.delivery_status === "pending" } }),
       { colId: "plaque", headerName: t("plaque"), pinned: lang === "ar" ? "right" : "left", width: 118, editable: false, sortable: false,
         filter: false, cellClass: "plaque-cell",

@@ -1,4 +1,5 @@
 // Excel-style sacrifices sheet (one per month, and inside each contractor tab).
+import OpenIcon from "../OpenIcon";
 import { useCallback, useMemo, useState } from "react";
 import type { CellValueChangedEvent, ColDef } from "ag-grid-community";
 import { api, Contractor, dataChanged, Sacrifice } from "../api";
@@ -30,6 +31,7 @@ export default function SacrificesGrid({ month, contractorId, height, title }: {
       field, headerName: t(field as string), editable: (p) => !p.node.isRowPinned(), ...extra });
     return [
       col("sacrifice_no", { editable: false, pinned: lang === "ar" ? "right" : "left", width: 95, sort: "desc", sortIndex: 1, cellClass: "well-no",
+        cellRenderer: (p: any) => (p.node.isRowPinned() || !p.data ? p.valueFormatted : <span className="no-cell">{p.value}<OpenIcon kind="sacrifice" no={p.value} /></span>),
         filter: "agNumberColumnFilter", valueFormatter: (p) => (p.node?.isRowPinned() ? t("total_row") : String(p.value ?? "")) }),
       { colId: "plaque", headerName: t("plaque"), pinned: lang === "ar" ? "right" : "left", width: 96, editable: false, sortable: false, filter: false,
         cellRenderer: (p: any) => (p.node.isRowPinned() || !p.data ? null
@@ -131,7 +133,7 @@ function SacCards({ rows, colorById, codeById, onEdit }: { rows: Sacrifice[]; co
     <div className="well-cards">{list.map((s) => {
       const color = s.contractor_id ? colorById[s.contractor_id] : "";
       return <article key={s.id} className="well-card" style={color ? { background: color } : undefined} onClick={() => onEdit(s)}>
-        <header><span className="well-no">{s.sacrifice_no}</span>{s.animal_type && <span className="chip">{s.animal_type}</span>}<span className="grow" />
+        <header><span className="well-no">{s.sacrifice_no}</span><OpenIcon kind="sacrifice" no={s.sacrifice_no} />{s.animal_type && <span className="chip">{s.animal_type}</span>}<span className="grow" />
           {s.delivery_date ? <span className="badge ok">{t("delivered")}</span> : <span className="badge warn">{t("st_pending")}</span>}</header>
         <div className="who">{s.donor_name || s.dedication || "—"}</div>
         <div className="meta"><span>{s.contractor_id ? codeById[s.contractor_id] : "—"}</span><span>{fmtDate(s.order_date)}</span>

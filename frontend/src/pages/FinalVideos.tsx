@@ -1,4 +1,5 @@
 // Final delivery videos: the section on each order (wells and sacrifices) and the list page.
+import OpenIcon from "../OpenIcon";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, getToken } from "../api";
@@ -185,7 +186,7 @@ export default function FinalVideos() {
         <thead><tr><th>{t("pla_well")} / {t("pla_sac")}</th><th>{t("customer_name")}</th><th>{t("pla_status")}</th><th>{t("vid_uploaded_by")}</th><th></th></tr></thead>
         <tbody>{rows.map((r) => (
           <tr key={r.kind + r.number}>
-            <td><b className="mono">{r.kind === "sacrifice" ? "S" : ""}{r.number}</b> <span className="muted">{r.kind === "well" ? t("pla_well") : t("pla_sac")}</span></td>
+            <td><b className="mono">{r.kind === "sacrifice" ? "S" : ""}{r.number}</b><OpenIcon kind={r.kind} no={r.number} /> <span className="muted">{r.kind === "well" ? t("pla_well") : t("pla_sac")}</span></td>
             <td>{r.customer_name || "—"}</td>
             <td><VideoBadge s={r.status} /></td>
             <td>{r.uploaded_by ? `${r.uploaded_by} · ${fmtDate(r.uploaded_at)}` : "—"}</td>

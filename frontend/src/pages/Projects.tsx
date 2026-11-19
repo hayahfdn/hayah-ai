@@ -1,3 +1,4 @@
+import OpenIcon from "../OpenIcon";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { download, Project } from "../api";
@@ -52,7 +53,7 @@ export default function Projects() {
           <tbody>
             {data?.items.map((p) => (
               <tr key={p.id} onClick={() => nav(`/projects/${p.well_id}`)} style={{ cursor: "pointer", background: p.contractor?.color || undefined }}>
-                <td className="row-head"><Link to={`/projects/${p.well_id}`} className="well-no">{p.well_id}</Link> {p.is_sample && <span className="badge">{t("sample")}</span>}</td>
+                <td className="row-head"><Link to={`/projects/${p.well_id}`} className="well-no">{p.well_id}</Link><OpenIcon no={p.well_id} /> {p.is_sample && <span className="badge">{t("sample")}</span>}</td>
                 <td><PlaqueBadge p={p} compact /></td>
                 <td className="strong">{p.customer_name || "—"}</td><td>{p.well_type || "—"}</td>
                 <td>{p.contractor?.name || "—"}</td><td><Status v={p.construction_status} /></td><td><Status v={p.delivery_status} /></td>

@@ -467,3 +467,29 @@ td.row-head { white-space: nowrap; }
   .chat-back { display: inline-flex; }
   .bubble { max-width: 88%; }
 }
+
+/* ---- open icon beside project numbers (2026-11-19) ---- */
+.no-cell { display: inline-flex; align-items: center; gap: 6px; }
+.open-ico { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-inline-start: 6px;
+  border-radius: 6px; color: var(--brand); background: var(--brand-soft);
+  vertical-align: middle; flex: none; text-decoration: none; }
+.open-ico:hover, .open-ico:focus-visible { background: var(--brand); color: var(--brand-ink); outline: none; }
+.edit-plaque { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.edit-plaque .plaque-thumb { width: 160px; height: 160px; }
+.plaque-thumb.empty { display: flex; align-items: center; justify-content: center; background: var(--brand-soft); border-radius: 8px; }
+@media (max-width: 640px) { .open-ico { width: 32px; height: 32px; } .edit-plaque .plaque-thumb { width: 110px; height: 110px; } }
+.fab-movable { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.fab-movable.dragging { cursor: grabbing; transform: scale(1.08); box-shadow: 0 10px 28px rgba(14,124,134,.45); opacity: 1; transition: transform .12s; }
+
+/* ---- calm UI polish, phone + desktop (2026-11-19) ---- */
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.btn, button { -webkit-tap-highlight-color: transparent; }
+@media (max-width: 760px) {
+  .btn, button.btn, select, input:not([type=checkbox]):not([type=radio]) { min-height: 40px; }
+  .modal { max-height: calc(100dvh - 24px); overflow-y: auto; }
+  .page-head h1, .page-head h2 { font-size: 19px; }
+  table td, table th { padding-block: 9px; }
+}
+.prompt-fab.fab-movable { touch-action: none; }
+.no-cell .open-ico { margin-inline-start: 0; }
+@media (prefers-reduced-motion: reduce) { .fab-movable.dragging { transition: none; transform: none; } }

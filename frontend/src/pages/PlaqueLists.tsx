@@ -1,6 +1,7 @@
 // Two working lists of the plaque workflow:
 // - confirm: orders whose plaque is not approved yet (draft → customer's answer);
 // - approved: «اللوحات المعتمدة – جاهزة للإرسال للمقاول», until sending to the contractor is recorded.
+import OpenIcon from "../OpenIcon";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, Contractor, download, getToken } from "../api";
@@ -65,7 +66,7 @@ export default function PlaqueLists({ mode }: { mode: Mode }) {
 function Order({ p }: { p: PlaqueRow }) {
   const { t } = useI18n();
   return <>
-    <b className="well-no mono">{p.kind === "well" ? "" : "S"}{p.number}</b>{" "}
+    <b className="well-no mono">{p.kind === "well" ? "" : "S"}{p.number}</b><OpenIcon kind={p.kind as "well" | "sacrifice"} no={p.number} />{" "}
     <span className="muted">{p.kind === "well" ? t("pla_well") : t("pla_sac")}{p.type ? ` · ${p.type}` : ""}</span>
   </>;
 }

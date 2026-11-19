@@ -153,3 +153,17 @@ def zip_many(body: ZipIn, db: Session = Depends(get_db), _: User = EDITORS):
     data = flow.zip_files(db, body.ids)
     return Response(content=data, media_type="application/zip", headers={
         "Content-Disposition": f'attachment; filename="plaques-{date.today().isoformat()}.zip"'})
+
+
+
+# ---------------------------------------------------------------- to the customer on WhatsApp
+from app.services import plaque_whatsapp as pwa  # noqa: E402
+
+
+@router.post("/{pid}/whatsapp-opened")
+def whatsapp_opened(pid: int, db: Session = Depends(get_db), user: User = EDITORS):
+    """The employee tapped the WhatsApp icon (WhatsApp opens on their device): log it."""
+    pl = _plaque(db, pid, lock=True)
+    out = pwa.opened(db, pl, user)
+    db.commit()
+    return out

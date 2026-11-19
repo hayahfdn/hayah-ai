@@ -166,3 +166,20 @@ Cloud API, so chats show initials.
 4. In HAYAH Settings → WhatsApp: phone number ID, WhatsApp Business Account ID, the token, the app
    secret and the verify token; then «اختبار الاتصال».
 5. Create the message templates you want for messages after 24 hours (Meta approves them).
+
+## Sending the plaque to the customer on WhatsApp (19 Nov 2026)
+
+Every plaque that is ready has a green WhatsApp button: on the order page, in «طلبات تحتاج تأكيد اللوحة» and in the plaque designer.
+Nothing is sent automatically. One tap:
+
+1. Opens WhatsApp (app or web) on the customer's number with the message ready:
+   «السلام عليكم / تم استلام طلبك وإعداد اللوحة سيتم التنفيذ ان شاء الله خلال …»
+   - sacrifices: ٤٨ ساعة
+   - hand-pump (يدوي) and medium (متوسط) wells: ١٠ أيام
+   - deep (عميق) wells: ١٥ يوم
+   - solar (شمسي) wells: ٢٠ يوم
+2. Downloads the plaque image, for the employee to attach before pressing send (wa.me links cannot carry a file).
+3. Logs the tap on the order's timeline and moves the plaque to «بانتظار موافقة العميل».
+
+The button is greyed out, with the reason on hover, when information is missing, the plaque was not saved in the designer,
+the customer has no valid international number, or a well has no type.

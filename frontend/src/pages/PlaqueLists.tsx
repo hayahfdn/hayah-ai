@@ -9,7 +9,7 @@ import { useI18n } from "../i18n";
 import { countryLabel } from "../nav";
 import { Empty, ErrorBox, Field, Modal, toast } from "../ui";
 import {
-  designerLink, MissingList, PlaqueActions, plaqueFile, PlaqueRow, PlaqueStatusBadge, PlaqueThumb, waLink,
+  designerLink, MissingList, PlaqueActions, PlaqueWhatsApp, plaqueFile, PlaqueRow, PlaqueStatusBadge, PlaqueThumb, waLink,
 } from "../plaque/flow";
 
 type Mode = "confirm" | "approved";
@@ -96,6 +96,7 @@ function ConfirmList({ rows, onChange }: { rows: PlaqueRow[]; onChange: (r: Plaq
             {p.customer_note && <div className="pl-note">{t("pla_customer_note")}: <b dir="auto">{p.customer_note}</b></div>}
             <div className="actions">
               <Link className="btn sm" to={designerLink(p)}>{t("pla_open")}</Link>
+              <PlaqueWhatsApp p={p} onDone={onChange} label />
               <PlaqueActions p={p} onDone={onChange} compact />
             </div>
           </div>

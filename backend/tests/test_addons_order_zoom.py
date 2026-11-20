@@ -161,3 +161,15 @@ def test_zoom_is_saved_per_user(client, seeded):
     assert client.get("/api/auth/me", headers=mgr).json()["ui_zoom"] is None
     assert client.patch("/api/auth/me/preferences", headers=staff, json={"ui_zoom": 130}).status_code == 422
     assert client.patch("/api/auth/me/preferences", headers=staff, json={"ui_zoom": 100}).json()["ui_zoom"] is None
+
+
+def test_plaque_image_library(client, seeded):
+    staff = login(client, "staff@hayah.local")
+    lib = client.get("/api/plaque-images", headers=staff).json()
+    assert lib[0]["id"] == "solar-well" and lib[0]["src"] == "/plaque-images/solar-well.png"
+    png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    r = client.post("/api/plaque-images", headers=staff, json={"name": "بئر شمسي 2", "data_url": png})
+    assert r.status_code == 201
+    assert any(i["id"] == r.json()["id"] for i in client.get("/api/plaque-images", headers=staff).json())
+    assert client.post("/api/plaque-images", headers=staff, json={"name": "x", "data_url": "data:text/html;base64,AAAA"}).status_code == 415
+    assert client.get("/api/plaque-images", headers=login(client, "p1@hayah.local")).status_code == 403

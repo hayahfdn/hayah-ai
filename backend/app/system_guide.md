@@ -7,7 +7,7 @@ contractors, maintenance or viewers.
 
 <!-- section: all -->
 ## What the system is
-HAYAH AI is the HAYAH Foundation's operations system for water wells and sacrifices (أضاحي /
+HAYAH AI is the HAYAH Foundation's operations system for water wells and sacrifices (ذبائح /
 صدقات). It tracks every order from the moment it arrives (Shopify, WhatsApp or typed by the team)
 through the plaque, the contractor, construction, delivery, the final video and maintenance.
 The screen is in Arabic or English (switch at the top or in the menu). All money is in US dollars.
@@ -89,7 +89,7 @@ every change is in the timeline and the audit log, and the database is backed up
   bank, owed to contractors, by month.
 - **Accounts (Wise and banks), partners (المسؤولون), contractor ledgers:** money rows. A wrong row is
   voided, never deleted; it stays in history.
-- **الأضاحي / Sacrifices (`/book/sac/<month>`):** sacrifices with cost and sale price.
+- **الذبائح / Sacrifices (`/book/sac/<month>`):** sacrifices with cost and sale price.
 - **Cost and profit** of a well are shown only to managers. Employees see the selling price only.
 
 ## [managers] Settings (`/settings`)

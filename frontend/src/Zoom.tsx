@@ -3,7 +3,7 @@
 // browser for an instant start. It scales every page, menu, table, form and button together (CSS zoom
 // on the page root), so nothing is cut off and everything keeps working. Shortcuts that do not clash
 // with the browser's own zoom: Ctrl+Alt+= (in), Ctrl+Alt+- (out), Ctrl+Alt+0 (reset).
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, User } from "./api";
 import { useI18n } from "./i18n";
 
@@ -35,12 +35,13 @@ export function useZoom(user: User | null) {
     try { localStorage.setItem(key(user.id), String(z)); } catch { /* storage blocked */ }
     api("/api/auth/me/preferences", { method: "PATCH", body: { ui_zoom: z } }).catch(() => {});
   }, [user]);
-  const step = useCallback((dir: 1 | -1) => setLevel((cur) => {
-    const i = ZOOM_LEVELS.indexOf(cur);
+  const cur = useRef(level);
+  cur.current = level;
+  const step = useCallback((dir: 1 | -1) => {
+    const i = ZOOM_LEVELS.indexOf(cur.current);
     const next = ZOOM_LEVELS[Math.max(0, Math.min(ZOOM_LEVELS.length - 1, (i < 0 ? 2 : i) + dir))];
-    if (next !== cur) set(next);
-    return cur;
-  }), [set]);
+    if (next !== cur.current) { cur.current = next; set(next); }
+  }, [set]);
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || !e.altKey) return;

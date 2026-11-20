@@ -21,7 +21,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Project, Sacrifice, User
+from app.models import Project, Sacrifice, User, utcnow
 from app.services.settings_store import get_setting
 
 SHEEP_NAMES = {"خروف", "خاروف", "sheep", "lamb"}
@@ -92,7 +92,7 @@ def sync_sheep(db: Session, project: Project, *, actor: User | None, source: str
     from app.services import projects as psvc
     want, have = sheep_count(project.extras), linked(db, project)
     for _ in range(max(0, want - len(have))):
-        data = {"sacrifice_no": _next_sacrifice_no(db), "order_date": project.order_date,
+        data = {"sacrifice_no": _next_sacrifice_no(db), "order_date": project.order_date or utcnow().date(),
                 "donor_name": project.customer_name, "customer_phone": project.customer_phone,
                 "customer_phone_country": project.customer_phone_country, "animal_type": "خروف",
                 "sale_price": SHEEP_PRICE, "currency": "USD", "payment_method": project.payment_method,

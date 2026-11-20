@@ -129,6 +129,7 @@ export function SideNav({ counts }: { counts: Record<string, number> }) {
       {manager && partners.length > 0 && <NavPicker title={t("nav_people")} icon={I.Users} items={partners} />}
       {can(...EDITORS) && <>
         <div className="nav-sec">{t("nav_sec_flow")}</div>
+        {link("/tasks", "nav_tasks", I.ListTodo, counts.tasks_mine, true)}
         {link("/inbox", "nav_inbox", I.MessageCircle, counts.wa_unread, true)}
         {link("/plaques/confirm", "nav_pl_confirm", I.ClipboardCheck, counts.pl_confirm, true)}
         {manager && link("/plaques/approved", "nav_pl_approved", I.BadgeCheck, counts.pl_ready, true)}
@@ -150,7 +151,7 @@ export function SideNav({ counts }: { counts: Record<string, number> }) {
 /** Phone only: the pages people open most, one tap away. */
 export function BottomBar({ onMenu }: { onMenu: () => void }) {
   const { t } = useI18n();
-  const { can, counts } = useAuth();
+  const { can, counts, user } = useAuth();
   const nav = useNav();
   const L = useLinks();
   const cur = nav?.current || thisMonth();
@@ -165,7 +166,9 @@ export function BottomBar({ onMenu }: { onMenu: () => void }) {
       {can(...EDITORS)
         ? <NavLink to={L.sac(cur)} className={on(manager ? "/book/sac" : "/sacrifices")}><i aria-hidden="true"><I.Sheep size={21} /></i><span>{t("nav_sacrifices")}</span></NavLink>
         : <NavLink to="/projects"><i aria-hidden="true"><I.FolderKanban size={21} /></i><span>{t("nav_projects")}</span></NavLink>}
-      {can(...EDITORS)
+      {can(...EDITORS) && user.team_stage
+        ? <NavLink to="/tasks"><i aria-hidden="true"><I.ListTodo size={21} /></i><span>{t("nav_tasks")}</span>{counts.tasks_mine ? <b className="dot-count">{counts.tasks_mine}</b> : null}</NavLink>
+        : can(...EDITORS)
         ? <NavLink to="/plaque"><i aria-hidden="true"><I.Image size={21} /></i><span>{t("plaque")}</span></NavLink>
         : <NavLink to="/reports"><i aria-hidden="true"><I.ChartColumn size={21} /></i><span>{t("nav_reports")}</span></NavLink>}
       <button type="button" onClick={onMenu}><i aria-hidden="true"><I.Menu size={21} /></i><span>{t("nav_menu")}</span>{plaques > 0 && <b className="dot-count">{plaques}</b>}</button>

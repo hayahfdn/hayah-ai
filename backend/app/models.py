@@ -129,6 +129,8 @@ class User(Base):
     ui_zoom: Mapped[int | None] = mapped_column(SmallInteger)  # interface zoom in %, per person (80-150)
     phone: Mapped[str | None] = mapped_column(String(40))  # used to match WhatsApp senders
     contractor_id: Mapped[int | None] = mapped_column(ForeignKey("contractors.id"))
+    # Which part of the order workflow this person owns: intake | customer | delivery (app/services/team_flow.py)
+    team_stage: Mapped[str | None] = mapped_column(String(12))
     token_version: Mapped[int] = mapped_column(Integer, default=0)  # bump to revoke sessions
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -761,3 +763,17 @@ class WiseTransaction(Base):
     raw: Mapped[dict] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     contractor: Mapped["Contractor | None"] = relationship()
+
+
+class TeamStep(Base):
+    """A workflow step ticked by hand on an order (order received, customer contacted, data checked).
+    The other steps are read from the order, its plaque and its final video."""
+    __tablename__ = "team_steps"
+    __table_args__ = (UniqueConstraint("project_id", "step", name="uq_team_steps_project_step"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    step: Mapped[str] = mapped_column(String(20))
+    done_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    done_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    done_by: Mapped[str | None] = mapped_column(String(200))
+    note: Mapped[str | None] = mapped_column(Text)

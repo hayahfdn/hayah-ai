@@ -42,6 +42,20 @@ The screen is in Arabic or English (switch at the top or in the menu). All money
 - **المقاولون / Contractors:** the list of contractors by country, each with a colour.
 - **التقارير / Reports:** counts by month, country, contractor and sales source.
 
+## Team tasks «مهامي» (`/tasks`)
+Each well order passes three people in order. Settings → Users → «المهمة في سير العمل» says who owns which part.
+1. **استلام الطلبات وتوزيعها (غازي):** «تم استلام الطلب» → choose the country → choose the contractor
+   (only that country's contractors are listed). Then the order moves to part 2 by itself.
+2. **التواصل مع العملاء واللوحات (شذى):** «إرسال الرسالة الأولى» (WhatsApp with the message ready) or
+   «تم التواصل بطريقة أخرى» → «تصميم اللوحة» opens the designer, save it → send it with the green WhatsApp
+   button (or «أُرسلت بطريقة أخرى») → after the customer really approves, «تمت موافقة العميل» and write how
+   they approved. An employee cannot record the approval before the plaque was sent to the customer.
+3. **مراجعة الطلبات والتسليم (غيداء):** check the order number and the phone (a red phone must be fixed on the
+   order page first) → «رفع الفيديو النهائي» → «جاهز للتسليم» → send the video and certificate on WhatsApp and
+   press «تم إرساله للعميل».
+Steps done on the usual pages (designer, final video page) tick the cards too. Every step is written to the
+order's timeline with the person's name. Orders before the start date (Settings → Users) are not listed.
+
 ## How an order moves
 1. The order arrives (Shopify automatically, or «+ مشروع جديد»). It gets its number. Numbers are never
    changed or reused, and nothing is ever deleted.

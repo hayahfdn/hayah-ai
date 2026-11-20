@@ -47,6 +47,10 @@ class UserOut(ORM):
     contractor_id: int | None
     last_login_at: datetime | None
     ui_zoom: int | None = None
+    team_stage: str | None = None
+
+
+TEAM_STAGE = Field(default=None, pattern="^(intake|customer|delivery)$")
 
 
 class UserCreate(BaseModel):
@@ -57,6 +61,7 @@ class UserCreate(BaseModel):
     preferred_lang: str = Field(default="ar", pattern="^(ar|en)$")
     phone: str | None = PHONE
     contractor_id: int | None = None
+    team_stage: str | None = TEAM_STAGE
 
 
 class UserUpdate(BaseModel):
@@ -66,6 +71,7 @@ class UserUpdate(BaseModel):
     preferred_lang: str | None = Field(default=None, pattern="^(ar|en)$")
     phone: str | None = PHONE
     contractor_id: int | None = None
+    team_stage: str | None = TEAM_STAGE
     password: str | None = Field(default=None, min_length=10, max_length=200)
 
 

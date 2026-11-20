@@ -187,6 +187,20 @@ def _has_file(db: Session, pl: Plaque) -> bool:
     return bool(v and (v.media_id or v.drive_file_id))
 
 
+NOT_SENT_YET = ("لم تُرسَل اللوحة للعميل بعد. أرسلها له أولاً (أيقونة واتساب أو «أُرسلت للعميل»)، "
+                "ثم سجّل «تمت موافقة العميل» بعد موافقته الفعلية.")
+
+
+def _require_sent(pl: Plaque, actor: User | None) -> None:
+    """Hayah, 21 Nov 2026: an employee marks «تمت موافقة العميل» only after the customer really approved,
+    so the plaque must have been sent to the customer first. Managers may still approve directly."""
+    from app.models import Role
+    if actor is not None and actor.role in (Role.super_admin, Role.operations_manager):
+        return
+    if not pl.sent_to_customer_at and pl.status != S.awaiting_customer:
+        raise HTTPException(409, NOT_SENT_YET)
+
+
 def set_status(db: Session, pl: Plaque, to: S, actor: User, note: str | None = None) -> Plaque:
     rec = record_of(db, pl)
     refresh_missing(db, pl, rec, promote=False)
@@ -196,6 +210,8 @@ def set_status(db: Session, pl: Plaque, to: S, actor: User, note: str | None = N
         raise HTTPException(409, "Complete the missing plaque information first: " + ", ".join(pl.missing))
     if to in (S.awaiting_customer, S.customer_approved) and not _has_file(db, pl):
         raise HTTPException(409, "Open the plaque in the designer and save it first, so there is a file to send.")
+    if to == S.customer_approved:
+        _require_sent(pl, actor)
     before = pl.status
     pl.status = to
     now = utcnow()
@@ -234,6 +250,7 @@ def approve_from_designer(db: Session, rec, version: PlaqueVersion, actor: User)
         raise HTTPException(409, "This plaque was already sent to the contractor. Mark it 'needs changes' first.")
     if pl.missing:
         raise HTTPException(409, "Complete the missing plaque information first: " + ", ".join(pl.missing))
+    _require_sent(pl, actor)
     before = pl.status
     pl.status, pl.customer_decision_at, pl.customer_decision_by = S.customer_approved, utcnow(), actor.full_name
     _log(db, pl, rec, "plaque_status", actor, f"{LABELS_AR[before]} → {LABELS_AR[S.customer_approved]}",

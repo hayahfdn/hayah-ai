@@ -170,3 +170,42 @@ def whatsapp_opened(pid: int, db: Session = Depends(get_db), user: User = EDITOR
     out = pwa.opened(db, pl, user)
     db.commit()
     return out
+
+
+# ---------------- approved image library for plaques (Hayah, 20 Nov 2026) ----------------
+# The built-in solar well picture lives in the app (frontend/public/plaque-images). Images people upload
+# are kept in the database (app settings, so the nightly backup has them), shrunk in the browser first.
+# Images are never deleted from the library, so a saved plaque that uses one always opens again.
+import re  # noqa: E402
+import uuid as _uuid  # noqa: E402
+
+from app.services.audit import audit  # noqa: E402
+from app.services.settings_store import get_setting, set_setting  # noqa: E402
+
+images = APIRouter(prefix="/api/plaque-images", tags=["plaques"])
+BUILTIN_IMAGES = [{"id": "solar-well", "name": "البئر الشمسي · Solar well", "src": "/plaque-images/solar-well.png", "builtin": True}]
+_DATA_URL = re.compile(r"^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$")
+MAX_IMAGE_BYTES = 3_000_000
+
+
+class ImageIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    data_url: str = Field(max_length=MAX_IMAGE_BYTES)
+
+
+@images.get("")
+def list_images(db: Session = Depends(get_db), _: User = EDITORS):
+    return BUILTIN_IMAGES + [{**i, "builtin": False} for i in get_setting(db, "plaque_images").get("items", [])]
+
+
+@images.post("", status_code=201)
+def add_image(body: ImageIn, db: Session = Depends(get_db), user: User = EDITORS):
+    if not _DATA_URL.match(body.data_url):
+        raise HTTPException(415, "Upload a PNG, JPEG or WebP image")
+    lib = get_setting(db, "plaque_images")
+    item = {"id": _uuid.uuid4().hex[:12], "name": body.name.strip(), "src": body.data_url, "by": user.full_name}
+    lib["items"] = [*lib.get("items", []), item]
+    set_setting(db, "plaque_images", lib, user.id)
+    audit(db, "plaque_image.add", "settings", item["id"], actor=user, after={"name": item["name"], "bytes": len(body.data_url)})
+    db.commit()
+    return {**item, "builtin": False}

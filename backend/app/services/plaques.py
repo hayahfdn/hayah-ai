@@ -14,7 +14,7 @@ from app.services.audit import audit
 from app.services.media import store_media
 from app.services.projects import add_event
 
-MAX_DESIGN_BYTES = 600_000  # room for an uploaded flag or well icon (shrunk in the browser)
+MAX_DESIGN_BYTES = 600_000  # room for an uploaded flag or well icon (shrunk in the browser); library images are referenced by id
 PLAQUE_MIME = {"image/png", "application/pdf"}
 
 

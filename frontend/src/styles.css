@@ -547,3 +547,32 @@ a.btn.wa-btn:hover { background: #1a9449; }
 .wa-btn.icon { padding-inline: 8px; }
 .wa-country { max-width: 220px; }
 .row-actions { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* ---- plaque designer: tools side by side in rows, line breaks, picture, final preview (2026-11-20) ---- */
+.plaque-tools { margin-bottom: 14px; }
+.tool-rows { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-start; margin-top: 10px; }
+.tool-rows > .field { flex: 1 1 170px; min-width: 150px; margin: 0; }
+.tool-rows > .field.wide { flex: 2 1 280px; }
+.tool-rows > .field.full { flex: 1 1 100%; }
+.tool-rows input[type=file] { max-width: 100%; font-size: 13px; }
+.multiline { display: flex; flex-direction: column; gap: 4px; }
+.multiline textarea { min-height: 42px; resize: vertical; line-height: 1.5; }
+.multiline button { align-self: flex-start; }
+.image-tool { margin-top: 12px; }
+.image-tool .icon-picks button img { height: 70px; }
+.final-preview { display: block; width: 100%; max-height: 75vh; object-fit: contain; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+@media (max-width: 640px) { .tool-rows > .field { flex: 1 1 140px; min-width: 130px; } .tool-rows > .field.wide { flex-basis: 100%; } }
+
+/* ---- interface zoom (2026-11-20) ---- */
+.app-top { display: flex; justify-content: flex-end; margin: -6px 0 8px; }
+.zoom-ctl { display: inline-flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px 5px; box-shadow: var(--shadow); }
+.zoom-ctl button, .zoom-ctl select { min-height: 30px; border-radius: 999px; }
+.zoom-ctl button { min-width: 32px; padding: 0 9px; font-weight: 700; }
+.zoom-ctl select { width: auto; padding: 0 8px; font-variant-numeric: tabular-nums; }
+.zoom-ctl.compact { background: transparent; border-color: rgba(255,255,255,.25); box-shadow: none; gap: 2px; }
+.mobile-bar .zoom-ctl.compact select { background: transparent; color: #fff; border-color: rgba(255,255,255,.3); min-height: 30px; }
+.mobile-bar .zoom-ctl.compact select option { color: #111; }
+.mobile-bar .zoom-ctl.compact button { min-width: 30px; padding: 0 6px; }
+@media (max-width: 860px) { .app-top { display: none; } }
+@media (max-width: 380px) { .mobile-bar .zoom-ctl.compact button:last-child { display: none; } }

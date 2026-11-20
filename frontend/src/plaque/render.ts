@@ -4,6 +4,7 @@
 // Each is drawn on a canvas in grid units, then scaled for screen, PNG and print PDF.
 // Rule-based: no AI is involved.
 import { cssFamily, ensureFont, weightFor } from "./fonts";
+import { api } from "../api";
 
 export type Template = "hayah_square" | "sacrifice_portrait";
 export const GRIDS: Record<Template, [number, number]> = { hayah_square: [1080, 1080], sacrifice_portrait: [1024, 1536] };
@@ -34,7 +35,11 @@ interface Common {
   name_bold?: boolean; name_size?: number; name_line?: number; name_align?: Align;
   dua_font?: string; dua_bold?: boolean; dua_size?: number; dua_line?: number; dua_align?: Align;
   dua_sure?: boolean;  // false = gender or living/deceased unclear from the order; staff must confirm
+  // Optional picture on the plaque (e.g. the solar well): the library image, its centre and width in grid units.
+  // The height always follows the picture's own proportions, so it is never stretched.
+  image?: PlaqueImage | null;
 }
+export interface PlaqueImage { ref: string; x: number; y: number; w: number }
 
 /** Text settings with the template defaults filled in. size is a percentage of the template size. */
 export function textStyle(d: Design, which: "name" | "dua") {
@@ -379,7 +384,21 @@ export function loadFonts(d?: Design): Promise<void> {
   return Promise.all(need.map(([f, w]) => ensureFont(f, w))).then(() => undefined);
 }
 
-export interface Assets { logo: HTMLImageElement | null; flag: HTMLImageElement | null; icon: HTMLImageElement | null; }
+export interface Assets { logo: HTMLImageElement | null; flag: HTMLImageElement | null; icon: HTMLImageElement | null; image?: HTMLImageElement | null; }
+export interface LibraryImage { id: string; name: string; src: string; builtin: boolean }
+let libCache: Promise<LibraryImage[]> | null = null;
+/** The approved image library (built-in solar well + images people uploaded). Read once per page. */
+export function imageLibrary(reload = false): Promise<LibraryImage[]> {
+  if (!libCache || reload) libCache = api<LibraryImage[]>("/api/plaque-images").catch(() => { libCache = null; return []; });
+  return libCache;
+}
+/** "lib:<id>" -> the image's address; a plain address or data: URL is used as it is. */
+export async function imageSrc(ref: string): Promise<string | null> {
+  if (!ref.startsWith("lib:")) return ref;
+  const id = ref.slice(4);
+  if (id === "solar-well") return "/plaque-images/solar-well.png";
+  return (await imageLibrary()).find((i) => i.id === id)?.src || null;
+}
 export async function loadAssets(d: Design): Promise<Assets> {
   await loadFonts(d);
   const flagSrc = d.flag === "custom" ? d.flag_custom : d.flag ? `/flags/${d.flag}.svg` : undefined;
@@ -388,10 +407,12 @@ export async function loadAssets(d: Design): Promise<Assets> {
     const ic = d.icon === "well" ? "hand_pump" : d.icon;
     iconSrc = ic === "custom" ? d.icon_custom : ic === "none" ? undefined : `/wells/${ic}.png`;
   }
-  const [logo, flag, icon] = await Promise.all([
+  const imgSrc = d.image?.ref ? await imageSrc(d.image.ref) : null;
+  const [logo, flag, icon, image] = await Promise.all([
     loadImage("/hayah-logo.png"), flagSrc ? loadImage(flagSrc) : null, iconSrc ? loadImage(iconSrc) : null,
+    imgSrc ? loadImage(imgSrc) : null,
   ]);
-  return { logo, flag, icon };
+  return { logo, flag, icon, image };
 }
 
 // ---------------------------------------------------------------- drawing helpers
@@ -489,8 +510,22 @@ export function drawPlaque(ctx: Ctx, d: Design, a: Assets, scale: number) {
   const [gw, gh] = GRIDS[d.template];
   ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, gw, gh);
   if (d.template === "sacrifice_portrait") drawSacrifice(ctx, d, a); else drawWell(ctx, d, a);
+  const box = imageBox(d, a.image);
+  if (box && a.image) ctx.drawImage(a.image, box.x, box.y, box.w, box.h);
   ctx.restore();
 }
+
+/** Where the plaque's picture sits, in grid units (null when there is none). */
+export function imageBox(d: Design, im: HTMLImageElement | null | undefined) {
+  if (!d.image || !im) return null;
+  const nw = im.naturalWidth || im.width, nh = im.naturalHeight || im.height;
+  if (!nw || !nh) return null;
+  const w = d.image.w, h = (w * nh) / nw;
+  return { x: d.image.x - w / 2, y: d.image.y - h / 2, w, h };
+}
+
+/** Lines the person typed (Enter = new line), each kept as its own line. */
+const typedLines = (text: string) => text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
 // ---------------------------------------------------------------- well plaque (1080 × 1080)
 function drawWell(ctx: Ctx, d: WellDesign, a: Assets) {
@@ -536,9 +571,18 @@ function drawWell(ctx: Ctx, d: WellDesign, a: Assets) {
   const nameWeight = ns.weight;
   const boxTop = 330, boxH = 175, maxNameW = 960;
   const nMax = Math.round((ns.family === "Cairo" ? 170 : 190) * ns.k);
+  const typed = typedLines(d.name);
   let nSize = fit(ctx, d.name, nameWeight, nMax, ns.family, maxNameW, 40);
   let nLines = [d.name];
-  if (nSize < 110 && d.name.trim().includes(" ")) {
+  if (typed.length > 1) {
+    // The person split the name into lines: keep exactly those lines and shrink until they all fit.
+    const roomH = boxH + 40;
+    for (nSize = nMax; nSize > 30; nSize -= 2) {
+      font(ctx, nameWeight, nSize, ns.family);
+      if (typed.every((l) => ctx.measureText(l).width <= maxNameW) && typed.length * nSize * ns.line <= roomH) break;
+    }
+    nLines = typed;
+  } else if (nSize < 110 && d.name.trim().includes(" ")) {
     for (nSize = Math.min(110, nMax); nSize >= 36; nSize -= 4) {
       font(ctx, nameWeight, nSize, ns.family);
       nLines = wrap(ctx, d.name, maxNameW);
@@ -554,8 +598,18 @@ function drawWell(ctx: Ctx, d: WellDesign, a: Assets) {
   // Well icon (left or right) and the short prayer beside it
   const right = d.icon_side === "right";
   if (a.icon) drawContain(ctx, a.icon, right ? G - 22 - 300 : 22, 478, 300, 190, right ? "end" : "start");
-  ctx.fillStyle = INK; fit(ctx, d.short_dua, 900, 66, "Cairo", 520);
-  ctx.fillText(d.short_dua, G / 2 + (a.icon ? (right ? -40 : 30) : 0), 615);
+  ctx.fillStyle = INK;
+  const sdLines = typedLines(d.short_dua);
+  const sdX = G / 2 + (a.icon ? (right ? -40 : 30) : 0);
+  if (sdLines.length > 1) {  // typed on several lines: smaller, stacked around the same centre
+    let sz = 66;
+    for (; sz > 24; sz -= 2) { font(ctx, 900, sz, "Cairo"); if (sdLines.every((l) => ctx.measureText(l).width <= 520) && sdLines.length * sz * 1.2 <= 150) break; }
+    const lh = sz * 1.2, y0 = 615 - ((sdLines.length - 1) * lh) / 2;
+    sdLines.forEach((l, i) => ctx.fillText(l, sdX, y0 + i * lh));
+  } else {
+    fit(ctx, d.short_dua, 900, 66, "Cairo", 520);
+    ctx.fillText(d.short_dua.trim(), sdX, 615);
+  }
 
   // Prayer paragraph, shrunk until it fits between y 668 and 935
   const top = 668, bottom = 935, maxW = 990;
@@ -636,8 +690,8 @@ function drawSacrifice(ctx: Ctx, d: SacrificeDesign, a: Assets) {
     };
     add(d.title, 900, 80, "Cairo", INK, 2, 1.3, 6);
     add(d.subtitle, 900, 80, "Cairo", d.name_color, 1, 1.3, 4);
-    add(d.name, ns.weight, Math.round((d.name.trim().length <= 8 ? 190 : 140) * ns.k), ns.family, d.name_color, 2, ns.line, 18, 40, ns.align);
-    add(d.short_dua, 800, 66, "Cairo", INK, 1, 1.35, 16);
+    add(d.name, ns.weight, Math.round((d.name.trim().length <= 8 ? 190 : 140) * ns.k), ns.family, d.name_color, Math.max(2, typedLines(d.name).length), ns.line, 18, 40, ns.align);
+    add(d.short_dua, 800, 66, "Cairo", INK, Math.max(1, typedLines(d.short_dua).length), 1.35, 16);
     add(d.dua, ds.weight, Math.round(60 * ds.k), ds.family, INK, 9, ds.line, 0, 20, ds.align);
     const h = parts.reduce((s, p) => s + p.lines.length * p.lh + p.gapAfter, 0);
     if (h <= bottom - top || k <= 0.61) {

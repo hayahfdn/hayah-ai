@@ -28,6 +28,8 @@ import Settings from "./pages/Settings";
 import { MonthWells, MonthSacrifices, ContractorWells } from "./pages/WellPages";
 import { BottomBar, NavProvider, SideNav } from "./nav";
 import { useZoom, ZoomControl } from "./Zoom";
+import Header, { initials } from "./Header";
+import * as I from "./icons";
 
 type AuthCtx = { user: User; can: (...roles: string[]) => boolean; logout: () => void; counts: Record<string, number>; refreshCounts: () => void; ops: Ops };
 /** Live operations counts (no money): plaques, final videos, new orders. Empty for roles that do not use them. */
@@ -91,19 +93,19 @@ function Shell({ children }: { children: React.ReactNode }) {
         {open && <div className="side-scrim" onClick={() => setOpen(false)} aria-hidden="true" />}
         <aside className={`side ${open ? "open" : ""}`}>
           <div className="brand"><img className="logo" src="/hayah-logo.png" alt="HAYAH" /><div><b>{t("app_name")}</b><small>{t("app_sub")}</small></div></div>
+          <div className="side-user">
+            <span className="avatar">{initials(user.full_name)}</span>
+            <div><b>{user.full_name}</b><small>{t("role_" + user.role)}</small></div>
+          </div>
           <SideNav counts={counts} />
           <div className="side-foot">
-            <div style={{ color: "#fff" }}>{user.full_name}</div>
-            <div>{t("role_" + user.role)}</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <button className="sm" onClick={() => setLang(lang === "ar" ? "en" : "ar")}>{t("language")}</button>
-              <button className="sm" onClick={() => setPw(true)}>{t("pw_title")}</button>
-              <button className="sm" onClick={logout}>{t("logout")}</button>
-            </div>
+            <button className="side-act" onClick={() => setLang(lang === "ar" ? "en" : "ar")}><I.Languages size={16} /> {t("language")}</button>
+            <button className="side-act" onClick={() => setPw(true)}><I.KeyRound size={16} /> {t("pw_title")}</button>
+            <button className="side-act" onClick={logout}><I.LogOut size={16} /> {t("logout")}</button>
             {pw && <ChangePassword onClose={() => setPw(false)} />}
           </div>
         </aside>
-        <main className="main"><div className="app-top"><ZoomControl zoom={zoom} /></div>{children}</main>
+        <main className="main"><Header zoom={zoom} /><div className="page">{children}</div></main>
         {can(...MANAGERS) && <Suspense fallback={null}><PromptBar /></Suspense>}
         <Suspense fallback={null}><HelpChat /></Suspense>
       </div>

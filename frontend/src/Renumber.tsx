@@ -49,7 +49,7 @@ export function OrderChip({ order }: { order: string | null }) {
 }
 
 export function OrderModal({ order, onClose }: { order: string; onClose: () => void }) {
-  const { t, fmtDate, num } = useI18n();
+  const { t, fmtDate, num, money } = useI18n();
   const v = useApi<OrderView>(`/api/sacrifices/orders/${encodeURIComponent(order.replace(/\D/g, ""))}`);
   const d = v.data;
   return <Modal title={`${t("order_no")} ${order}`} onClose={onClose}>
@@ -57,13 +57,13 @@ export function OrderModal({ order, onClose }: { order: string; onClose: () => v
     {!d ? <p className="muted">{t("loading")}</p> : <>
       {d.shopify && <p className="muted">{t("order_shopify")} <b className="mono">{d.shopify.name}</b>
         {d.shopify.customer_name && <> · {d.shopify.customer_name}</>}{d.shopify.created_at && <> · {fmtDate(d.shopify.created_at)}</>}
-        {d.shopify.total && <> · {t("order_total")} {num(d.shopify.total)} {d.shopify.currency}</>}
+        {d.shopify.total && <> · {t("order_total")} {d.shopify.currency === "USD" || !d.shopify.currency ? money(d.shopify.total) : `${num(d.shopify.total)} ${d.shopify.currency}`}</>}
         {d.shopify.cancelled && <span className="badge bad"> {t("order_cancelled")}</span>}</p>}
       <h3>{t("order_sacrifices")} ({d.sacrifices.length})</h3>
       {d.sacrifices.length ? <div className="table-wrap"><table><thead><tr><th>{t("sacrifice_no")}</th><th>{t("donor_name")}</th><th>{t("animal_type")}</th>
         <th>{t("order_date")}</th><th>{t("sale_price")}</th><th>{t("parent_well")}</th></tr></thead>
         <tbody>{d.sacrifices.map((s) => <tr key={s.id}><td className="mono"><Link to={`/plaque/sacrifice/${s.sacrifice_no}`}>{s.sacrifice_no}</Link></td>
-          <td>{s.donor_name || "—"}</td><td>{s.animal_type || "—"}</td><td>{fmtDate(s.order_date)}</td><td className="num">{s.sale_price ? num(s.sale_price) : "—"}</td>
+          <td>{s.donor_name || "—"}</td><td>{s.animal_type || "—"}</td><td>{fmtDate(s.order_date)}</td><td className="num">{money(s.sale_price)}</td>
           <td>{s.parent_well_id ? <Link className="mono" to={`/projects/${s.parent_well_id}`}>{s.parent_well_id}</Link> : "—"}</td></tr>)}</tbody></table></div>
         : <p className="muted">{t("order_none")}</p>}
       {!!d.wells.length && <><h3>{t("order_wells")} ({d.wells.length})</h3>

@@ -7,6 +7,7 @@ import { toolsAr, toolsEn } from "./i18n-tools";
 import { renAr, renEn } from "./i18n-renumber";
 import { featAr, featEn } from "./i18n-feat";
 import { certAr, certEn } from "./i18n-cert";
+import { designAr, designEn } from "./i18n-design";
 
 export type Lang = "ar" | "en";
 
@@ -204,8 +205,10 @@ Object.assign(en, featEn);
 Object.assign(ar, featAr);
 Object.assign(en, certEn);
 Object.assign(ar, certAr);
+Object.assign(en, designEn);
+Object.assign(ar, designAr);
 const dicts = { ar, en };
-type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (k: string) => string; st: (v?: string | null) => string; fmtDate: (d?: string | null) => string; num: (n: any) => string };
+type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (k: string) => string; st: (v?: string | null) => string; fmtDate: (d?: string | null) => string; num: (n: any) => string; money: (n: any) => string };
 const I18n = createContext<Ctx>(null!);
 
 function stored(): Lang { try { return (localStorage.getItem("hayah.lang") as Lang) || "ar"; } catch { return "ar"; } }
@@ -222,7 +225,17 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const locale = lang === "ar" ? "ar-EG-u-nu-latn" : "en-GB";
   const fmtDate = (d?: string | null) => (d ? new Date(d.length === 10 ? d + "T00:00:00" : d).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" }) : "—");
   const num = (n: any) => (n === null || n === undefined || n === "" ? "—" : Number(n).toLocaleString(locale));
-  return <I18n.Provider value={{ lang, setLang, t, st, fmtDate, num }}>{children}</I18n.Provider>;
+  return <I18n.Provider value={{ lang, setLang, t, st, fmtDate, num, money: fmtMoney }}>{children}</I18n.Provider>;
 }
 
 export const useI18n = () => useContext(I18n);
+
+/** Every price in the system is US dollars, written the same way everywhere: "$1,250" / "$12.50" / "−$40".
+ *  Western digits and the "$" sign before the number, in Arabic and English alike (kept left-to-right inside Arabic text). */
+const MONEY = new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+export function fmtMoney(v: any): string {
+  if (v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v);
+  return `${n < 0 ? "-" : ""}$${MONEY.format(Math.abs(n))}`;
+}

@@ -7,7 +7,7 @@ import { useI18n } from "../i18n";
 import { defaultDesign, Design, renderCanvas } from "./render";
 import { PlaqueRow } from "./flow";
 
-export default function PlaquePreview({ p }: { p: Project }) {
+export default function PlaquePreview({ p, onReady }: { p: Project; onReady?: (dataUrl: string) => void }) {
   const { t } = useI18n();
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -22,7 +22,7 @@ export default function PlaquePreview({ p }: { p: Project }) {
         const latest = !ok && flow?.design && !flow.design.auto && flow.design.template ? flow.design : null;
         const d = { ...defaultDesign(p as any), ...(ok ? ok.design : latest || {}) } as Design;
         const c = await renderCanvas(d, 540, 540);
-        if (live) setUrl(c.toDataURL("image/png"));
+        if (live) { const u = c.toDataURL("image/png"); setUrl(u); onReady?.(u); }
       } catch { if (live) setFailed(true); }
     })();
     return () => { live = false; };

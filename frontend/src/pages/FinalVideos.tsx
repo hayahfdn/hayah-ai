@@ -20,6 +20,8 @@ interface VideoData {
 const TONE: Record<VState, string> = { not_uploaded: "bad", uploaded: "warn", ready_for_delivery: "info", sent_to_customer: "ok" };
 const mb = (n: number) => `${(n / 1024 / 1024).toFixed(n > 100 * 1024 * 1024 ? 0 : 1)} MB`;
 
+export type { VState, VideoData };
+
 export function VideoBadge({ s }: { s: VState }) {
   const { t } = useI18n();
   return <span className={`badge ${TONE[s]}`}>{t("vid_st_" + s)}</span>;
@@ -49,17 +51,16 @@ function upload(kind: string, no: number, f: File, onProgress: (p: number) => vo
   });
 }
 
-/** «الفيديو النهائي للمشروع»: upload, play, download, share, replace, states. */
-export function FinalVideoSection({ kind, no }: { kind: "well" | "sacrifice"; no: number }) {
-  const { t, fmtDate } = useI18n();
+/** The final video of one order: its data, the playable link, upload, status moves and share. Used by the full
+ *  section below and by the video tile on the project page, so both do exactly the same thing. */
+export function useFinalVideo(kind: "well" | "sacrifice", no: number) {
+  const { t } = useI18n();
   const { refreshCounts } = useAuth();
   const [d, setD] = useState<VideoData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [src, setSrc] = useState<{ url: string; download_url: string } | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [note, setNote] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const load = () => api<VideoData>(`/api/videos/order/${kind}/${no}`).then(setD).catch((e) => setError(e.message));
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [kind, no]);
@@ -97,6 +98,15 @@ export function FinalVideoSection({ kind, no }: { kind: "well" | "sacrifice"; no
     } catch (e: any) { if (e?.name === "AbortError") return; }
     window.location.href = src.download_url;
   };
+  return { d, setD, error, setError, src, cur, progress, busy, input, pick, move, share, fileName, load };
+}
+
+/** «الفيديو النهائي للمشروع»: upload, play, download, share, replace, states. */
+export function FinalVideoSection({ kind, no }: { kind: "well" | "sacrifice"; no: number }) {
+  const { t, fmtDate } = useI18n();
+  const { d, error, src, cur, progress, busy, input, pick, move, share } = useFinalVideo(kind, no);
+  const [sending, setSending] = useState(false);
+  const [note, setNote] = useState("");
   if (!d) return <div className="card"><h2>{t("vid_title")}</h2><ErrorBox error={error} />{!error && <p className="muted">…</p>}</div>;
   return (
     <div className={`card final-video${d.status === "not_uploaded" ? "" : " has"}`}>

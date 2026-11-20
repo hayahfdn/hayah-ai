@@ -62,6 +62,28 @@ def ops_counts(db: Session = Depends(get_db), user: User = Depends(get_current_u
             "whatsapp": {**wa_inbox.counts(db), "enabled": wa_inbox.enabled(db)}}
 
 
+def _monthly_trend(db: Session, months: int = 12) -> dict:
+    """Counts per month for the small charts on the dashboard cards (no money): well orders, wells finished,
+    wells delivered and sacrifices, for the last `months` months ending with this month."""
+    today = date.today()
+    keys = []
+    y, m = today.year, today.month
+    for _ in range(months):
+        keys.append(f"{y:04d}-{m:02d}")
+        y, m = (y - 1, 12) if m == 1 else (y, m - 1)
+    keys.reverse()
+    start = date(int(keys[0][:4]), int(keys[0][5:]), 1)
+    out = {"months": keys}
+    for name, table, col, extra in [("orders", "projects", "order_date", "merged_into_id is null"),
+                                    ("completed", "projects", "completion_date", "merged_into_id is null"),
+                                    ("delivered", "projects", "delivery_date", "merged_into_id is null"),
+                                    ("sacrifices", "sacrifices", "order_date", "true")]:
+        rows = dict(db.execute(text(f"select to_char(date_trunc('month', {col}), 'YYYY-MM'), count(*) from {table} "
+                                    f"where {extra} and {col} >= :s and {col} <= :e group by 1"), {"s": start, "e": today}).all())
+        out[name] = [int(rows.get(k, 0)) for k in keys]
+    return out
+
+
 @router.get("/dashboard")
 def dashboard(db: Session = Depends(get_db), _: User = Depends(require_roles(ALL_ROLES))):
     live = Project.merged_into_id.is_(None)
@@ -88,7 +110,7 @@ def dashboard(db: Session = Depends(get_db), _: User = Depends(require_roles(ALL
     recent = db.execute(text("""select e.created_at, p.well_id, e.event_type, e.summary, e.actor_label, e.source
                                 from project_events e join projects p on p.id = e.project_id
                                 order by e.created_at desc limit 15""")).mappings().all()
-    return {"kpis": kpis, "by_country": [{"country": c or "—", "count": n} for c, n in by_country],
+    return {"kpis": kpis, "trend": _monthly_trend(db), "by_country": [{"country": c or "—", "count": n} for c, n in by_country],
             "by_construction_status": [{"status": s.value if hasattr(s, "value") else s, "count": n} for s, n in by_status],
             "recent_activity": [dict(r) for r in recent], "sheets": sheets_sync.status(db)}
 

@@ -46,7 +46,7 @@ export function CertificatePreview({ d, className }: { d: CertDesign; className?
   return <canvas ref={ref} className={className || "cert-canvas"} aria-label="شهادة وقفية" />;
 }
 
-function saveBlob(b: Blob, name: string) {
+export function saveBlob(b: Blob, name: string) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(b); a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
@@ -57,7 +57,7 @@ const ext = (mime: string | null, name: string | null) => (name && name.includes
  *  Phone: the files go into the share sheet (WhatsApp → the customer). Large videos take a moment to
  *  fetch; if the phone then refuses to open the share sheet without a new tap, the button says
  *  "tap again" and the second tap opens it straight away with the files already prepared. */
-export function CertificateSend({ data, design, onSent, compact }: { data: CertData; design: CertDesign; onSent?: (d: CertData) => void; compact?: boolean }) {
+export function CertificateSend({ data, design, onSent, compact, tile }: { data: CertData; design: CertDesign; onSent?: (d: CertData) => void; compact?: boolean; tile?: boolean }) {
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState<File[] | null>(null);
@@ -118,6 +118,8 @@ export function CertificateSend({ data, design, onSent, compact }: { data: CertD
     } catch (e: any) { toast(e.message); } finally { setBusy(false); }
   };
   const label = busy ? t("cert_preparing") : ready ? t("cert_tap_again") : hasVideo ? t("cert_send") : t("cert_send_only");
+  if (tile) return <button type="button" className={`tile-btn wa${ready ? " ready" : ""}`} disabled={!!why || busy} onClick={go}
+    title={why || `${label} · ${t("cert_send_help")}`} aria-label={label}><WaIcon /><span>{busy ? "…" : ready ? t("cert_tap_again") : t("tile_wa")}</span></button>;
   return (
     <span className="wa-wrap">
       <button type="button" className={`sm wa-btn${compact ? " icon" : ""}${ready ? " primary" : ""}`} disabled={!!why || busy} onClick={go}
@@ -222,3 +224,6 @@ export function CertificateSendInline({ no }: { no: number }) {
   if (!c.data || !c.design) return null;
   return <CertificateSend data={c.data} design={c.design} onSent={c.setData} />;
 }
+
+/** The certificate as a PNG at full print size (the same file the editor downloads). */
+export const certificatePngFor = (d: CertDesign) => certificatePng(d, 2);

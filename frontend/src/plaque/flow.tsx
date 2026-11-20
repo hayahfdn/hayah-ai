@@ -128,7 +128,17 @@ export const WaIcon = () => (
 /** The WhatsApp icon on a prepared plaque. Nothing is sent automatically: it opens WhatsApp on the
  *  customer's number with Hayah's message ready (delivery time by order type) and downloads the plaque
  *  image so the employee can attach it. The tap is logged and the plaque moves to "waiting for the customer". */
-export function PlaqueWhatsApp({ p, onDone, label }: { p: PlaqueRow; onDone?: (p: PlaqueRow) => void; label?: boolean }) {
+/** Why the plaque cannot go to WhatsApp yet, in words (empty when it can). */
+export function plaqueWaWhy(t: (k: string) => string, p: PlaqueRow): string {
+  const w = p.whatsapp;
+  if (!w) return "";
+  return w.problems.includes("missing") ? `${t("pla_missing")}: ${p.missing.map((m) => t("miss_" + m)).join("، ")}`
+    : w.problems.includes("no_file") ? t("plwa_no_file") : w.problems.includes("no_phone") ? t("plwa_no_phone")
+    : w.problems.includes("phone_country") ? t("plwa_phone_country") : w.problems.includes("phone_invalid") ? t("plwa_phone_invalid")
+    : w.problems.includes("no_time") ? t("plwa_no_time") : "";
+}
+
+export function PlaqueWhatsApp({ p, onDone, label, tile }: { p: PlaqueRow; onDone?: (p: PlaqueRow) => void; label?: boolean; tile?: boolean }) {
   const { t } = useI18n();
   const { refreshCounts } = useAuth();
   const w = p.whatsapp;
@@ -152,6 +162,8 @@ export function PlaqueWhatsApp({ p, onDone, label }: { p: PlaqueRow; onDone?: (p
     api<PlaqueRow>(`/api/plaques/${p.id}/whatsapp-opened`, { method: "POST" })
       .then((r) => { toast(t("plwa_done")); refreshCounts(); onDone?.(r); }).catch((e) => toast(e.message));
   };
+  if (tile) return <button type="button" className="tile-btn wa" disabled={!!why} onClick={go} title={why || t("plwa_help")} aria-label={t("plwa_send")}>
+    <WaIcon /><span>{t("tile_wa")}</span></button>;
   return (
     <span className="wa-wrap">
       <button type="button" className={`sm wa-btn${label ? "" : " icon"}`} disabled={!!why} onClick={go}

@@ -6,7 +6,7 @@ import { ErrorBox, toast, useApi } from "../ui";
 
 /** Settings > Shopify > Past orders: match orders from before the start date to the workbook, then review what's left. */
 export default function ShopifyHistory({ configured, onDone }: { configured: boolean; onDone: () => void }) {
-  const { t, fmtDate, num } = useI18n();
+  const { t, fmtDate, num, money } = useI18n();
   const { can } = useAuth();
   const admin = can("super_admin");
   const h = useApi<any>("/api/shopify/history");
@@ -60,7 +60,7 @@ export default function ShopifyHistory({ configured, onDone }: { configured: boo
           {k === 0 && <><td className="mono" rowSpan={o.items.length}>{o.name}</td>
             <td rowSpan={o.items.length}>{fmtDate(o.created_at)}</td>
             <td rowSpan={o.items.length}>{o.customer_name || "—"}</td></>}
-          <td className="wrap">{i.title} · {num(i.amount)} {o.currency}
+          <td className="wrap">{i.title} · {o.currency === "USD" || !o.currency ? money(i.amount) : `${num(i.amount)} ${o.currency}`}
             {i.dedication && <div className="muted" style={{ fontSize: 12 }}>{t("dedication")}: {i.dedication}</div>}</td>
           <td>{i.match === "none" ? <span className="badge warn">{t("hist_none")}</span>
             : <span className={`badge ${i.match === "guess" ? "warn" : "ok"}`}>

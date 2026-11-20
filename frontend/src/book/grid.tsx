@@ -4,7 +4,7 @@ import { AgGridReact } from "ag-grid-react";
 import type { CellValueChangedEvent, ColDef, GridApi, RowClassParams } from "ag-grid-community";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
-import { useI18n } from "../i18n";
+import { fmtMoney, useI18n } from "../i18n";
 
 export const n = (v: any) => (v === null || v === undefined || v === "" ? 0 : Number(v));
 export const sum = <T,>(rows: T[], f: (r: T) => any) => rows.reduce((a, r) => a + n(f(r)), 0);
@@ -23,12 +23,9 @@ export function useDataReload(reload: () => void) {
   }, []);
 }
 
+/** The shared "$1,250" money format (see fmtMoney); empty cells stay empty in the grids. */
 export function useMoney() {
-  const { lang } = useI18n();
-  return useMemo(() => {
-    const f = new Intl.NumberFormat(lang === "ar" ? "ar-EG-u-nu-latn" : "en-GB", { maximumFractionDigits: 2 });
-    return (v: any) => (v === null || v === undefined || v === "" ? "" : "$" + f.format(Number(v)));
-  }, [lang]);
+  return useMemo(() => (v: any) => (v === null || v === undefined || v === "" ? "" : fmtMoney(v)), []);
 }
 
 /** A money column that edits as a number and is sent to the API as a 2-decimal string. */

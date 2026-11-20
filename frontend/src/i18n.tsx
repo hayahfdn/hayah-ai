@@ -6,6 +6,7 @@ import { opsAr, opsEn } from "./i18n-ops";
 import { toolsAr, toolsEn } from "./i18n-tools";
 import { renAr, renEn } from "./i18n-renumber";
 import { featAr, featEn } from "./i18n-feat";
+import { certAr, certEn } from "./i18n-cert";
 
 export type Lang = "ar" | "en";
 
@@ -201,6 +202,8 @@ Object.assign(en, renEn);
 Object.assign(ar, renAr);
 Object.assign(en, featEn);
 Object.assign(ar, featAr);
+Object.assign(en, certEn);
+Object.assign(ar, certAr);
 const dicts = { ar, en };
 type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (k: string) => string; st: (v?: string | null) => string; fmtDate: (d?: string | null) => string; num: (n: any) => string };
 const I18n = createContext<Ctx>(null!);

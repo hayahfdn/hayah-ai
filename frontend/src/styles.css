@@ -583,3 +583,17 @@ a.btn.wa-btn:hover { background: #1a9449; }
 .ren-cols table input { width: 100%; min-width: 80px; }
 .ren-table td.changed { background: rgba(255, 196, 0, .22); font-weight: 700; }
 .est-date { font-style: italic; color: var(--warn); } .est-date::after { content: " ~"; }
+
+/* «شهادة وقفية» (endowment certificate) */
+.cert-thumb { width: 100%; aspect-ratio: 1080 / 1640; border: 1px solid var(--line); border-radius: 8px; display: block; background: #fff; }
+.cert-editor { display: grid; grid-template-columns: minmax(280px, 460px) 1fr; gap: 14px; align-items: start; }
+.cert-preview-card { position: sticky; top: 12px; padding: 10px; }
+.cert-canvas { width: 100%; aspect-ratio: 1080 / 1640; display: block; border-radius: 6px; }
+.cert-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin-bottom: 10px; }
+.cert-form textarea { min-height: 0; }
+.cert-form label.check { display: flex; align-items: center; gap: 8px; }
+@media (max-width: 820px) {
+  .cert-editor { grid-template-columns: 1fr; }
+  .cert-preview-card { position: static; max-width: 420px; margin: 0 auto; width: 100%; }
+  .cert-form { grid-template-columns: 1fr; }
+}

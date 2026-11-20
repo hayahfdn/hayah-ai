@@ -7,6 +7,7 @@ import { useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { Empty, ErrorBox, Field, Modal, toast } from "../ui";
 import { WaChatButton } from "../plaque/flow";
+import { CertificateSendInline } from "../certificate/Certificate";
 
 type VState = "not_uploaded" | "uploaded" | "ready_for_delivery" | "sent_to_customer";
 interface Version { media_id: number; filename: string; original_filename: string | null; mime_type: string; size_bytes: number; created_at: string; uploaded_by: string | null; current: boolean; }
@@ -112,6 +113,7 @@ export function FinalVideoSection({ kind, no }: { kind: "well" | "sacrifice"; no
         <input ref={input} type="file" accept="video/mp4,video/quicktime,.mp4,.mov" hidden onChange={(e) => pick(e.target.files?.[0])} />
         <button className={cur ? "" : "primary"} disabled={progress !== null} onClick={() => input.current?.click()}>⬆ {cur ? t("vid_replace") : t("vid_upload")}</button>
         <WaChatButton e164={d.customer_phone_e164} status={d.customer_phone_status} text={cur ? `${t("vid_share_text")} ${no}` : undefined} label />
+        {kind === "well" && <CertificateSendInline no={no} key={`${d.current_media_id}-${d.status}`} />}
         {src && <a className="btn" href={src.download_url}>⬇ {t("vid_download")}</a>}
         {src && <button onClick={share}>↗ {t("vid_share")}</button>}
         {d.status === "uploaded" && <button className="primary" disabled={busy} onClick={() => move("ready_for_delivery")}>✓ {t("vid_ready")}</button>}

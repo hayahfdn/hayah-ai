@@ -11,6 +11,7 @@ const Workbook = lazy(() => import("./book/Workbook"));
 const PromptBar = lazy(() => import("./book/PromptBar"));
 const HelpChat = lazy(() => import("./HelpChat"));
 const PlaqueDesigner = lazy(() => import("./plaque/PlaqueDesigner"));
+const CertificatePage = lazy(() => import("./certificate/Certificate"));
 const PlaqueLists = lazy(() => import("./pages/PlaqueLists"));
 const Inbox = lazy(() => import("./pages/Inbox"));
 const FinalVideos = lazy(() => import("./pages/FinalVideos"));
@@ -171,6 +172,7 @@ export default function App() {
             <Route path="/plaque/sacrifice" element={<Suspense fallback={null}><PlaqueDesigner kind="sacrifice" key="sac" /></Suspense>} />
             <Route path="/plaque/sacrifice/:no" element={<Suspense fallback={null}><PlaqueDesigner kind="sacrifice" key="sac" /></Suspense>} />
             <Route path="/plaque/:wellId" element={<Suspense fallback={null}><PlaqueDesigner key="well" /></Suspense>} />
+            <Route path="/certificate/:wellId" element={<Suspense fallback={null}><CertificatePage /></Suspense>} />
             <Route path="/plaques/confirm" element={<Suspense fallback={null}><PlaqueLists mode="confirm" key="c" /></Suspense>} />
             <Route path="/plaques/approved" element={<Suspense fallback={null}><PlaqueLists mode="approved" key="a" /></Suspense>} />
             <Route path="/videos" element={<Suspense fallback={null}><FinalVideos /></Suspense>} />

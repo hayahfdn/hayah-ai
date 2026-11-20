@@ -203,6 +203,7 @@ class ProjectOut(ORM):
     village: str | None
     well_type: str | None
     sales_source: str | None
+    source_group: str | None = None
     contractor_id: int | None
     contractor: ContractorOut | None
     sale_amount: Decimal | None
@@ -474,6 +475,7 @@ class SacrificeOut(ORM):
     payment_method: str | None
     extras: str | None
     sales_source: str | None
+    source_group: str | None = None
     shopify_order: str | None
     intention: str | None
     dedication: str | None = None

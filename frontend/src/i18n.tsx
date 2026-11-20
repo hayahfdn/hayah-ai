@@ -3,6 +3,7 @@ import { bookAr, bookEn } from "./i18n-book";
 import { shopifyAr, shopifyEn } from "./i18n-shopify";
 import { uiAr, uiEn } from "./i18n-ui";
 import { opsAr, opsEn } from "./i18n-ops";
+import { toolsAr, toolsEn } from "./i18n-tools";
 
 export type Lang = "ar" | "en";
 
@@ -192,6 +193,8 @@ Object.assign(en, uiEn);
 Object.assign(ar, uiAr);
 Object.assign(en, opsEn);
 Object.assign(ar, opsAr);
+Object.assign(en, toolsEn);
+Object.assign(ar, toolsAr);
 const dicts = { ar, en };
 type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (k: string) => string; st: (v?: string | null) => string; fmtDate: (d?: string | null) => string; num: (n: any) => string };
 const I18n = createContext<Ctx>(null!);

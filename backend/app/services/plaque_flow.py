@@ -305,12 +305,13 @@ def list_plaques(db: Session, statuses: list[S], kind: str | None = None, q: str
     return out
 
 
-def counts(db: Session) -> dict:
+def counts(db: Session, for_manager: bool = True) -> dict:
     by = dict(db.execute(select(Plaque.status, func.count()).group_by(Plaque.status)).all())
     g = lambda *ss: sum(by.get(s, 0) for s in ss)  # noqa: E731
     return {"needs_confirmation": g(*OPEN), "draft": g(S.draft), "ready_for_review": g(S.ready_for_review),
             "awaiting_customer": g(S.awaiting_customer), "needs_changes": g(S.needs_changes),
-            "ready_for_contractor": g(S.approved_for_contractor), "sent_to_contractor": g(S.sent_to_contractor)}
+            "ready_for_contractor": g(S.approved_for_contractor) if for_manager else 0,
+            "sent_to_contractor": g(S.sent_to_contractor)}
 
 
 def version_file(db: Session, v: PlaqueVersion) -> tuple[bytes, str, str]:

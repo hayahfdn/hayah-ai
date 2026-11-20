@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import PlaquePreview from "../plaque/Preview";
 import { api, Project } from "../api";
 import { EDITORS, MANAGERS, useAuth } from "../App";
 import { useI18n } from "../i18n";
@@ -17,7 +18,9 @@ export default function ProjectDetail() {
   const p = useApi<Project>(`/api/projects/${wellId}`);
   const h = useApi<any>(`/api/projects/${wellId}/history`);
   const [tab, setTab] = useState("timeline");
-  const [editing, setEditing] = useState(false);
+  // ?edit=1 (the open icon beside a project number): open straight in the usual edit form
+  const [search, setSearch] = useSearchParams();
+  const [editing, setEditing] = useState(() => search.get("edit") === "1" && can(...EDITORS));
   const [merging, setMerging] = useState(false);
   if (p.error) return <ErrorBox error={p.error} />;
   if (!p.data) return <p className="muted">{t("loading")}</p>;
@@ -46,7 +49,7 @@ export default function ProjectDetail() {
             {d.customer_phone_e164 && d.customer_phone_e164 !== d.customer_phone && <span className="muted"> ({t("ph_original")}: {d.customer_phone})</span>}
             {d.customer_phone_status && d.customer_phone_status !== "valid" && <span className="badge warn" dir="auto"> {t(d.customer_phone_status === "invalid" ? "ph_invalid" : "ph_needs_country")}</span>}</span>)}
           {item("well_type", d.well_type)}
-          {item("sales_source", d.sales_source)}{item("contractor", d.contractor ? `${d.contractor.code} · ${d.contractor.name}` : null)}
+          {item("sales_source", d.source_group || d.sales_source ? <>{d.source_group || d.sales_source}{d.sales_source && d.sales_source !== d.source_group && <span className="muted"> ({t("src_original")}: {d.sales_source})</span>}</> : null)}{item("contractor", d.contractor ? `${d.contractor.code} · ${d.contractor.name}` : null)}
           {item("sale_amount", d.sale_amount && `${num(d.sale_amount)} ${d.currency}`)}{item("order_date", fmtDate(d.order_date))}
           {item("delivery_date", fmtDate(d.delivery_date))}{item("last_maintenance_date", fmtDate(d.last_maintenance_date))}
           {item("next_maintenance_date", fmtDate(d.next_maintenance_date))}
@@ -74,8 +77,12 @@ export default function ProjectDetail() {
             <tbody>{h.data.deliveries.map((x: any) => <tr key={x.id}><td>{fmtDate(x.delivery_date)}</td><td><Status v={x.status} /></td><td>{x.sender_name}</td><td>{x.source}</td><td className="wrap">{x.decision_note}</td></tr>)}</tbody></table></div> : <Empty />
         )}
       </div>
-      {editing && <Modal title={`${t("edit")} · ${d.well_id}`} onClose={() => setEditing(false)}>
-        <ProjectForm project={d} onCancel={() => setEditing(false)} onSaved={(np) => { p.setData(np); setEditing(false); h.reload(); toast(t("saved")); }} />
+      {editing && <Modal title={`${t("edit")} · ${d.well_id}`} onClose={() => { setEditing(false); setSearch({}, { replace: true }); }}>
+        <div className="edit-plaque"><PlaquePreview p={d} />
+          <div><b>{t("plaque")}</b> <PlaqueBadge p={d} /><p className="muted">{t("plaque_auto_preview")}</p>
+            <Link className="btn" to={`/plaque/${d.well_id}`}>🖼 {t("plaque_edit")}</Link></div></div>
+        <ProjectForm project={d} onCancel={() => { setEditing(false); setSearch({}, { replace: true }); }}
+          onSaved={(np) => { p.setData(np); setEditing(false); setSearch({}, { replace: true }); h.reload(); toast(t("saved")); }} />
       </Modal>}
       {merging && <MergeModal source={d.well_id} onClose={() => setMerging(false)} />}
     </>
@@ -119,7 +126,13 @@ function PlaqueCard({ p }: { p: Project }) {
           <p className="muted">{t("plaque_approved_by")}: {p.plaque_approved_by || "—"} · {fmtDate(p.plaque_approved_at)}</p>
           {can(...EDITORS) && <Link className="btn" to={`/plaque/${p.well_id}`}>{t("plaque_versions")} · {t("plaque_new_version")}</Link>}
         </div>
-      </div> : <p className="muted" style={{ marginBottom: 0 }}>{p.plaque_status === "draft" ? t("plaque_draft") + " · " : ""}{t("plaque_none_yet")}</p>}
+      </div> : <div className="plaque-card-body">
+        <PlaquePreview p={p} />
+        <div>
+          <p className="muted" style={{ marginTop: 0 }}>{t("plaque_auto_preview")}</p>
+          {can(...EDITORS) && <Link className="btn primary" to={`/plaque/${p.well_id}`}>🖼 {t("plaque_edit")}</Link>}
+        </div>
+      </div>}
     </div>
   );
 }

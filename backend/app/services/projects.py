@@ -168,8 +168,17 @@ def update_project(db: Session, project: Project, changes: dict, *, actor: User 
 def list_projects(db: Session, *, q: str | None = None, country: str | None = None,
                   construction_status: str | None = None, delivery_status: str | None = None,
                   contractor_id: int | None = None, page: int = 1, page_size: int = 50,
-                  sort: str = "-well_id", contractor_scope: int | None = None, month: str | None = None):
+                  sort: str = "-order_date", contractor_scope: int | None = None, month: str | None = None,
+                  hide_waiting_contractor: bool = False):
     stmt = select(Project).where(Project.merged_into_id.is_(None))
+    if hide_waiting_contractor:
+        # Employees: a well whose plaque is approved and waiting for the contractor is the manager's next step,
+        # so it is left out of their lists and search (still open by number, and on the contractor's page once
+        # a contractor is set). Nothing is hidden from managers and nothing is changed (Hayah, 2026-11-19).
+        from app.models import Plaque, PlaqueStatus
+        waiting = select(Plaque.project_id).where(Plaque.project_id.is_not(None),
+                                                  Plaque.status == PlaqueStatus.approved_for_contractor)
+        stmt = stmt.where(Project.id.not_in(waiting))
     if month:
         from app.services.finance import month_bounds
         a, b = month_bounds(month)
@@ -194,7 +203,9 @@ def list_projects(db: Session, *, q: str | None = None, country: str | None = No
         stmt = stmt.where(Project.contractor_id == contractor_scope)
     total = db.scalar(select(func.count()).select_from(stmt.subquery()))
     col = getattr(Project, sort.lstrip("-"), Project.well_id)
-    stmt = stmt.order_by(col.desc() if sort.startswith("-") else col.asc())
+    # newest first by default: order date, then the higher Well ID; wells without a date go last
+    stmt = stmt.order_by((col.desc() if sort.startswith("-") else col.asc()).nulls_last(),
+                         Project.well_id.desc() if sort.startswith("-") else Project.well_id.asc())
     items = list(db.scalars(stmt.offset((page - 1) * page_size).limit(page_size)).unique())
     return items, total
 

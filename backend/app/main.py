@@ -13,6 +13,7 @@ from app.integrations.sheets.base import SheetsError
 # register job handlers
 import app.services.sheets_sync  # noqa: F401,E402
 import app.services.intake  # noqa: F401,E402
+import app.services.sales_sources  # noqa: F401,E402  (keeps the unified source current)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
@@ -48,7 +49,7 @@ def create_app() -> FastAPI:
 
     for r in (auth.router, auth.users, contractors.router, projects.router, operations.delivery, operations.maintenance,
               operations.media, operations.review, intake.router, system.router, final_videos.router, inbox.router, inbox.settings_router, finance.router, finance.sacrifices,
-              assistant.router, imports.router, undo.router, shopify.router, plaques.router, phones.router):
+              assistant.router, assistant.help_router, imports.router, undo.router, shopify.router, plaques.router, phones.router):
         app.include_router(r)
     return app
 

@@ -104,7 +104,9 @@ def test_waiting_for_video_follows_the_plaque(client, seeded, mocks):
     assert _save(client, staff, 7205, {"name": "المرحوم أحمد محمد"}, approve=True).status_code == 201
     pid = client.get("/api/plaques/order/well/7205", headers=staff).json()["id"]
     con = client.get("/api/contractors", headers=staff).json()[0]["id"]
-    assert client.post(f"/api/plaques/{pid}/send-to-contractor", headers=staff, json={"contractor_id": con, "country": "Pakistan"}).status_code == 200
+    assert client.post(f"/api/plaques/{pid}/send-to-contractor", headers=staff, json={"contractor_id": con, "country": "Pakistan"}).status_code == 403
+    mgr = login(client, "manager@hayah.local")
+    assert client.post(f"/api/plaques/{pid}/send-to-contractor", headers=mgr, json={"contractor_id": con, "country": "Pakistan"}).status_code == 200
     assert client.get("/api/ops/counts", headers=staff).json()["videos"]["waiting_upload"] == w0 + 1
     assert any(x["number"] == 7205 for x in client.get("/api/videos?status=waiting", headers=staff).json())
     _up(client, staff, "well", 7205, _mp4(55))

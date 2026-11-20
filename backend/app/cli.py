@@ -18,6 +18,7 @@ from pathlib import Path
 from sqlalchemy import select
 
 from app.db import SessionLocal
+import app.services.sales_sources  # noqa: F401,E402  (keeps the unified source current)
 from app.models import (
     ConstructionStatus, Contractor, MediaCategory, PaymentStatus, Project, Role, User, VideoStatus,
 )

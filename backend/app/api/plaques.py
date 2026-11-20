@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.deps import PROJECT_CREATORS, require_roles
+from app.deps import MANAGERS, PROJECT_CREATORS, require_roles
 from app.models import User
 from app.services import plaques as svc
 
@@ -57,13 +57,16 @@ def _plaque(db: Session, pid: int, lock: bool = False) -> Plaque:
 
 @router.get("")
 def list_all(group: str = Query("confirm", pattern="^(confirm|approved|sent)$"), kind: str | None = None,
-             q: str | None = None, db: Session = Depends(get_db), _: User = EDITORS):
+             q: str | None = None, db: Session = Depends(get_db), user: User = EDITORS):
+    if group == "approved" and user.role not in MANAGERS:
+        # approved and waiting for the contractor = the manager's step; employees are not shown it (Hayah, 2026-11-19)
+        raise HTTPException(403, "Approved plaques waiting for the contractor are handled by a manager")
     return flow.list_plaques(db, GROUPS[group], kind=kind, q=q)
 
 
 @router.get("/counts")
-def counts(db: Session = Depends(get_db), _: User = EDITORS):
-    return flow.counts(db)
+def counts(db: Session = Depends(get_db), user: User = EDITORS):
+    return flow.counts(db, for_manager=user.role in MANAGERS)
 
 
 @router.get("/order/{kind}/{number}")
@@ -121,7 +124,7 @@ class SendIn(BaseModel):
 
 
 @router.post("/{pid}/send-to-contractor")
-def send(pid: int, body: SendIn, db: Session = Depends(get_db), user: User = EDITORS):
+def send(pid: int, body: SendIn, db: Session = Depends(get_db), user: User = Depends(require_roles(MANAGERS))):
     pl = _plaque(db, pid, lock=True)
     flow.send_to_contractor(db, pl, contractor_id=body.contractor_id, country=body.country, on=body.sent_on,
                             actor=user, note=body.note)

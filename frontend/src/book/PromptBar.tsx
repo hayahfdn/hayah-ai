@@ -6,6 +6,7 @@ import { api, dataChanged } from "../api";
 import { useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { ErrorBox, Modal, toast } from "../ui";
+import { useDraggable } from "../useDraggable";
 
 interface Op { op: string; target: string; label?: string; fields: Record<string, string>; changes: { field: string; from: any; to: any }[]; error: string | null; expected_version?: number }
 interface Plan { summary: string; questions: string[]; operations: Op[]; cost_usd: number; can_apply: boolean }
@@ -21,7 +22,8 @@ function pageContext(path: string) {
 
 export default function PromptBar() {
   const { t, st } = useI18n();
-  const { refreshCounts } = useAuth();
+  const { refreshCounts, user } = useAuth();
+  const fab = useDraggable(`hayah.fab.prompt.${user.id}`);
   const loc = useLocation();
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
@@ -57,7 +59,8 @@ export default function PromptBar() {
 
   return (
     <>
-      <button className="prompt-fab" onClick={() => setOpen(true)} title="Ctrl+K"aria-label={t("prompt_btn")}>✦ <span className="fab-label">{t("prompt_btn")}</span></button>
+      <button ref={fab.ref} className={`prompt-fab fab-movable${fab.dragging ? " dragging" : ""}`} style={fab.style} {...fab.handlers}
+        onClick={() => setOpen(true)} title={`${t("prompt_btn")} (Ctrl+K) · ${t("fab_hold_to_move")}`} aria-label={t("prompt_btn")}>✦ <span className="fab-label">{t("prompt_btn")}</span></button>
       {open && <Modal title={t("prompt_title")} onClose={() => setOpen(false)}>
         {status && !status.ready && <div className="banner"><b>{t("prompt_not_ready")}.</b> {status.code && t("why_" + status.code) !== "why_" + status.code ? t("why_" + status.code) : status.reason}</div>}
         <textarea value={prompt} onChange={(e) => { setPrompt(e.target.value); setPlan(null); }} placeholder={t("prompt_ph")} rows={4} autoFocus
@@ -81,6 +84,7 @@ export default function PromptBar() {
           <p className="muted" style={{ fontSize: 12 }}>{t("prompt_cost")}: ${plan.cost_usd.toFixed(4)}</p>
         </div>}
         <div className="actions">
+          {fab.moved && <button className="ghost" style={{ marginInlineEnd: "auto" }} onClick={fab.reset}>↺ {t("fab_reset")}</button>}
           <button onClick={() => setOpen(false)}>{t("cancel")}</button>
           {!plan && <button className="primary" disabled={busy || prompt.trim().length < 2 || (status !== null && !status.ready)} onClick={preview}>{t("prompt_preview")}</button>}
           {plan && <button className="primary" disabled={busy || !plan.can_apply} onClick={apply}>{t("prompt_apply")}</button>}

@@ -1,10 +1,11 @@
 // Excel-style sacrifices sheet (one per month, and inside each contractor tab).
+import OpenIcon from "../OpenIcon";
 import { useCallback, useMemo, useState } from "react";
 import type { CellValueChangedEvent, ColDef } from "ag-grid-community";
 import { api, Contractor, dataChanged, Sacrifice } from "../api";
 import { useI18n } from "../i18n";
 import { ErrorBox, Field, Modal, toast, useApi } from "../ui";
-import { dateCol, HayahGrid, moneyCol, n, sum, useDataReload, useMoney } from "./grid";
+import { dateCol, HayahGrid, moneyCol, n, newestFirst, sum, useDataReload, useMoney } from "./grid";
 import { Link, useNavigate } from "react-router-dom";
 import { useIsMobile } from "../nav";
 
@@ -29,12 +30,13 @@ export default function SacrificesGrid({ month, contractorId, height, title }: {
     const col = (field: keyof Sacrifice, extra: Partial<ColDef<Sacrifice>> = {}): ColDef<Sacrifice> => ({
       field, headerName: t(field as string), editable: (p) => !p.node.isRowPinned(), ...extra });
     return [
-      col("sacrifice_no", { editable: false, pinned: lang === "ar" ? "right" : "left", width: 95, sort: "asc", cellClass: "well-no",
+      col("sacrifice_no", { editable: false, pinned: lang === "ar" ? "right" : "left", width: 95, sort: "desc", sortIndex: 1, cellClass: "well-no",
+        cellRenderer: (p: any) => (p.node.isRowPinned() || !p.data ? p.valueFormatted : <span className="no-cell">{p.value}<OpenIcon kind="sacrifice" no={p.value} /></span>),
         filter: "agNumberColumnFilter", valueFormatter: (p) => (p.node?.isRowPinned() ? t("total_row") : String(p.value ?? "")) }),
       { colId: "plaque", headerName: t("plaque"), pinned: lang === "ar" ? "right" : "left", width: 96, editable: false, sortable: false, filter: false,
         cellRenderer: (p: any) => (p.node.isRowPinned() || !p.data ? null
           : <Link className="plaque-chip new" to={`/plaque/sacrifice/${p.data.sacrifice_no}`} onDoubleClick={(e) => e.stopPropagation()}>＋ {t("plaque")}</Link>) },
-      col("order_date", dateCol), col("donor_name", { width: 170, cellClass: "strong" }), col("delivery_date", dateCol),
+      col("order_date", { ...dateCol, sort: "desc", sortIndex: 0 }), col("donor_name", { width: 170, cellClass: "strong" }), col("delivery_date", dateCol),
       col("contractor_id", { headerName: t("contractor"), width: 105, cellEditor: "agSelectCellEditor",
         cellEditorParams: { values: [null, ...(contractors.data || []).map((c) => c.id)] },
         valueFormatter: (p) => (p.node?.isRowPinned() ? "" : p.value ? codeById[p.value] || String(p.value) : "—"),
@@ -44,7 +46,9 @@ export default function SacrificesGrid({ month, contractorId, height, title }: {
       { colId: "profit", headerName: t("profit"), editable: false, width: 100, cellClass: "num locked",
         valueGetter: (p) => (p.data?.sale_price == null && p.data?.cost == null ? null : n(p.data?.sale_price) - n(p.data?.cost)),
         valueFormatter: (p) => money(p.value) },
-      col("payment_method", { width: 120 }), col("extras", { width: 110 }), col("sales_source", { width: 120 }),
+      col("payment_method", { width: 120 }), col("extras", { width: 110 }), col("sales_source", { width: 120, valueGetter: (p) => p.data?.source_group ?? p.data?.sales_source,
+        tooltipValueGetter: (p) => (p.data?.sales_source && p.data.sales_source !== p.data.source_group ? `${t("src_original")}: ${p.data.sales_source}` : null),
+        cellEditor: "agSelectCellEditor", cellEditorParams: { values: ["", ...(lists.data?.sales_sources || [])] } }),
       col("shopify_order", { width: 105 }), col("intention", { width: 130 }),
       col("dedication", { width: 200, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true }),
       col("notes", { width: 220, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true }),
@@ -123,13 +127,13 @@ function SacCards({ rows, colorById, codeById, onEdit }: { rows: Sacrifice[]; co
   const { t, fmtDate, num } = useI18n();
   const money = useMoney();
   const go = useNavigate();
-  const list = [...rows].sort((a, b) => b.sacrifice_no - a.sacrifice_no);
+  const list = [...rows].sort(newestFirst((s) => s.sacrifice_no));
   return <>
     <div className="cards-sum muted"><b>{num(list.length)}</b> {t("sacrifices")} · {money(sum(list, (r) => r.sale_price))}</div>
     <div className="well-cards">{list.map((s) => {
       const color = s.contractor_id ? colorById[s.contractor_id] : "";
       return <article key={s.id} className="well-card" style={color ? { background: color } : undefined} onClick={() => onEdit(s)}>
-        <header><span className="well-no">{s.sacrifice_no}</span>{s.animal_type && <span className="chip">{s.animal_type}</span>}<span className="grow" />
+        <header><span className="well-no">{s.sacrifice_no}</span><OpenIcon kind="sacrifice" no={s.sacrifice_no} />{s.animal_type && <span className="chip">{s.animal_type}</span>}<span className="grow" />
           {s.delivery_date ? <span className="badge ok">{t("delivered")}</span> : <span className="badge warn">{t("st_pending")}</span>}</header>
         <div className="who">{s.donor_name || s.dedication || "—"}</div>
         <div className="meta"><span>{s.contractor_id ? codeById[s.contractor_id] : "—"}</span><span>{fmtDate(s.order_date)}</span>

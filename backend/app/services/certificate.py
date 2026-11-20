@@ -7,6 +7,7 @@ event (certificate_saved), so no new table is needed. Sending is logged the same
 """
 from __future__ import annotations
 
+import re
 from datetime import date
 
 from sqlalchemy import select
@@ -26,15 +27,69 @@ def project_type(well_type: str | None) -> str:
     return "حفر بئر مياه"
 
 
+# Hayah's rule (2026-11-20): the certificate shows the names only, one per line. No title, no kinship,
+# no "late", no prayer. Words are matched whole (with or without tashkeel); genealogical بن / بنت / ابن
+# inside a name and kunyas such as أبو محمد / أم أحمد are kept, they are part of the name.
+_KIN = ("والد|والدة|والدت|اب|أب|ام|أم|جد|جدة|جدت|زوج|زوجة|زوجت|ابن|ابنة|ابنت|بنت|اخ|أخ|اخت|أخت|خال|خالة|خالت|عم|عمة|عمت"
+        "|حبيب|حبيبة|حبيبت|صديق|صديقة|صديقت|جار|جارة|جارت|عائلت|اسرت|أسرت|اهل|أهل|اولاد|أولاد|ابناء|أبناء|بنات|اخوان|إخوان|اخوة|إخوة|اخوات|أخوات")
+_KIN_RE = re.compile(rf"^(?:{_KIN})(?:ي|ه|ها|نا|هم|كم|ك|يه|ته|تي|تها|تنا)$|^(?:والدي|والديه|والديها|والدينا|والداي|والدي)$")
+_TITLES = {
+    "المرحوم", "المرحومة", "المرحومه", "المغفور", "المغفورة", "له", "لها", "لهم", "الفقيد", "الفقيدة", "المتوفى", "المتوفي",
+    "المتوفاة", "الراحل", "الراحلة", "الشهيد", "الشهيدة", "السيد", "السيدة", "سيد", "سيدة", "الحاج", "الحاجة", "الحاجه", "حاج", "حجي",
+    "الشيخ", "الشيخة", "الأستاذ", "الاستاذ", "الأستاذة", "الاستاذة", "الدكتور", "الدكتورة", "د", "د.", "دكتور", "المهندس", "المهندسة",
+    "م.", "الأخ", "الاخ", "الأخت", "الاخت", "الآنسة", "الانسة", "الطفل", "الطفلة", "المولود", "المولودة", "الغالي", "الغالية",
+    "روح", "لروح", "عن", "على", "الى", "إلى", "لـ", "ل", "صدقة", "صدقه", "جارية", "جاريه", "وقف", "وقفية", "إهداء", "اهداء",
+    "رحمه", "رحمها", "رحمهم", "رحمهما", "يرحمه", "يرحمها", "حفظه", "حفظها", "حفظهم", "تغمده", "تغمدها", "mr", "mrs", "ms", "miss", "dr", "dr.", "late",
+    "the", "haji", "hajja", "sheikh", "for", "in", "memory", "of",
+}
+_TASH = re.compile(r"[\u064b-\u0652\u0640]")
+# prayers written after a name ("رحمه الله", "حفظها الله"...), removed as whole phrases so that a name
+# such as عبد الله keeps its الله
+_PRAYER = re.compile(r"(?:ي?رحم|حفظ|تغمد|اسكن|أسكن|غفر|يغفر)(?:ه|ها|هم|هما)\s+الله(?:\s+تعالى)?(?:\s+برحمته(?:\s+الواسعة)?)?"
+                     r"|رحمة\s+واسعة|(?:و?أ?اسكن|و?أسكن)(?:ه|ها|هم)\s+فسيح\s+جناته|فسيح\s+جناته|سبحانه\s+وتعالى")
+_SPLIT = re.compile(r"[\n\r،,;؛/+&|]+|\s+و\s+|\s+and\s+", re.I)
+
+
+def _is_noise(tok: str) -> bool:
+    w = _TASH.sub("", tok).strip(".:-()[]«»\"'").lower()
+    return not w or w in _TITLES or bool(_KIN_RE.match(w))
+
+
+def clean_names(text: str | None) -> str:
+    """Names only, one per line, from a dedication or plaque name.
+    "صدقة جارية عن روح والدي المرحوم محمد أحمد ووالدتي فاطمة" -> "محمد أحمد\nفاطمة"."""
+    out: list[str] = []
+    for part in _SPLIT.split(_PRAYER.sub(" ", _TASH.sub("", text or ""))):
+        cur: list[str] = []
+        for tok in part.split():
+            bare = _TASH.sub("", tok)
+            # "ووالدتي" / "والمرحومة": a joined و before a kinship word or title starts the next name
+            if len(bare) > 2 and bare.startswith("و") and _is_noise(bare[1:]) and not _is_noise(bare):
+                if cur:
+                    out.append(" ".join(cur)); cur = []
+                continue
+            if _is_noise(tok) or (not cur and bare in ("ابن", "ابنة", "بن", "بنت")):
+                continue
+            cur.append(tok.strip(":"))
+        if cur:
+            out.append(" ".join(cur))
+    seen: list[str] = []
+    for n in out:
+        if n not in seen:
+            seen.append(n)
+    return "\n".join(seen)
+
+
 def donor_names(db: Session, p: Project) -> str:
-    """The name on the plaque when there is one (staff have already checked it), else the order's."""
+    """The name on the plaque when there is one (staff have already checked it), else the order's;
+    cleaned to the names only (clean_names)."""
     pl = db.scalar(select(Plaque).where(Plaque.project_id == p.id))
     if pl and pl.current_version_id:
         v = db.get(PlaqueVersion, pl.current_version_id)
         name = (v.design or {}).get("name") if v else None
-        if isinstance(name, str) and name.strip():
-            return name.strip()
-    return (p.dedication or p.customer_name or "").strip()
+        if isinstance(name, str) and clean_names(name):
+            return clean_names(name)
+    return clean_names(p.dedication) or clean_names(p.customer_name)
 
 
 def opening(p: Project) -> tuple[date, bool]:

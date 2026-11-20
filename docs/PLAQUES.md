@@ -39,7 +39,7 @@ Code: `frontend/src/plaque/render.ts` (drawing and export), `frontend/src/plaque
 
 ## «شهادة وقفية» (endowment certificate)
 Every well has a certificate card on its project page and an editor at `/certificate/<well>`.
-- Filled from the order: donor names (the plaque's name, else the dedication, else the customer), project type
+- Filled from the order: donor names (the plaque's name, else the dedication, else the customer), cleaned to the names only, one per line: titles (السيد، الحاج، المرحوم…), kinship words (والدي، أمي، أخي…) and prayers (رحمه الله…) are removed (`clean_names`). Project type
   ("حفر بئر مياه", solar adds "بالطاقة الشمسية"), opening month/year (delivery date, then completion date, else this
   month with a warning), well number, country (in Arabic). Every line is editable; Save keeps the design as a
   `certificate_saved` timeline event (no new table).

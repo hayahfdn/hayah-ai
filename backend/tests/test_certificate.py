@@ -60,3 +60,27 @@ def test_roles(client, seeded, mocks):
         except AssertionError:
             continue
         assert client.get("/api/certificates/well/1337", headers=h).status_code == 403
+
+
+def test_names_only_one_per_line():
+    """Hayah's rule: names only, each on its own line; no title, kinship, 'late' or prayer."""
+    from app.services.certificate import clean_names as c
+    assert c("صدقة جارية عن روح والدي المرحوم محمد أحمد ووالدتي فاطمة") == "محمد أحمد\nفاطمة"
+    assert c("المرحومة الحاجة أم أحمد رحمها الله") == "أم أحمد"
+    assert c("السيد خالد بن الوليد، والسيدة هند بنت عتبة") == "خالد بن الوليد\nهند بنت عتبة"
+    assert c("الدكتور عبد الله") == "عبد الله"
+    assert c("أخي وليد و أختي وفاء") == "وليد\nوفاء"
+    assert c("ابن خالي سامي") == "سامي"
+    assert c("المرحوم محمد أسكنه الله فسيح جناته") == "محمد"
+    assert c("محمد بشير بنور مروان\nجودية علي ميلاد حنيش") == "محمد بشير بنور مروان\nجودية علي ميلاد حنيش"
+    assert c("عن روح جدتي") == ""
+
+
+def test_default_names_are_cleaned(client, seeded, mocks):
+    staff = login(client, "staff@hayah.local")
+    client.post("/api/projects", headers=staff, json={"well_id": 1338, "well_type": "يدوي", "country": "Pakistan",
+                                                      "customer_name": "أبو سامي", "dedication": "عن روح والدتي المرحومة الحاجة فاطمة علي رحمها الله"})
+    assert client.get("/api/certificates/well/1338", headers=staff).json()["defaults"]["names"] == "فاطمة علي"
+    client.post("/api/projects", headers=staff, json={"well_id": 1339, "well_type": "يدوي", "country": "Pakistan",
+                                                      "customer_name": "السيد سامي", "dedication": "عن روح جدتي"})
+    assert client.get("/api/certificates/well/1339", headers=staff).json()["defaults"]["names"] == "سامي"

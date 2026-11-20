@@ -10,6 +10,7 @@ export const designEn: Record<string, string> = {
   tile_cert_no_video: "Sent alone until the video is uploaded",
   ph_no_contractor: "No contractor yet", ph_call: "Call the customer", ph_details: "Order details", ph_not_filled: "Not filled in yet",
   ph_fill: "Fill in", ph_step_order: "Order", ph_progress: "Order progress",
+  pl_extra_img: "Extra picture on the plaque", pl_extra_img_add: "Add a picture",
 };
 
 export const designAr: Record<string, string> = {
@@ -23,4 +24,5 @@ export const designAr: Record<string, string> = {
   tile_cert_no_video: "تُرسل وحدها حتى يُرفع الفيديو",
   ph_no_contractor: "بدون مقاول بعد", ph_call: "اتصال بالعميل", ph_details: "تفاصيل الطلب", ph_not_filled: "لم تُعبّأ بعد",
   ph_fill: "تعبئة", ph_step_order: "الطلب", ph_progress: "مراحل الطلب",
+  pl_extra_img: "صورة إضافية على اللوحة", pl_extra_img_add: "إضافة صورة",
 };

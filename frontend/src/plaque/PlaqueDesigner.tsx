@@ -13,10 +13,26 @@ import {
   DUAS, Align, textStyle, Assets, imageBox, imageLibrary, LibraryImage,
 } from "./render";
 import { FONTS } from "./fonts";
+import * as I from "../icons";
 import { MissingList, PlaqueActions, PlaqueRow, PlaqueStatusBadge, PlaqueWhatsApp } from "./flow";
 
 type Kind = "well" | "sacrifice";
 interface Saved { id: string; created_at: string; actor_label: string; filename: string; design: Design; version?: number; approved?: boolean; media_id?: number | null; }
+
+/** A small button that opens the file picker (instead of the wide browser file box). */
+function UploadBtn({ label, accept = "image/*", onFile, disabled }: { label: string; accept?: string; onFile: (f: File | undefined) => void; disabled?: boolean }) {
+  return (
+    <label className={`btn sm upload-btn${disabled ? " disabled" : ""}`} title={label}>
+      <I.Upload size={15} aria-hidden="true" /><span>{label}</span>
+      <input type="file" accept={accept} disabled={disabled} onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} />
+    </label>);
+}
+
+/** One button of the plaque's action bar: icon with a short word, all the same size, side by side. */
+function ActBtn({ icon: C, label, onClick, disabled, busy, primary }: { icon: I.IconC; label: string; onClick: () => void; disabled?: boolean; busy?: boolean; primary?: boolean }) {
+  return <button type="button" className={`act-btn${primary ? " primary" : ""}`} onClick={onClick} disabled={disabled} title={label} aria-label={label}>
+    <C size={18} strokeWidth={2} aria-hidden="true" /><span>{busy ? "…" : label}</span></button>;
+}
 
 function saveBlob(blob: Blob, name: string) {
   const a = document.createElement("a");
@@ -261,30 +277,30 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
           <canvas ref={canvas} aria-label={t("pl_preview")} style={{ aspectRatio: `${GRIDS[d.template][0]} / ${GRIDS[d.template][1]}`, touchAction: d.image ? "none" : undefined, cursor: d.image ? "move" : undefined }}
             onPointerDown={dragStart} onPointerMove={dragMove} onPointerUp={dragEnd} onPointerCancel={dragEnd} />
           {d.image && <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>✥ {t("pl_solar_drag")}</p>}
-          <div className="actions" style={{ flexWrap: "wrap" }}>
+          <div className="pl-actbar">
             <select value={d.size} onChange={(e) => set("size", e.target.value as SizeKey)} aria-label={t("pl_size")}>
               {(Object.keys(SIZES) as SizeKey[]).map((k) => <option key={k} value={k}>{sizeLabel(k, d.template, lang)}</option>)}
             </select>
-            <button onClick={downloadPng} disabled={!!busy}>{busy === "png" ? "…" : t("pl_download_png")}</button>
-            <button onClick={saveToPhotos} disabled={!!busy}>{busy === "photos" ? t("pl_saving_photos") : `📷 ${t("pl_save_photos")}`}</button>
-            <button onClick={downloadPdf} disabled={!!busy}>{busy === "pdf" ? "…" : t("pl_download_pdf")}</button>
-            <button onClick={showFinal} disabled={!!busy}>{busy === "final" ? "…" : `👁 ${t("pl_preview_final")}`}</button>
+            <ActBtn icon={I.Download} label={t("pl_download_png")} onClick={downloadPng} disabled={!!busy} busy={busy === "png"} />
+            <ActBtn icon={I.Images} label={busy === "photos" ? t("pl_saving_photos") : t("pl_save_photos")} onClick={saveToPhotos} disabled={!!busy} />
+            <ActBtn icon={I.ScrollText} label={t("pl_download_pdf")} onClick={downloadPdf} disabled={!!busy} busy={busy === "pdf"} />
+            <ActBtn icon={I.Eye} label={t("pl_preview_final")} onClick={showFinal} disabled={!!busy} busy={busy === "final"} />
             {id && record && can(...EDITORS) && kind === "well" && <>
-              <button onClick={saveTo} disabled={!!busy}>{busy === "save" ? "…" : t("plaque_save_draft")}</button>
-              <button className="primary" onClick={() => approve()} disabled={!!busy}>{busy === "approve" ? "…" : `✓ ${t("plaque_approve")}`}</button>
+              <ActBtn icon={I.Pencil} label={t("plaque_save_draft")} onClick={saveTo} disabled={!!busy} busy={busy === "save"} />
+              <ActBtn icon={I.CircleCheck} primary label={t("plaque_approve")} onClick={() => approve()} disabled={!!busy} busy={busy === "approve"} />
             </>}
             {id && record && can(...EDITORS) && kind === "sacrifice" && <>
-              <button onClick={saveTo} disabled={!!busy}>{busy === "save" ? "…" : t("pl_save_sac")}</button>
-              <button className="primary" onClick={() => approve(true)} disabled={!!busy || !!flow?.missing.length}>{busy === "approve" ? "…" : `✓ ${t("pl_approve_sac")}`}</button>
+              <ActBtn icon={I.Pencil} label={t("pl_save_sac")} onClick={saveTo} disabled={!!busy} busy={busy === "save"} />
+              <ActBtn icon={I.CircleCheck} primary label={t("pl_approve_sac")} onClick={() => approve(true)} disabled={!!busy || !!flow?.missing.length} busy={busy === "approve"} />
             </>}
           </div>
         </div>
         <div className="card">
           {d.template === "hayah_square" && <WellIcons d={d} set={set} upload={upload} L={L} />}
-          <ImageTool d={d} setD={setD} />
           <TextControls d={d} set={set} />
-          <details style={{ marginTop: 12 }}>
+          <details style={{ marginTop: 12 }} open={!!d.image || undefined}>
             <summary>{t("pl_more")}</summary>
+            <ImageTool d={d} setD={setD} />
             <div className="form-grid" style={{ marginTop: 10 }}>
               {d.template === "hayah_square" ? <>
                 <Field label={t("pl_bismillah")}>{input("bismillah", d.bismillah)}</Field>
@@ -359,22 +375,21 @@ function FlowPanel({ flow, kind, id, onChange }: { flow: PlaqueRow | null; kind:
   );
 }
 
-/** The order this plaque belongs to: filled in automatically, shown so the designer can check it. */
+/** The order this plaque belongs to: filled in automatically, shown so the designer can check it.
+ *  Only what the plaque needs, in one row of chips (Hayah, 21 Nov 2026). */
 function OrderBox({ p }: { p: Project }) {
-  const { t, lang, fmtDate } = useI18n();
-  const row = (k: string, v: any) => <div key={k}><span>{t(k)}</span>{v || "—"}</div>;
+  const { t, lang } = useI18n();
+  const country = p.contractor?.country ? countryLabel(p.contractor.country, lang) : p.country;
   return (
-    <div className="card order-box" style={{ marginBottom: 14, background: p.contractor?.color || undefined }}>
-      <div className="plaque-card-head"><h2 style={{ margin: 0 }}>{t("plaque_order_data")}</h2></div>
-      <div className="dl">
-        {row("well_id", <b className="well-no">{p.well_id}</b>)}{row("customer_name", p.customer_name)}{row("well_type", p.well_type)}
-        {row("contractor", p.contractor ? `${p.contractor.name} (${p.contractor.code})` : null)}
-        {row("country", p.contractor?.country ? countryLabel(p.contractor.country, lang) : p.country)}
-        {row("order_date", fmtDate(p.order_date))}{row("shopify_order", p.shopify_order)}
-        {row("construction_status", <Status v={p.construction_status} />)}
+    <div className="card order-box compact" style={{ background: p.contractor?.color || undefined }} title={t("plaque_order_help")}>
+      <div className="ob-row">
+        <b className="well-no">{p.well_id}</b>
+        {p.customer_name && <span className="ob-chip"><I.UserRound size={14} aria-hidden="true" />{p.customer_name}</span>}
+        {p.well_type && <span className="ob-chip"><I.Droplets size={14} aria-hidden="true" />{p.well_type}</span>}
+        {(p.contractor || country) && <span className="ob-chip"><I.MapPin size={14} aria-hidden="true" />{[p.contractor?.code, country].filter(Boolean).join(" · ")}</span>}
+        <Status v={p.construction_status} />
       </div>
-      {p.dedication && <p style={{ whiteSpace: "pre-wrap", marginBottom: 0 }}><span className="muted">{t("dedication")}: </span><b>{p.dedication}</b></p>}
-      <p className="muted" style={{ marginBottom: 0, fontSize: 12.5 }}>{t("plaque_order_help")}</p>
+      {p.dedication && <p className="ob-ded" dir="auto"><span className="muted">{t("dedication")}: </span>{p.dedication}</p>}
     </div>
   );
 }
@@ -391,7 +406,7 @@ function WellFields({ d, set, input, flagSelect, duaSelect, upload }: FieldProps
   return <>
     <div className="tool-rows">
       {flagSelect}
-      <Field label={t("pl_flag_upload")}><input type="file" accept="image/*" onChange={(e) => upload(e.target.files?.[0], "flag")} /></Field>
+      <div className="field upload-field"><label>&nbsp;</label><UploadBtn label={t("pl_flag_upload")} onFile={(f) => upload(f, "flag")} /></div>
       <Field label={t("pl_project_no")}>{input("well_id", d.well_id, "ltr")}</Field>
       <Field label={t("pl_well_type")}>{input("well_type", d.well_type, "rtl", "pl-well-types")}</Field>
       <Field label={t("pl_sadaqa_label")}>{input("sadaqa_label", d.sadaqa_label, "rtl", "pl-sadaqa-labels")}</Field>
@@ -412,22 +427,20 @@ function WellIcons({ d, set, upload, L }: { d: WellDesign; set: (k: string, v: a
   const icon = d.icon === "well" ? "hand_pump" : d.icon;
   return (
     <div>
-      <label className="muted" style={{ display: "block", marginBottom: 6 }}>{t("pl_icon")}</label>
-      <div className="icon-picks">
+      <div className="ic-head">
+        <label className="muted">{t("pl_icon")}</label>
+        <div className="seg sm" role="group" aria-label={t("pl_icon_side")} title={t("pl_icon_side")}>
+          {(["left", "right"] as const).map((k) => <button type="button" key={k} className={(d.icon_side || "left") === k ? "on" : ""} onClick={() => set("icon_side", k)}>{t("pl_" + k)}</button>)}
+        </div>
+        <UploadBtn label={t("pl_icon_upload")} onFile={(f) => upload(f, "icon")} />
+      </div>
+      <div className="icon-picks compact">
         {WELL_ICONS.map((w) => (
           <button type="button" key={w.key} className={icon === w.key ? "on" : ""} onClick={() => set("icon", w.key as IconKey)} title={L(w)}>
             <img src={`/wells/${w.key}.png`} alt="" /><span>{L(w)}</span>
           </button>))}
         {d.icon_custom && <button type="button" className={icon === "custom" ? "on" : ""} onClick={() => set("icon", "custom")}><img src={d.icon_custom} alt="" /><span>{t("pl_uploaded")}</span></button>}
         <button type="button" className={icon === "none" ? "on" : ""} onClick={() => set("icon", "none")}><span>{t("pl_none")}</span></button>
-      </div>
-      <div className="tool-rows" style={{ marginTop: 10 }}>
-        <Field label={t("pl_icon_upload")}><input type="file" accept="image/*" onChange={(e) => upload(e.target.files?.[0], "icon")} /></Field>
-        <Field label={t("pl_icon_side")}>
-          <select value={d.icon_side || "left"} onChange={(e) => set("icon_side", e.target.value)}>
-            <option value="left">{t("pl_left")}</option><option value="right">{t("pl_right")}</option>
-          </select>
-        </Field>
       </div>
     </div>
   );
@@ -461,7 +474,7 @@ function SacrificeFields({ d, setD, set, input, flagSelect, duaSelect, upload, L
         </select>
       </Field>
       {flagSelect}
-      <Field label={t("pl_flag_upload")}><input type="file" accept="image/*" onChange={(e) => upload(e.target.files?.[0], "flag")} /></Field>
+      <div className="field upload-field"><label>&nbsp;</label><UploadBtn label={t("pl_flag_upload")} onFile={(f) => upload(f, "flag")} /></div>
       <Field label={t("pl_country_label")}>{input("country_label", d.country_label)}</Field>
       <Field label={t("pl_sac_no")}>{input("sacrifice_no", d.sacrifice_no, "ltr")}</Field>
       <Field label={t("pl_animal")}>
@@ -495,9 +508,9 @@ function TextControls({ d, set }: { d: Design; set: (k: string, v: any) => void 
     const st = textStyle(d, which);
     const k = (f: string) => `${which}_${f}`;
     return (
-      <fieldset className="text-controls" key={which}>
+      <fieldset className="text-controls compact" key={which}>
         <legend>{t(which === "name" ? "pl_text_name" : "pl_text_dua")}</legend>
-        <div className="form-grid">
+        <div className="tc-row">
           <Field label={t("pl_font")}>
             <select value={st.family} onChange={(e) => set(k("font"), e.target.value)} style={{ fontFamily: `'${st.family}'` }}>
               {FONTS.map((f) => <option key={f.family} value={f.family} style={{ fontFamily: `'${f.family}'` }}>
@@ -519,12 +532,10 @@ function TextControls({ d, set }: { d: Design; set: (k: string, v: any) => void 
               <button type="button" key={String(b)} className={(st.weight > 400) === b ? "on" : ""} onClick={() => set(k("bold"), b)}>{t(b ? "pl_bold" : "pl_normal")}</button>)}</div>
           </Field>
         </div>
-        <p className="font-sample" dir="rtl" style={{ fontFamily: `'${st.family}'`, fontWeight: st.weight }}>
-          {which === "name" ? (d.name || "فاعل خير") : "اللهم تقبل منه واجعلها صدقة مباركة"}</p>
       </fieldset>
     );
   };
-  return <div style={{ marginTop: 12 }}>{block("name")}{block("dua")}<p className="muted" style={{ fontSize: 12.5 }}>{t("pl_font_note")}</p></div>;
+  return <div className="tc-wrap" title={t("pl_font_note")}>{block("name")}{block("dua")}</div>;
 }
 
 /** «صورة البئر الشمسي»: an optional picture on the plaque from the approved library (or a new upload).
@@ -551,8 +562,8 @@ function ImageTool({ d, setD }: { d: Design; setD: (fn: (x: Design) => Design) =
   const cur = d.image?.ref;
   return (
     <fieldset className="text-controls image-tool">
-      <legend>{t("pl_solar")}</legend>
-      {!open && !d.image ? <button type="button" onClick={() => { setOpen(true); place("lib:solar-well"); }}>☀ {t("pl_solar_add")}</button> : <>
+      <legend>{t("pl_extra_img")}</legend>
+      {!open && !d.image ? <button type="button" className="sm" onClick={() => setOpen(true)}><I.Image size={15} aria-hidden="true" /> {t("pl_extra_img_add")}</button> : <>
         <label className="muted" style={{ display: "block", marginBottom: 6 }}>{t("pl_solar_library")}</label>
         <div className="icon-picks">
           {lib.map((im) => (
@@ -560,8 +571,8 @@ function ImageTool({ d, setD }: { d: Design; setD: (fn: (x: Design) => Design) =
               <img src={im.src} alt="" /><span>{im.name}</span>
             </button>))}
         </div>
-        <div className="tool-rows" style={{ marginTop: 10 }}>
-          <Field label={t("pl_solar_upload")}><input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={(e) => add(e.target.files?.[0])} /></Field>
+        <div className="actions" style={{ justifyContent: "flex-start", marginTop: 8 }}>
+          <UploadBtn label={t("pl_solar_upload")} accept="image/png,image/jpeg,image/webp" disabled={busy} onFile={add} />
         </div>
         {d.image && <>
           <div className="tool-rows">

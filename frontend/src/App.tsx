@@ -13,6 +13,7 @@ const HelpChat = lazy(() => import("./HelpChat"));
 const PlaqueDesigner = lazy(() => import("./plaque/PlaqueDesigner"));
 const CertificatePage = lazy(() => import("./certificate/Certificate"));
 const PlaqueLists = lazy(() => import("./pages/PlaqueLists"));
+const Tasks = lazy(() => import("./pages/Tasks"));
 const Inbox = lazy(() => import("./pages/Inbox"));
 const FinalVideos = lazy(() => import("./pages/FinalVideos"));
 const FinalVideoPage = lazy(() => import("./pages/FinalVideos").then((m) => ({ default: m.FinalVideoPage })));
@@ -33,7 +34,7 @@ import * as I from "./icons";
 
 type AuthCtx = { user: User; can: (...roles: string[]) => boolean; logout: () => void; counts: Record<string, number>; refreshCounts: () => void; ops: Ops };
 /** Live operations counts (no money): plaques, final videos, new orders. Empty for roles that do not use them. */
-export type Ops = { plaques?: Record<string, number>; videos?: Record<string, number>; orders?: Record<string, number>;
+export type Ops = { team?: Record<string, number>; plaques?: Record<string, number>; videos?: Record<string, number>; orders?: Record<string, number>;
   whatsapp?: { unread_messages?: number; unread_chats?: number; waiting_reply?: number; unassigned?: number; enabled?: boolean } };
 const Auth = createContext<AuthCtx>(null!);
 export const useAuth = () => useContext(Auth);
@@ -156,7 +157,8 @@ export default function App() {
   if (!user) return <Login onLogin={(u) => { setUser(u); setLang(u.preferred_lang); }} />;
   const ctx: AuthCtx = { user, can: (...r) => r.includes(user.role), logout: () => { setToken(null); setUser(null); }, counts: { ...counts, ...(ops.plaques ? { pl_confirm: ops.plaques.needs_confirmation, pl_ready: ops.plaques.ready_for_contractor } : {}),
     ...(ops.videos ? { vid_ready: ops.videos.ready_for_delivery + ops.videos.uploaded } : {}),
-    ...(ops.whatsapp ? { wa_unread: ops.whatsapp.unread_chats || 0 } : {}) }, refreshCounts, ops };
+    ...(ops.whatsapp ? { wa_unread: ops.whatsapp.unread_chats || 0 } : {}),
+    ...(ops.team ? { tasks_mine: ops.team.mine || 0 } : {}) }, refreshCounts, ops };
   return (
     <Auth.Provider value={ctx}>
       <BrowserRouter>
@@ -180,6 +182,7 @@ export default function App() {
             <Route path="/plaques/approved" element={<Suspense fallback={null}><PlaqueLists mode="approved" key="a" /></Suspense>} />
             <Route path="/videos" element={<Suspense fallback={null}><FinalVideos /></Suspense>} />
             <Route path="/videos/:kind/:no" element={<Suspense fallback={null}><FinalVideoPage /></Suspense>} />
+            <Route path="/tasks" element={<Suspense fallback={null}><Tasks /></Suspense>} />
             <Route path="/inbox" element={<Suspense fallback={null}><Inbox /></Suspense>} />
             <Route path="/inbox/:id" element={<Suspense fallback={null}><Inbox /></Suspense>} />
             <Route path="/construction" element={<Construction />} />

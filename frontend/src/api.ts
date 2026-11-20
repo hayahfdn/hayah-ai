@@ -40,7 +40,7 @@ export async function download(path: string, filename: string) {
 }
 
 export type Role = "super_admin" | "operations_manager" | "staff" | "contractor" | "maintenance" | "viewer";
-export interface User { id: number; email: string; full_name: string; role: Role; is_active: boolean; preferred_lang: "ar" | "en"; phone: string | null; contractor_id: number | null; last_login_at: string | null; ui_zoom?: number | null; }
+export interface User { id: number; email: string; full_name: string; role: Role; is_active: boolean; preferred_lang: "ar" | "en"; phone: string | null; contractor_id: number | null; last_login_at: string | null; ui_zoom?: number | null; team_stage?: "intake" | "customer" | "delivery" | null; }
 export interface Contractor { id: number; code: string; name: string; country: string | null; phone: string | null; is_active: boolean; notes: string | null; color?: string | null; }
 export interface Project {
   id: number; well_id: number; order_date: string | null; customer_name: string | null; customer_phone: string | null;

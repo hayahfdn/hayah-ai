@@ -201,7 +201,7 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
   const approve = (replace = false) => run("approve", async () => {
     try { await send(true, replace); }
     catch (e: any) {
-      if (e.status === 409 && !replace) { setConfirm(() => () => approve(true)); return; }
+      if (e.status === 409 && !replace && /already has an approved plaque/i.test(e.message || "")) { setConfirm(() => () => approve(true)); return; }
       throw e;
     }
     toast(t("plaque_approved_ok")); refreshCounts();
@@ -210,7 +210,7 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
   const approveVersion = (s: Saved, replace = false) => run("v" + s.id, async () => {
     try { await api(`/api/projects/${id}/plaques/${s.id}/approve`, { method: "POST", query: { replace } }); }
     catch (e: any) {
-      if (e.status === 409 && !replace) { setConfirm(() => () => approveVersion(s, true)); return; }
+      if (e.status === 409 && !replace && /already has an approved plaque/i.test(e.message || "")) { setConfirm(() => () => approveVersion(s, true)); return; }
       throw e;
     }
     toast(t("plaque_approved_ok"));

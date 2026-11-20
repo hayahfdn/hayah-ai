@@ -55,6 +55,12 @@ def test_approve_links_plaque_to_order_and_keeps_versions(client, manager, mocks
 
 def test_staff_can_approve_contractor_cannot_and_file_is_scoped(client, seeded, mocks):
     staff = login(client, "staff@hayah.local")
+    # An employee records the customer's approval only after the plaque was sent to the customer.
+    assert _save(client, staff, 9).status_code == 201
+    blocked = _save(client, staff, 10, approve=True)
+    assert blocked.status_code == 409 and "لم تُرسَل اللوحة للعميل" in blocked.json()["detail"]
+    pid = client.get("/api/plaques/order/well/9006", headers=staff).json()["id"]
+    assert client.post(f"/api/plaques/{pid}/status", headers=staff, json={"to": "awaiting_customer"}).status_code == 200
     r = _save(client, staff, 10, approve=True)
     assert r.status_code == 201
     contractor = login(client, "p1@hayah.local")

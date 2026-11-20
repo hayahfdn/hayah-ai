@@ -101,8 +101,10 @@ def test_waiting_for_video_follows_the_plaque(client, seeded, mocks):
     staff = login(client, "staff@hayah.local")
     _new_well(client, staff, 7205, dedication="المرحوم أحمد محمد")
     w0 = client.get("/api/ops/counts", headers=staff).json()["videos"]["waiting_upload"]
-    assert _save(client, staff, 7205, {"name": "المرحوم أحمد محمد"}, approve=True).status_code == 201
+    assert _save(client, staff, 7205, {"name": "المرحوم أحمد محمد"}).status_code == 201
     pid = client.get("/api/plaques/order/well/7205", headers=staff).json()["id"]
+    assert client.post(f"/api/plaques/{pid}/status", headers=staff, json={"to": "awaiting_customer"}).status_code == 200
+    assert _save(client, staff, 7205, {"name": "المرحوم أحمد محمد"}, approve=True).status_code == 201
     con = client.get("/api/contractors", headers=staff).json()[0]["id"]
     assert client.post(f"/api/plaques/{pid}/send-to-contractor", headers=staff, json={"contractor_id": con, "country": "Pakistan"}).status_code == 403
     mgr = login(client, "manager@hayah.local")

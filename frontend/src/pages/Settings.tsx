@@ -182,12 +182,27 @@ function Users() {
   const { data, error, reload } = useApi<User[]>("/api/users");
   const [creating, setCreating] = useState(false);
   const toggle = async (u: User) => { try { await api(`/api/users/${u.id}`, { method: "PATCH", body: { is_active: !u.is_active } }); reload(); } catch (e: any) { toast(e.message); } };
-  return <><div className="toolbar"><button className="primary" onClick={() => setCreating(true)}>+ {t("new_user")}</button></div>
+  const stage = async (u: User, v: string) => { try { await api(`/api/users/${u.id}`, { method: "PATCH", body: { team_stage: v || null } }); toast(t("saved")); reload(); } catch (e: any) { toast(e.message); } };
+  return <><div className="toolbar"><button className="primary" onClick={() => setCreating(true)}>+ {t("new_user")}</button><TeamStart /></div>
     <ErrorBox error={error} /><div className="table-wrap"><table>
-      <thead><tr><th>{t("name")}</th><th>{t("email")}</th><th>{t("role")}</th><th>{t("phone")}</th><th>{t("active")}</th><th>{t("last_sync")}</th><th></th></tr></thead>
-      <tbody>{data?.map((u) => <tr key={u.id}><td>{u.full_name}</td><td>{u.email}</td><td>{t("role_" + u.role)}</td><td dir="ltr">{u.phone || "—"}</td>
+      <thead><tr><th>{t("name")}</th><th>{t("email")}</th><th>{t("role")}</th><th>{t("tk_stage_field")}</th><th>{t("phone")}</th><th>{t("active")}</th><th>{t("last_sync")}</th><th></th></tr></thead>
+      <tbody>{data?.map((u) => <tr key={u.id}><td>{u.full_name}</td><td>{u.email}</td><td>{t("role_" + u.role)}</td>
+        <td>{["super_admin", "operations_manager", "staff"].includes(u.role)
+          ? <select value={u.team_stage || ""} aria-label={t("tk_stage_field")} onChange={(e) => stage(u, e.target.value)}>
+            <option value="">{t("tk_none")}</option>{["intake", "customer", "delivery"].map((s) => <option key={s} value={s}>{t("tk_stage_" + s)}</option>)}</select>
+          : <span className="muted">—</span>}</td>
+        <td dir="ltr">{u.phone || "—"}</td>
         <td>{u.is_active ? "✓" : "—"}</td><td className="muted">{fmtDate(u.last_login_at)}</td><td><button className="sm" onClick={() => toggle(u)}>{u.is_active ? "Disable" : "Enable"}</button></td></tr>)}</tbody>
     </table></div>{creating && <NewUser onClose={() => setCreating(false)} onSaved={() => { setCreating(false); reload(); }} />}</>;
+}
+
+/** The date the task lists start from, so imported history does not fill them. */
+function TeamStart() {
+  const { t } = useI18n();
+  const [d, setD] = useState("");
+  useEffect(() => { api<any>("/api/team/tasks", { query: { stage: "intake" } }).then((r) => setD(r.settings.start_date)).catch(() => {}); }, []);
+  const save = (v: string) => { setD(v); if (v) api("/api/team/settings", { method: "PUT", body: { start_date: v } }).then(() => toast(t("saved"))).catch((e) => toast(e.message)); };
+  return <label className="tk-inline" title={t("tk_start_help")}>{t("tk_start")} <input type="date" value={d} onChange={(e) => save(e.target.value)} /></label>;
 }
 
 function NewUser({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
@@ -206,6 +221,8 @@ function NewUser({ onClose, onSaved }: { onClose: () => void; onSaved: () => voi
     <Field label={t("password")} hint="10+ chars, uppercase and a digit"><input type="password" required minLength={10} onChange={set("password")} /></Field>
     <Field label={t("role")}><select value={f.role} onChange={set("role")}>{["super_admin", "operations_manager", "staff", "contractor", "maintenance", "viewer"].map((r) => <option key={r} value={r}>{t("role_" + r)}</option>)}</select></Field>
     <Field label={t("phone")} hint="WhatsApp number, used to recognise the sender"><input dir="ltr" onChange={set("phone")} /></Field>
+    {["super_admin", "operations_manager", "staff"].includes(f.role) && <Field label={t("tk_stage_field")}><select value={f.team_stage || ""} onChange={set("team_stage")}>
+      <option value="">{t("tk_none")}</option>{["intake", "customer", "delivery"].map((s) => <option key={s} value={s}>{t("tk_stage_" + s)}</option>)}</select></Field>}
     {f.role === "contractor" && <Field label={t("contractor")}><select required onChange={set("contractor_id")}><option value="">—</option>{contractors.data?.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}</select></Field>}
   </div><ErrorBox error={error} /><div className="actions"><button type="button" onClick={onClose}>{t("cancel")}</button><button className="primary">{t("create")}</button></div></form></Modal>;
 }

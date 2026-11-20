@@ -14,7 +14,7 @@ export const GRID = 1080;
 export type DuaKind = "living_m" | "living_f" | "living_group" | "dead_m" | "dead_f" | "dead_group" | "anon_m" | "anon_f"
   | "neutral" | "dead_neutral" | "aqiqa_boy" | "aqiqa_girl";
 export type Align = "center" | "right" | "left";
-export type IconKey = "hand_pump" | "hand_tank" | "one_tank_taps" | "two_tanks_taps" | "one_tank_wall" | "two_tanks_wall";
+export type IconKey = "hand_pump" | "hand_tank" | "one_tank_taps" | "two_tanks_taps" | "one_tank_wall" | "two_tanks_wall" | "solar";
 export type Occasion = "sadaqa" | "aqiqa_boy" | "aqiqa_girl" | "itam_sadaqa" | "itam_aqiqa";
 
 interface Common {
@@ -153,6 +153,8 @@ export const WELL_ICONS: { key: IconKey; ar: string; en: string }[] = [
   { key: "two_tanks_taps", ar: "خزانان و4 صنابير", en: "Two tanks, 4 taps" },
   { key: "one_tank_wall", ar: "خزان واحد مع جدار صنابير", en: "One tank with tap wall" },
   { key: "two_tanks_wall", ar: "خزانان مع جدار صنابير", en: "Two tanks with tap wall" },
+  // Hayah (21 Nov 2026): the solar well picture is the 7th choice next to the six, drawn in the same place.
+  { key: "solar", ar: "بئر بالطاقة الشمسية", en: "Solar well" },
 ];
 export const WELL_TYPES = ["بئر سطحي يدوي", "بئر سطحي مع خزان", "بئر ارتوازي متوسط", "بئر ارتوازي كبير", "بئر ارتوازي متوضأ", "بئر ارتوازي عميق", "بئر ارتوازي بالطاقة الشمسية"];
 
@@ -166,6 +168,7 @@ export function plaqueTypeLabel(t: string | null | undefined): string {
 /** First guess only; staff pick the icon that matches the actual build. */
 export function iconFor(wellType: string | null | undefined): IconKey {
   const t = wellType || "";
+  if (/شمسي|شمسية/.test(t)) return "solar";
   if (/متوض|وضوء/.test(t)) return /كبير|خزانين|خزانان/.test(t) ? "two_tanks_wall" : "one_tank_wall";
   if (/ارتواز|عميق|شمسي|متوسط|كبير/.test(t)) return /كبير|خزانين|خزانان/.test(t) ? "two_tanks_taps" : "one_tank_taps";
   if (/خزان/.test(t)) return "hand_tank";
@@ -283,10 +286,22 @@ export function monthLabel(iso: string | null | undefined): string {
 
 const FOOTER = { footer_site: "HayahFoundation.com", footer_org: "تنفيذ مؤسسة حياة" };
 
+/** The name for the plaque from the order's dedication (Hayah, 21 Nov 2026): the name only, with any
+ * kinship or job word kept ("والدي شعيب بن عبدالله وحصه بنت زيد"), but without "صدقة جارية عن", "لروح"
+ * or prayers like "رحمهم الله"; the plaque already prints those. The prayer is still picked from the
+ * full text. The same rules run on the server for automatic drafts (plaque_flow.plaque_name). */
+const NAME_LEAD = /^[\s:،,.\-]*(?:(?:صدق[ةه](?:\s+جاري[ةه])?|وقف|إهداء|اهداء|هدية|ثواب)(?:\s*[:،,]\s*|\s+|$))?(?:(?:عن|على|إلى|الى|لـ)(?:\s*[:،,]\s*|\s+))?(?:(?:لروح|روح|لأرواح|لارواح|أرواح|ارواح)(?:\s*[:،,]\s*|\s+))?/;
+const NAME_PRAYER = /\s*\(?\s*(?:(?:رحم|يرحم|غفر|تقبل|حفظ|يحفظ)(?:ه|ها|هم|هما|هن)?\s+الله(?:\s+(?:له|لها|لهم|لهما|منه|منها|منهم|منهما))?|رحم[ةه]\s+الله\s+(?:عليه|عليها|عليهم|عليهما))(?:\s+(?:تعالى|جميعا|جميعاً))?(?:\s+و(?:غفر|رحم)\s*(?:له|لها|لهم|لهما))?\s*\)?/g;
+export function plaqueName(text: string | null | undefined): string {
+  const lines = (text || "").split("\n").map((l) => l.replace(NAME_PRAYER, " ").replace(NAME_LEAD, "").replace(/\s+/g, " ").replace(/^[\s:،,.\-–]+|[\s:،,.\-–]+$/g, ""));
+  return lines.filter(Boolean).join("\n");
+}
+
 export function defaultDesign(p?: { well_id?: number | string; well_type?: string | null; customer_name?: string | null; dedication?: string | null;
   country?: string | null; contractor?: { country?: string | null } | null; completion_date?: string | null; delivery_date?: string | null; order_date?: string | null }): WellDesign {
-  const name = (p?.dedication || p?.customer_name || "فاعل خير").trim();
-  const { kind, sure } = classifyDua(name);
+  const raw = (p?.dedication || p?.customer_name || "فاعل خير").trim();
+  const { kind, sure } = classifyDua(raw);
+  const name = plaqueName(raw) || plaqueName(p?.customer_name) || "فاعل خير";
   const wt = plaqueTypeLabel(p?.well_type);
   return {
     template: "hayah_square", size: "digital",
@@ -349,8 +364,9 @@ export function applyOccasion(d: SacrificeDesign, occ: Occasion, animal = d.anim
 export function defaultSacrificeDesign(s?: { sacrifice_no?: number | string; donor_name?: string | null; dedication?: string | null;
   animal_type?: string | null; intention?: string | null; extras?: string | null; order_date?: string | null; delivery_date?: string | null;
   contractor_country?: string | null }): SacrificeDesign {
-  const name = (s?.dedication || s?.donor_name || "فاعل خير").trim();
-  const cls = classifyDua(name);
+  const raw = (s?.dedication || s?.donor_name || "فاعل خير").trim();
+  const cls = classifyDua(raw);
+  const name = plaqueName(raw) || plaqueName(s?.donor_name) || "فاعل خير";
   const flag = flagFor(s?.contractor_country);
   const base: SacrificeDesign = {
     template: "sacrifice_portrait", size: "digital", sacrifice_no: s?.sacrifice_no ? String(s.sacrifice_no) : "",

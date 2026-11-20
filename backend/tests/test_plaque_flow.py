@@ -135,3 +135,13 @@ def test_plaque_api_never_returns_money_and_contractors_are_blocked(client, seed
         h = login(client, who)
         assert client.get("/api/plaques/counts", headers=h).status_code == 403
         assert client.get("/api/plaques?group=approved", headers=h).status_code == 403
+
+
+def test_plaque_name_keeps_names_and_kinship_only():
+    from app.services.plaque_flow import plaque_name
+    assert plaque_name("صدقه عن والدي شعيب بن عبدالله وحصه بنت زيد رحمهم الله") == "والدي شعيب بن عبدالله وحصه بنت زيد"
+    assert plaque_name("صدقة جارية لروح: أمي فاطمة") == "أمي فاطمة"
+    assert plaque_name("عن والدتي نورة (رحمها الله)") == "والدتي نورة"
+    assert plaque_name("الدكتور خالد العتيبي") == "الدكتور خالد العتيبي"
+    assert plaque_name("لطيفة محمد") == "لطيفة محمد"
+    assert plaque_name("صدقة جارية") == ""

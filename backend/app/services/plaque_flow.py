@@ -15,6 +15,7 @@ Rules (Hayah, 19 Nov 2026):
 from __future__ import annotations
 
 import io
+import re
 import zipfile
 from datetime import date
 
@@ -54,6 +55,25 @@ def order_name(rec) -> str:
     if isinstance(rec, Project):
         return (rec.dedication or rec.customer_name or "").strip()
     return (rec.dedication or rec.donor_name or "").strip()
+
+
+# The name printed on the plaque (Hayah, 21 Nov 2026): name only, kinship or job words kept, but no
+# "صدقة جارية عن" / "لروح" in front and no prayers like "رحمهم الله". Same rules as plaqueName in
+# frontend/src/plaque/render.ts. The prayer kind is still read from the full text.
+_NAME_LEAD = re.compile(r"^[\s:،,.\-]*(?:(?:صدق[ةه](?:\s+جاري[ةه])?|وقف|إهداء|اهداء|هدية|ثواب)(?:\s*[:،,]\s*|\s+|$))?"
+                        r"(?:(?:عن|على|إلى|الى|لـ)(?:\s*[:،,]\s*|\s+))?(?:(?:لروح|روح|لأرواح|لارواح|أرواح|ارواح)(?:\s*[:،,]\s*|\s+))?")
+_NAME_PRAYER = re.compile(r"\s*\(?\s*(?:(?:رحم|يرحم|غفر|تقبل|حفظ|يحفظ)(?:ه|ها|هم|هما|هن)?\s+الله(?:\s+(?:له|لها|لهم|لهما|منه|منها|منهم|منهما))?"
+                          r"|رحم[ةه]\s+الله\s+(?:عليه|عليها|عليهم|عليهما))(?:\s+(?:تعالى|جميعا|جميعاً))?(?:\s+و(?:غفر|رحم)\s*(?:له|لها|لهم|لهما))?\s*\)?")
+
+
+def plaque_name(text: str | None) -> str:
+    out = []
+    for line in (text or "").split("\n"):
+        line = _NAME_LEAD.sub("", _NAME_PRAYER.sub(" ", line), count=1)
+        line = re.sub(r"^[\s:،,.\-]+|[\s:،,.\-]+$", "", re.sub(r"\s+", " ", line))
+        if line:
+            out.append(line)
+    return "\n".join(out)
 
 
 def _country(db: Session, rec) -> str | None:
@@ -111,7 +131,8 @@ def create_draft(db: Session, rec, *, actor: User | None = None, source: str = "
     db.flush()
     pl.missing = compute_missing(db, pl, rec)
     pl.status = S.draft if pl.missing else S.ready_for_review
-    design = {"template": "hayah_square" if well else "sacrifice_portrait", "auto": True, "name": name,
+    shown = plaque_name(name) or plaque_name(rec.customer_name if well else rec.donor_name) or name
+    design = {"template": "hayah_square" if well else "sacrifice_portrait", "auto": True, "name": shown,
               "dua_kind": c["kind"], "dua_sure": c["sure"]}
     v = PlaqueVersion(plaque_id=pl.id, version=1, design=design, source="auto",
                       created_by_id=actor.id if actor else None, actor_label=actor.full_name if actor else "system")

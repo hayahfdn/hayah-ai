@@ -7,6 +7,10 @@ import { EDITORS, MANAGERS, useAuth } from "./App";
 import { useI18n } from "./i18n";
 import { COUNTRY_AR, PARTNERS } from "./i18n-ui";
 import { useApi } from "./ui";
+import * as I from "./icons";
+
+type IconT = I.IconC;
+const Ico = ({ i: C }: { i: IconT }) => <i className="nav-ico" aria-hidden="true"><C size={18} strokeWidth={1.9} /></i>;
 
 const NavCtx = createContext<NavData | null>(null);
 export const useNav = () => useContext(NavCtx);
@@ -58,7 +62,7 @@ export function useLinks() {
 type Item = { key: string; label: string; to: string; color?: string | null; hint?: string };
 
 /** A drop-down group: the header shows the chosen (or default) item, the list opens on tap. */
-function NavPicker({ title, items, defaultKey, icon }: { title: string; items: Item[]; defaultKey?: string; icon?: string }) {
+function NavPicker({ title, items, defaultKey, icon }: { title: string; items: Item[]; defaultKey?: string; icon?: IconT }) {
   const loc = useLocation();
   const { t } = useI18n();
   const active = items.find((i) => loc.pathname === i.to);
@@ -69,7 +73,7 @@ function NavPicker({ title, items, defaultKey, icon }: { title: string; items: I
   return (
     <div className={`nav-pick ${active ? "has-active" : ""} ${open ? "open" : ""}`}>
       <button type="button" className="nav-pick-head" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span className="nav-pick-title">{icon && <i aria-hidden="true">{icon}</i>}{title}</span>
+        <span className="nav-pick-title">{icon ? <Ico i={icon} /> : <i className="nav-ico dot" aria-hidden="true" />}{title}</span>
         <span className="nav-pick-sel">{shown ? shown.label : `${items.length}`}</span>
         <span className="chev" aria-hidden="true">▾</span>
       </button>
@@ -104,40 +108,41 @@ export function SideNav({ counts }: { counts: Record<string, number> }) {
   }, [nav?.contractors, L]);
   const partners: Item[] = PARTNERS.filter((p) => nav?.partners.some((x) => x.code === p.code))
     .map((p) => ({ key: p.code, label: lang === "ar" ? p.ar : p.en, to: L.acc(p.code) }));
-  const link = (to: string, key: string, n?: number, red?: boolean) => (
-    <NavLink to={to} end={to === "/" || to === "/book"}>{t(key)}{n ? <span className={`count${red ? " red" : ""}`}>{n}</span> : null}</NavLink>);
+  const link = (to: string, key: string, icon: IconT, n?: number, red?: boolean) => (
+    <NavLink to={to} end={to === "/" || to === "/book"}><span className="nav-l"><Ico i={icon} />{t(key)}</span>{n ? <span className={`count${red ? " red" : ""}`}>{n}</span> : null}</NavLink>);
   const cur = nav?.current || thisMonth();
   return (
     <nav className="nav">
-      {link("/", "nav_dashboard")}
+      <div className="nav-sec">{t("nav_sec_main")}</div>
+      {link("/", "nav_dashboard", I.LayoutDashboard)}
+      {nav && <NavPicker title={t("nav_wells")} icon={I.Droplets} items={months(nav.wells, L.wells)} defaultKey={cur} />}
+      {nav && can(...EDITORS) && <NavPicker title={t("nav_sacrifices")} icon={I.Sheep} items={months(nav.sacrifices, L.sac)} defaultKey={cur} />}
       {manager && <>
         <div className="nav-sec">{t("nav_sec_book")}</div>
-        {link("/book", "tab_summary")}
-        {(nav?.banks || []).map((b) => <NavLink key={b.code} to={L.acc(b.code)}>{b.code === "WISE" ? "Wise" : b.name}</NavLink>)}
+        {link("/book", "tab_summary", I.ChartColumn)}
+        {(nav?.banks || []).map((b) => <NavLink key={b.code} to={L.acc(b.code)}><span className="nav-l"><Ico i={b.code === "WISE" ? I.Landmark : I.Wallet} />{b.code === "WISE" ? "Wise" : b.name}</span></NavLink>)}
       </>}
-      {nav && <NavPicker title={t("nav_wells")} icon="💧" items={months(nav.wells, L.wells)} defaultKey={cur} />}
-      {nav && can(...EDITORS) && <NavPicker title={t("nav_sacrifices")} icon="🐑" items={months(nav.sacrifices, L.sac)} defaultKey={cur} />}
       {byCountry.length > 0 && user.role !== "contractor" && <>
         <div className="nav-sec">{t("nav_sec_contractors")}</div>
-        {byCountry.map(([country, items]) => <NavPicker key={country} title={countryLabel(country, lang)} items={items} />)}
+        {byCountry.map(([country, items]) => <NavPicker key={country} title={countryLabel(country, lang)} icon={I.MapPin} items={items} />)}
       </>}
-      {manager && partners.length > 0 && <NavPicker title={t("nav_people")} icon="👤" items={partners} />}
+      {manager && partners.length > 0 && <NavPicker title={t("nav_people")} icon={I.Users} items={partners} />}
       {can(...EDITORS) && <>
         <div className="nav-sec">{t("nav_sec_flow")}</div>
-        {link("/inbox", "nav_inbox", counts.wa_unread, true)}
-        {link("/plaques/confirm", "nav_pl_confirm", counts.pl_confirm, true)}
-        {manager && link("/plaques/approved", "nav_pl_approved", counts.pl_ready, true)}
-        {link("/videos", "nav_videos", counts.vid_ready, true)}
+        {link("/inbox", "nav_inbox", I.MessageCircle, counts.wa_unread, true)}
+        {link("/plaques/confirm", "nav_pl_confirm", I.ClipboardCheck, counts.pl_confirm, true)}
+        {manager && link("/plaques/approved", "nav_pl_approved", I.BadgeCheck, counts.pl_ready, true)}
+        {link("/videos", "nav_videos", I.Clapperboard, counts.vid_ready, true)}
       </>}
       <div className="nav-sec">{t("nav_sec_work")}</div>
-      {link("/sheet", "nav_sheet")}{link("/projects", "nav_projects")}{link("/construction", "nav_construction")}
-      {link("/delivery", "nav_delivery", counts.pending_delivery_approvals)}{link("/maintenance", "nav_maintenance")}
-      {link("/media", "nav_media")}
-      {can(...EDITORS) && link("/plaque", "nav_plaque")}
-      {manager && link("/review", "nav_review", counts.pending_review)}
+      {link("/sheet", "nav_sheet", I.Table2)}{link("/projects", "nav_projects", I.FolderKanban)}{link("/construction", "nav_construction", I.HardHat)}
+      {link("/delivery", "nav_delivery", I.Truck, counts.pending_delivery_approvals)}{link("/maintenance", "nav_maintenance", I.Wrench)}
+      {link("/media", "nav_media", I.Images)}
+      {can(...EDITORS) && link("/plaque", "nav_plaque", I.Image)}
+      {manager && link("/review", "nav_review", I.ClipboardCheck, counts.pending_review)}
       <div className="nav-sec">{t("nav_sec_admin")}</div>
-      {link("/contractors", "nav_contractors_list")}{link("/reports", "nav_reports")}
-      {manager && link("/settings", "nav_settings")}
+      {link("/contractors", "nav_contractors_list", I.HardHat)}{link("/reports", "nav_reports", I.ChartColumn)}
+      {manager && link("/settings", "nav_settings", I.Settings)}
     </nav>
   );
 }
@@ -155,15 +160,15 @@ export function BottomBar({ onMenu }: { onMenu: () => void }) {
   const on = (prefix: string) => (loc.pathname.startsWith(prefix) ? "active" : "");
   return (
     <nav className="bottom-bar" aria-label={t("nav_menu")}>
-      <NavLink to="/" end><i aria-hidden="true">⌂</i><span>{t("nav_home")}</span></NavLink>
-      <NavLink to={L.wells(cur)} className={on(manager ? "/book/wells" : "/wells")}><i aria-hidden="true">💧</i><span>{t("nav_wells")}</span></NavLink>
+      <NavLink to="/" end><i aria-hidden="true"><I.House size={21} /></i><span>{t("nav_home")}</span></NavLink>
+      <NavLink to={L.wells(cur)} className={on(manager ? "/book/wells" : "/wells")}><i aria-hidden="true"><I.Droplets size={21} /></i><span>{t("nav_wells")}</span></NavLink>
       {can(...EDITORS)
-        ? <NavLink to={L.sac(cur)} className={on(manager ? "/book/sac" : "/sacrifices")}><i aria-hidden="true">🐑</i><span>{t("nav_sacrifices")}</span></NavLink>
-        : <NavLink to="/projects"><i aria-hidden="true">▤</i><span>{t("nav_projects")}</span></NavLink>}
+        ? <NavLink to={L.sac(cur)} className={on(manager ? "/book/sac" : "/sacrifices")}><i aria-hidden="true"><I.Sheep size={21} /></i><span>{t("nav_sacrifices")}</span></NavLink>
+        : <NavLink to="/projects"><i aria-hidden="true"><I.FolderKanban size={21} /></i><span>{t("nav_projects")}</span></NavLink>}
       {can(...EDITORS)
-        ? <NavLink to="/plaque"><i aria-hidden="true">🖼</i><span>{t("plaque")}</span></NavLink>
-        : <NavLink to="/reports"><i aria-hidden="true">📊</i><span>{t("nav_reports")}</span></NavLink>}
-      <button type="button" onClick={onMenu}><i aria-hidden="true">☰</i><span>{t("nav_menu")}</span>{plaques > 0 && <b className="dot-count">{plaques}</b>}</button>
+        ? <NavLink to="/plaque"><i aria-hidden="true"><I.Image size={21} /></i><span>{t("plaque")}</span></NavLink>
+        : <NavLink to="/reports"><i aria-hidden="true"><I.ChartColumn size={21} /></i><span>{t("nav_reports")}</span></NavLink>}
+      <button type="button" onClick={onMenu}><i aria-hidden="true"><I.Menu size={21} /></i><span>{t("nav_menu")}</span>{plaques > 0 && <b className="dot-count">{plaques}</b>}</button>
     </nav>
   );
 }

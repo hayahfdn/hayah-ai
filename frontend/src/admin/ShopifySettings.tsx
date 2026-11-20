@@ -7,7 +7,7 @@ import ShopifyHistory from "./ShopifyHistory";
 
 /** Settings > Shopify. The super admin pastes the app keys; managers can see orders and run a check. */
 export default function ShopifySettings() {
-  const { t, fmtDate, num } = useI18n();
+  const { t, fmtDate, num, money } = useI18n();
   const { can } = useAuth();
   const admin = can("super_admin");
   const s = useApi<any>("/api/shopify/settings");
@@ -79,7 +79,7 @@ export default function ShopifySettings() {
         <thead><tr><th>{t("shop_order")}</th><th>{t("date")}</th><th>{t("customer_name")}</th><th>{t("amount")}</th><th>{t("shop_result")}</th><th>{t("shop_records")}</th></tr></thead>
         <tbody>{orders.data?.map((o) => <tr key={o.name}>
           <td className="mono">{o.name}</td><td>{fmtDate(o.created_at)}</td><td>{o.customer_name || "—"}</td>
-          <td className="num">{num(o.total)} {o.currency}</td>
+          <td className="num">{o.currency === "USD" || !o.currency ? money(o.total) : `${num(o.total)} ${o.currency}`}</td>
           <td><span className={`badge ${["imported", "already_in_workbook", "matched"].includes(o.status) ? "ok" : ["needs_review", "cancelled", "check", "not_in_workbook"].includes(o.status) ? "warn" : ""}`}>{t("shop_st_" + o.status)}</span></td>
           <td className="wrap">{[...o.well_ids.map((w: number) => `${t("well_id")} ${w}`), ...o.sacrifice_nos.map((n: number) => `${t("sacrifice_no")} ${n}`)].join(", ") || "—"}
             {o.message && o.status !== "imported" && <div className="muted" style={{ fontSize: 12 }}>{o.message}</div>}</td>

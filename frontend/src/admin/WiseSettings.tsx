@@ -1,7 +1,7 @@
 import { Fragment, useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../App";
-import { useI18n } from "../i18n";
+import { fmtMoney, useI18n } from "../i18n";
 import { ErrorBox, toast, useApi } from "../ui";
 
 interface Status {
@@ -34,8 +34,9 @@ export default function WiseSettings() {
     catch (e: any) { toast(e.message); } finally { setBusy(false); }
   };
   const mapText = map ?? Object.entries(s.recipient_contractors).map(([k, v]) => `${k} = ${v}`).join("\n");
-  const money = (r: Row) => `${r.direction === "in" ? "+" : r.direction === "out" ? "−" : ""}${num(Number(r.amount))} ${r.currency}` +
-    (r.currency !== "USD" && r.usd_amount ? ` (${num(Number(r.usd_amount))} USD)` : "");
+  // Everything is shown in dollars: a foreign-currency row shows its dollar value, then the original amount.
+  const money = (r: Row) => `${r.direction === "in" ? "+" : r.direction === "out" ? "−" : ""}` + (r.currency === "USD" ? fmtMoney(r.amount)
+    : r.usd_amount ? `${fmtMoney(r.usd_amount)} (${num(Number(r.amount))} ${r.currency})` : `${num(Number(r.amount))} ${r.currency}`);
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>Wise</h2>
@@ -93,7 +94,7 @@ export default function WiseSettings() {
           {open === r.id && <tr><td colSpan={5}>
             {cands.length === 0 ? <span className="muted">{t("wise_no_cands")}</span> : cands.map((c) => (
               <div key={c.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "3px 0" }}>
-                <span>#{c.id} · {c.date} · <b>{num(Number(c.amount))}</b> USD · {c.description || c.kind}</span>
+                <span>#{c.id} · {c.date} · <b>{fmtMoney(c.amount)}</b> · {c.description || c.kind}</span>
                 <button className="sm primary" disabled={busy} onClick={() => run(() => api(`/api/wise/transactions/${r.id}/match`, { body: { transaction_id: c.id } }), t("saved")).then(() => setOpen(null))}>{t("wise_this_one")}</button>
               </div>))}
           </td></tr>}

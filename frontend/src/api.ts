@@ -32,6 +32,7 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
 
 export async function download(path: string, filename: string) {
   const res = await fetch(path, { headers: { Authorization: `Bearer ${getToken()}` } });
+  if (!res.ok) throw new Error(res.statusText || String(res.status));
   const blob = await res.blob();
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = filename; a.click();

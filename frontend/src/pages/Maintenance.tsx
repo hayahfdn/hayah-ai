@@ -6,7 +6,7 @@ import { useI18n } from "../i18n";
 import { Empty, ErrorBox, Field, Modal, Status, toast, useApi } from "../ui";
 
 export default function Maintenance() {
-  const { t, st, fmtDate, num } = useI18n();
+  const { t, st, fmtDate, money } = useI18n();
   const { can, refreshCounts } = useAuth();
   const [well, setWell] = useState("");
   const [status, setStatus] = useState("");
@@ -31,7 +31,7 @@ export default function Maintenance() {
         <tbody>{data?.map((m) => (
           <tr key={m.id}><td className="mono">{m.maintenance_code}</td><td><Link className="mono" to={`/projects/${m.well_id}`}>{m.well_id}</Link></td>
             <td>{fmtDate(m.date)}</td><td>{m.problem_type}</td><td className="wrap">{m.description || "—"}</td>
-            <td>{m.technician || "—"}</td><td className="num">{num(m.repair_cost)}</td>
+            <td>{m.technician || "—"}</td><td className="num">{money(m.repair_cost)}</td>
             <td>{canWrite ? <select value={m.status} onChange={(e) => setRec(m.maintenance_code, e.target.value)}>
               {["open", "in_progress", "resolved"].map((s) => <option key={s} value={s}>{st(s)}</option>)}</select> : <Status v={m.status} />}</td>
             <td>{fmtDate(m.next_maintenance_date)}</td></tr>))}</tbody>

@@ -72,8 +72,22 @@ def test_hayah_correction_preview_apply_undo(client, seeded, db):
                      3095: (3095, "#1228"), 3096: (3100, "#1229"), 3097: (3097, "#1231"), 3098: (3096, "#1231")}
     assert _all(client, mgr)[3098]["donor_name"] == "1225-a"  # preview changed nothing
     assert client.post("/api/sacrifices/renumber/apply", headers=mgr, json={**body, "token": "wrong"}).status_code == 409
+    before_csv = client.get("/api/sacrifices/backup.csv", headers=mgr)
+    assert before_csv.status_code == 200 and "1225-a" in before_csv.text and "3098" in before_csv.text
+    pre = client.post("/api/sacrifices/renumber/verify", headers=mgr, json=body).json()
+    assert not pre["ok"]  # before the change the orders do not match the table
     r = client.post("/api/sacrifices/renumber/apply", headers=mgr, json={**body, "token": p["token"]})
     assert r.status_code == 200, r.text
+    assert r.json()["backup_rows"] >= 8 and r.json()["verify"]["ok"], r.json()["verify"]
+    assert {o["order"]: o["actual"] for o in r.json()["verify"]["orders"]} == {
+        "#1231": [3097, 3098], "#1229": [3096], "#1228": [3094, 3095], "#1227": [3093], "#1225": [3091, 3092]}
+    assert client.post("/api/sacrifices/renumber/verify", headers=mgr, json=body).json()["ok"]
+    staff = login(client, "staff@hayah.local")
+    assert client.get("/api/sacrifices/backup.csv", headers=staff).status_code == 403
+    bid0 = r.json()["batch_id"]
+    kept = client.get(f"/api/sacrifices/renumber/{bid0}/backup.csv", headers=mgr).text
+    # the automatic copy holds the numbers as they were before: 3098 was still 1225-a's
+    assert any(line.split(",")[1:4] == ["3098", "#1225", "1225-a"] for line in kept.splitlines())
     now = _all(client, mgr)
     assert {n: (s["donor_name"], s["shopify_order"]) for n, s in now.items()} == {
         3091: ("1225-a", "#1225"), 3092: ("1225-b", "#1225"), 3093: ("1227", "#1227"), 3094: ("1228-a", "#1228"),

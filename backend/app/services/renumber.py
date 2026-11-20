@@ -279,17 +279,70 @@ def apply_plan(db: Session, renames: list[dict], orders: list[dict], token: str,
         raise HTTPException(422, "; ".join(p["errors"]) or "Nothing to change")
     if p["token"] != token:
         raise HTTPException(409, "The sacrifices changed since the preview. Press Preview again.")
+    backup = snapshot(db)  # every sacrifice's number and order as they were, kept with this change (download as CSV)
     sacs = {s.id: s for s in db.scalars(select(Sacrifice).where(Sacrifice.id.in_([m[0] for m in p["_moves"]])).with_for_update())}
     res = apply_moves(db, [(sacs[sid], n, o) for sid, n, o in p["_moves"]], actor=actor, reason="plan", ip=ip)
     undo = [{"id": c["id"], "from": c["to"], "to": c["from"]} for c in res["changed"]]
     row = audit(db, "sacrifices.renumbered", "renumber", None, actor=actor,
                 after={"renames": renames, "orders": orders, "changed": res["changed"], "undo": undo,
-                       "plaque_image_old_number": res["plaque_image_old_number"]}, ip=ip)
+                       "plaque_image_old_number": res["plaque_image_old_number"], "backup": backup}, ip=ip)
     db.flush()
     row.entity_id = str(row.id)
     p.pop("_moves")
-    return {**p, "applied": True, "batch_id": row.id, "changed": len(res["changed"]),
-            "plaque_image_old_number": res["plaque_image_old_number"]}
+    return {**p, "applied": True, "batch_id": row.id, "changed": len(res["changed"]), "backup_rows": len(backup),
+            "plaque_image_old_number": res["plaque_image_old_number"], "verify": verify(db, orders)}
+
+
+# ---------------------------------------------------------------- backup and check
+SNAPSHOT_COLS = ["id", "sacrifice_no", "shopify_order", "donor_name", "animal_type", "order_date", "parent_well_id"]
+
+
+def snapshot(db: Session) -> list[dict]:
+    """Every sacrifice's number and order (and who it is for) right now, for a backup before a change."""
+    return [jsonable({c: getattr(s, c) for c in SNAPSHOT_COLS})
+            for s in db.scalars(select(Sacrifice).order_by(Sacrifice.sacrifice_no))]
+
+
+def snapshot_csv(rows: list[dict]) -> str:
+    import csv
+    import io
+    buf = io.StringIO()
+    buf.write("\ufeff")  # so Excel opens the Arabic names correctly
+    w = csv.DictWriter(buf, fieldnames=SNAPSHOT_COLS, extrasaction="ignore")
+    w.writeheader()
+    w.writerows(rows)
+    return buf.getvalue()
+
+
+def batch_backup(db: Session, batch_id: int) -> list[dict]:
+    row = db.get(AuditLog, batch_id)
+    if row is None or row.action != "sacrifices.renumbered":
+        raise HTTPException(404, "No such renumbering")
+    backup = (row.after or {}).get("backup")
+    if backup is None:
+        raise HTTPException(404, "This renumbering was made before backups were kept with it")
+    return backup
+
+
+def verify(db: Session, orders: list[dict]) -> dict:
+    """After a change: does every order hold exactly the sacrifice numbers it should, and is no number used twice?"""
+    out = []
+    for o in orders:
+        key = order_key(o.get("order"))
+        want = sorted(int(x) for x in o.get("numbers") or [])
+        have = sorted(s.sacrifice_no for s in _linked_to_order(db, key)) if key else []
+        elsewhere = []
+        for n in want:
+            h = _by_no(db, n)
+            if h is None:
+                elsewhere.append({"number": n, "order": None, "missing": True})
+            elif order_key(h.shopify_order) != key and n not in have:
+                elsewhere.append({"number": n, "order": order_label(order_key(h.shopify_order)), "missing": False})
+        out.append({"order": order_label(key), "expected": want, "actual": have, "ok": have == want and not elsewhere,
+                    "elsewhere": elsewhere})
+    dups = [n for n, c in db.execute(select(Sacrifice.sacrifice_no, func.count()).group_by(Sacrifice.sacrifice_no)
+                                     .having(func.count() > 1)).all()]
+    return {"ok": all(r["ok"] for r in out) and not dups, "orders": out, "duplicates": dups}
 
 
 def batches(db: Session) -> list[dict]:

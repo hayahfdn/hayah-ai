@@ -1,6 +1,9 @@
 """Finance workbook API: sacrifices, accounts, transactions, ledgers, summary.
 Money pages are for managers only (super admin, operations manager)."""
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -209,6 +212,26 @@ def renumber_undo(batch_id: int, request: Request, db: Session = Depends(get_db)
     out = rn.undo_batch(db, batch_id, actor=user, ip=client_ip(request))
     db.commit()
     return out
+
+
+@sacrifices.get("/backup.csv")
+def sacrifices_backup(db: Session = Depends(get_db), _: User = MGR):
+    """Every sacrifice's number and order right now, as a CSV file to keep before a change."""
+    return Response(rn.snapshot_csv(rn.snapshot(db)), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="sacrifices-backup-{date.today()}.csv"'})
+
+
+@sacrifices.get("/renumber/{batch_id}/backup.csv")
+def renumber_backup(batch_id: int, db: Session = Depends(get_db), _: User = MGR):
+    """The copy kept automatically just before that renumbering was applied."""
+    return Response(rn.snapshot_csv(rn.batch_backup(db, batch_id)), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="sacrifices-before-renumber-{batch_id}.csv"'})
+
+
+@sacrifices.post("/renumber/verify")
+def renumber_verify(body: RenumberPlan, db: Session = Depends(get_db), _: User = MGR):
+    """Checks the live data against the order table: each order's sacrifice numbers, and no number used twice."""
+    return rn.verify(db, body.orders)
 
 
 @sacrifices.patch("/{no}/number")

@@ -140,7 +140,7 @@ function Conflicts() {
 }
 
 function AISettings({ admin }: { admin: boolean }) {
-  const { t, num } = useI18n();
+  const { t, money } = useI18n();
   const s = useApi<any>("/api/settings");
   const [f, setF] = useState<any>(null);
   const [key, setKey] = useState("");
@@ -171,7 +171,7 @@ function AISettings({ admin }: { admin: boolean }) {
       <Field label={t("monthly_budget")}><input type="number" min={0} max={20} disabled={!admin} value={f.monthly_budget_usd} onChange={(e) => setF({ ...f, monthly_budget_usd: e.target.value })} /></Field>
       <Field label={t("min_confidence")}><input type="number" min={0.5} max={1} step={0.01} disabled={!admin} value={f.min_confidence} onChange={(e) => setF({ ...f, min_confidence: e.target.value })} /></Field>
       <Field label={t("manual_over")}><input type="number" min={0} step={0.01} disabled={!admin} value={f.manual_approval_over_usd} onChange={(e) => setF({ ...f, manual_approval_over_usd: e.target.value })} /></Field>
-      <Field label={t("ai_cost_month")}><div className="num" style={{ fontSize: 20, fontWeight: 700 }}>${num(s.data.ai_cost_this_month_usd)}</div></Field>
+      <Field label={t("ai_cost_month")}><div className="num" style={{ fontSize: 20, fontWeight: 700 }}>{money(s.data.ai_cost_this_month_usd)}</div></Field>
     </div>
     {admin && <div className="actions"><button className="primary" onClick={save}>{t("save")}</button></div>}
   </div>;

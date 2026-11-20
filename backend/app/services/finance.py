@@ -78,6 +78,9 @@ def month_bounds(month: str) -> tuple[date, date]:
 # ---------------- sacrifices ----------------
 def create_sacrifice(db: Session, data: dict, *, actor: User | None, is_sample: bool = False,
                      source: str = "dashboard") -> Sacrifice:
+    if not data.get("sacrifice_no"):  # no number typed: the next one in order of registration
+        from app.services.renumber import next_sacrifice_no
+        data["sacrifice_no"] = next_sacrifice_no(db)
     if db.scalar(select(Sacrifice).where(Sacrifice.sacrifice_no == data["sacrifice_no"])):
         raise HTTPException(409, f"Sacrifice number {data['sacrifice_no']} already exists")
     _check_contractor(db, data.get("contractor_id"))

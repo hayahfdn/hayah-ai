@@ -8,10 +8,10 @@ from app.db import get_db
 from app.deps import MANAGERS, client_ip, require_roles
 from app.models import Contractor, FinanceAccount, Sacrifice, Transaction, User
 from app.schemas import (
-    AccountIn, AccountOut, ContractorOut, DirectDeliveryIn, ProjectOut, SacrificeCreate, SacrificeOut,
+    AccountIn, AccountOut, ContractorOut, DirectDeliveryIn, ProjectOut, NumberChange, RenumberPlan, SacrificeBulkCreate, SacrificeCreate, SacrificeOut,
     SacrificeUpdate, TransactionCreate, TransactionOut, TransactionUpdate, TransactionVoid,
 )
-from app.services import delivery as dsvc, finance as fin, projects as psvc
+from app.services import delivery as dsvc, finance as fin, projects as psvc, renumber as rn
 from app.services.audit import audit
 
 router = APIRouter(prefix="/api/finance", tags=["finance"])
@@ -148,6 +148,61 @@ def list_sac(month: str | None = None, contractor_id: int | None = None, db: Ses
 def next_no(db: Session = Depends(get_db), _: User = MGR):
     hi = db.scalar(select(func.max(Sacrifice.sacrifice_no)).where(Sacrifice.is_sample.is_(False)))
     return {"highest_existing": hi, "suggested_next": (hi or 0) + 1}
+
+
+@sacrifices.post("/bulk", response_model=list[SacrificeOut], status_code=201)
+def create_many(body: SacrificeBulkCreate, db: Session = Depends(get_db), user: User = MGR):
+    """One order with several sacrifices: each one gets its own next number, all linked to the order."""
+    data = body.model_dump(exclude_none=True)
+    qty = data.pop("quantity", 1)
+    if data.get("shopify_order"):
+        data["shopify_order"] = rn.order_label(rn.order_key(data["shopify_order"])) or data["shopify_order"]
+    out = [fin.create_sacrifice(db, dict(data), actor=user) for _ in range(qty)]
+    db.commit()
+    return out
+
+
+@sacrifices.get("/orders/{order}")
+def order_detail(order: str, db: Session = Depends(get_db), _: User = MGR):
+    """The original order and every sacrifice (and well) that belongs to it."""
+    return rn.order_view(db, order)
+
+
+@sacrifices.post("/renumber/preview")
+def renumber_preview(body: RenumberPlan, db: Session = Depends(get_db), _: User = MGR):
+    p = rn.plan(db, body.renames, body.orders)
+    p.pop("_moves", None)
+    return p
+
+
+@sacrifices.post("/renumber/apply")
+def renumber_apply(body: RenumberPlan, request: Request, db: Session = Depends(get_db), user: User = MGR):
+    out = rn.apply_plan(db, body.renames, body.orders, body.token or "", actor=user, ip=client_ip(request))
+    db.commit()
+    return out
+
+
+@sacrifices.get("/renumber/history")
+def renumber_history(db: Session = Depends(get_db), _: User = MGR):
+    return rn.batches(db)
+
+
+@sacrifices.post("/renumber/undo/{batch_id}")
+def renumber_undo(batch_id: int, request: Request, db: Session = Depends(get_db), user: User = MGR):
+    out = rn.undo_batch(db, batch_id, actor=user, ip=client_ip(request))
+    db.commit()
+    return out
+
+
+@sacrifices.patch("/{no}/number")
+def change_number(no: int, body: NumberChange, request: Request, db: Session = Depends(get_db), user: User = MGR):
+    s = db.scalar(select(Sacrifice).where(Sacrifice.sacrifice_no == no).with_for_update())
+    if not s:
+        raise HTTPException(404, f"No sacrifice number {no}")
+    out = rn.renumber_sacrifice(db, s, body.new_number, actor=user, ip=client_ip(request))
+    db.commit()
+    db.refresh(s)
+    return {**out, "sacrifice": SacrificeOut.model_validate(s).model_dump(mode="json")}
 
 
 @sacrifices.post("", response_model=SacrificeOut, status_code=201)

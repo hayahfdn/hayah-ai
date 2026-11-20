@@ -461,7 +461,24 @@ class SacrificeFields(BaseModel):
 
 
 class SacrificeCreate(SacrificeFields):
-    sacrifice_no: int = Field(gt=0, lt=10**12)
+    sacrifice_no: int | None = Field(default=None, gt=0, lt=10**11)  # empty: the next number automatically
+
+
+class SacrificeBulkCreate(SacrificeFields):
+    """Several sacrifices of one order at once: each gets its own next number."""
+    quantity: int = Field(default=1, ge=1, le=50)
+
+
+class NumberChange(BaseModel):
+    new_number: int = Field(gt=0, lt=10**11)
+    model_config = ConfigDict(extra="forbid")
+
+
+class RenumberPlan(BaseModel):
+    renames: list[dict] = []   # [{"from": 3098, "to": 3091}]
+    orders: list[dict] = []    # [{"order": "1225", "numbers": [3091, 3092]}]
+    token: str | None = None
+    model_config = ConfigDict(extra="forbid")
 
 
 class SacrificeUpdate(SacrificeFields):

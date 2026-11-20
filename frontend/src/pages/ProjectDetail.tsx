@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ChangeNumber } from "../Renumber";
 import PlaquePreview from "../plaque/Preview";
 import { api, Project } from "../api";
 import { EDITORS, MANAGERS, useAuth } from "../App";
@@ -23,6 +24,8 @@ export default function ProjectDetail() {
   const [search, setSearch] = useSearchParams();
   const [editing, setEditing] = useState(() => search.get("edit") === "1" && can(...EDITORS));
   const [merging, setMerging] = useState(false);
+  const [renumbering, setRenumbering] = useState(false);
+  const go = useNavigate();
   if (p.error) return <ErrorBox error={p.error} />;
   if (!p.data) return <p className="muted">{t("loading")}</p>;
   const d = p.data;
@@ -34,6 +37,7 @@ export default function ProjectDetail() {
           <h1>{t("well_id")} <span className="mono">{d.well_id}</span> {d.is_sample && <span className="badge">{t("sample")}</span>}</h1>
           {d.merged_into_id && <span className="badge warn">merged</span>}</div>
         <div style={{ display: "flex", gap: 8 }}>
+          {can(...MANAGERS) && <button onClick={() => setRenumbering(true)}>🔢 {t("num_change")}</button>}
           {can(...MANAGERS) && <button onClick={() => setMerging(true)}>{t("request_merge")}</button>}
           {can(...EDITORS) && <Link className="btn" to={`/plaque/${d.well_id}`}>🖼 {d.plaque_status ? t("plaque_new_version") : t("plaque_create")}</Link>}
           {can(...EDITORS) && <button className="primary" onClick={() => setEditing(true)}>{t("edit")}</button>}
@@ -88,6 +92,8 @@ export default function ProjectDetail() {
         <ProjectForm project={d} onCancel={() => { setEditing(false); setSearch({}, { replace: true }); }}
           onSaved={(np) => { p.setData(np); setEditing(false); setSearch({}, { replace: true }); h.reload(); toast(t("saved")); }} />
       </Modal>}
+      {renumbering && <ChangeNumber kind="project" current={d.well_id} onClose={() => setRenumbering(false)}
+        onDone={(n) => { setRenumbering(false); go(`/projects/${n}`, { replace: true }); }} />}
       {merging && <MergeModal source={d.well_id} onClose={() => setMerging(false)} />}
     </>
   );

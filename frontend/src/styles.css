@@ -576,4 +576,10 @@ a.btn.wa-btn:hover { background: #1a9449; }
 .mobile-bar .zoom-ctl.compact button { min-width: 30px; padding: 0 6px; }
 @media (max-width: 860px) { .app-top { display: none; } }
 @media (max-width: 380px) { .mobile-bar .zoom-ctl.compact button:last-child { display: none; } }
+
+/* order number chip, renumber tool */
+.link-btn { background: none; border: 0; padding: 0 2px; color: var(--brand, #1769aa); text-decoration: underline; cursor: pointer; font: inherit; }
+.ren-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.ren-cols table input { width: 100%; min-width: 80px; }
+.ren-table td.changed { background: rgba(255, 196, 0, .22); font-weight: 700; }
 .est-date { font-style: italic; color: var(--warn); } .est-date::after { content: " ~"; }

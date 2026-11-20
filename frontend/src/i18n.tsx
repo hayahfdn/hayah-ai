@@ -4,6 +4,7 @@ import { shopifyAr, shopifyEn } from "./i18n-shopify";
 import { uiAr, uiEn } from "./i18n-ui";
 import { opsAr, opsEn } from "./i18n-ops";
 import { toolsAr, toolsEn } from "./i18n-tools";
+import { renAr, renEn } from "./i18n-renumber";
 import { featAr, featEn } from "./i18n-feat";
 
 export type Lang = "ar" | "en";
@@ -196,6 +197,8 @@ Object.assign(en, opsEn);
 Object.assign(ar, opsAr);
 Object.assign(en, toolsEn);
 Object.assign(ar, toolsAr);
+Object.assign(en, renEn);
+Object.assign(ar, renAr);
 Object.assign(en, featEn);
 Object.assign(ar, featAr);
 const dicts = { ar, en };

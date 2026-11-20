@@ -1,0 +1,38 @@
+// Labels for: changing a project / sacrifice number, the order and its sacrifices, and the
+// sacrifice renumbering tool (Settings).
+export const renEn: Record<string, string> = {
+  num_change: "Change number", num_new: "New number", num_current: "Current number",
+  num_help_project: "Everything linked to this project (plaque, videos, sacrifices, WhatsApp, reports, history) follows the new number. A number already used by another project is refused.",
+  num_help_sacrifice: "Everything linked to this sacrifice follows the new number. A number already used by another sacrifice is refused.",
+  num_changed: "Number changed", num_plaque_old: "A saved plaque image still shows the old number: save a new plaque version.",
+  num_auto: "Automatic (next number)", num_auto_hint: "Leave empty: each sacrifice gets the next number in order of registration.",
+  quantity: "How many sacrifices", order_no: "Order number", order_sacrifices: "Sacrifices of this order", order_wells: "Wells of this order",
+  order_open: "Open the order", order_none: "No sacrifices are linked to this order yet.", order_shopify: "Shopify order",
+  order_total: "Order total", order_cancelled: "Cancelled",
+  ren_tab: "Sacrifice numbers", ren_title: "Correct sacrifice numbers and link them to orders",
+  ren_help: "1) Write the numbers to change (current → correct). 2) Write which sacrifice numbers belong to each order. 3) Press Preview: you see every sacrifice before and after, and nothing is changed yet. 4) If it is right, press Apply. It can be undone below.",
+  ren_renames: "Change numbers", ren_from: "Current number", ren_to: "Correct number", ren_orders: "Sacrifice numbers of each order",
+  ren_numbers: "Sacrifice numbers (comma separated)", ren_add_row: "Add a row", ren_fill_20nov: "Fill in the 20 Nov 2026 correction",
+  ren_preview: "Preview", ren_apply: "Apply these changes", ren_confirm: "Change the numbers and orders exactly as shown in the preview?",
+  ren_before: "Before", ren_after: "After", ren_no_change: "no change", ren_nearby: "Nearby sacrifices this does not touch",
+  ren_done: "Done: sacrifices updated", ren_history: "Earlier corrections", ren_undo: "Undo", ren_undone: "Undone",
+  ren_errors: "Can't apply yet:",
+};
+export const renAr: Record<string, string> = {
+  num_change: "تغيير الرقم", num_new: "الرقم الجديد", num_current: "الرقم الحالي",
+  num_help_project: "كل ما هو مرتبط بهذا المشروع (اللوحة، الفيديوهات، الذبائح، واتساب، التقارير، السجل) ينتقل إلى الرقم الجديد تلقائياً. لا يُقبل رقم مستخدم لمشروع آخر.",
+  num_help_sacrifice: "كل ما هو مرتبط بهذه الذبيحة ينتقل إلى الرقم الجديد تلقائياً. لا يُقبل رقم مستخدم لذبيحة أخرى.",
+  num_changed: "تم تغيير الرقم", num_plaque_old: "صورة لوحة محفوظة ما زالت تحمل الرقم القديم: احفظ نسخة جديدة من اللوحة.",
+  num_auto: "تلقائي (الرقم التالي)", num_auto_hint: "اتركه فارغاً: كل ذبيحة تأخذ الرقم التالي حسب ترتيب تسجيلها.",
+  quantity: "عدد الذبائح", order_no: "رقم الأوردر", order_sacrifices: "ذبائح هذا الطلب", order_wells: "آبار هذا الطلب",
+  order_open: "فتح الطلب", order_none: "لا توجد ذبائح مرتبطة بهذا الطلب بعد.", order_shopify: "طلب Shopify",
+  order_total: "إجمالي الطلب", order_cancelled: "ملغي",
+  ren_tab: "أرقام الذبائح", ren_title: "تصحيح أرقام الذبائح وربطها بالطلبات",
+  ren_help: "١) اكتب الأرقام المطلوب تغييرها (الحالي ← الصحيح). ٢) اكتب أرقام الذبائح التابعة لكل أوردر. ٣) اضغط معاينة: ترى كل ذبيحة قبل وبعد، ولا يتغير شيء بعد. ٤) إذا كان صحيحاً اضغط تطبيق. يمكن التراجع من الأسفل.",
+  ren_renames: "تغيير الأرقام", ren_from: "الرقم الحالي", ren_to: "الرقم الصحيح", ren_orders: "أرقام الذبائح لكل أوردر",
+  ren_numbers: "أرقام الذبائح (مفصولة بفاصلة)", ren_add_row: "إضافة سطر", ren_fill_20nov: "تعبئة تصحيح ٢٠ نوفمبر ٢٠٢٦",
+  ren_preview: "معاينة", ren_apply: "تطبيق هذه التغييرات", ren_confirm: "تغيير الأرقام والطلبات كما في المعاينة تماماً؟",
+  ren_before: "قبل", ren_after: "بعد", ren_no_change: "بدون تغيير", ren_nearby: "ذبائح قريبة لن تتغير",
+  ren_done: "تم: عدد الذبائح المحدَّثة", ren_history: "تصحيحات سابقة", ren_undo: "تراجع", ren_undone: "تم التراجع",
+  ren_errors: "لا يمكن التطبيق بعد:",
+};

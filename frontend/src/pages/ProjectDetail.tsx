@@ -55,7 +55,7 @@ export default function ProjectDetail() {
             <span key={a.sacrifice_no} className="chip">{t("addon_sac_no")} <b className="mono">{a.sacrifice_no}</b>{a.animal_type ? ` · ${a.animal_type}` : ""}{a.sale_price ? ` · ${num(a.sale_price)} ${a.currency}` : ""}</span>)}</span>)}
           {item("sales_source", d.source_group || d.sales_source ? <>{d.source_group || d.sales_source}{d.sales_source && d.sales_source !== d.source_group && <span className="muted"> ({t("src_original")}: {d.sales_source})</span>}</> : null)}{item("contractor", d.contractor ? `${d.contractor.code} · ${d.contractor.name}` : null)}
           {item("sale_amount", d.sale_amount && `${num(d.sale_amount)} ${d.currency}`)}{item("order_date", fmtDate(d.order_date))}
-          {item("delivery_date", fmtDate(d.delivery_date))}{item("last_maintenance_date", fmtDate(d.last_maintenance_date))}
+          {item("delivery_date", <>{fmtDate(d.delivery_date)}{d.delivery_estimated && <span className="badge warn" style={{ marginInlineStart: 6 }}>{t("delivery_estimated")}</span>}</>)}{item("last_maintenance_date", fmtDate(d.last_maintenance_date))}
           {item("next_maintenance_date", fmtDate(d.next_maintenance_date))}
           {item("raw_media_folder", d.raw_media_folder_url && <a href={d.raw_media_folder_url} target="_blank" rel="noreferrer">{t("open_link")}</a>)}
           {item("final_video_link", d.final_video_link && <a href={d.final_video_link} target="_blank" rel="noreferrer">{t("open_link")}</a>)}

@@ -1,6 +1,13 @@
 // Labels for: unified sales sources, the project-open icon, the assistant, the movable prompt button,
 // Wise and the old-projects delivery update.
 export const toolsEn: Record<string, string> = {
+  od_tab: "Old projects delivered", od_title: "Mark old projects as delivered",
+  od_intro: "Projects ordered before {d} that are not marked delivered. Real delivery dates are kept. Without one, the last day of the order month is used and shown as estimated. Numbers, names and prices are not changed. Nothing changes until you confirm, and it can be undone.",
+  od_none: "Nothing to mark: every project from before this month is already delivered.", od_month: "Order month", od_wells: "Wells", od_sacs: "Sacrifices",
+  od_real: "Real date", od_est: "Estimated date", od_total: "Total", od_skipped: "Left out", od_well_cancelled: "cancelled wells", od_well_no_order_date: "wells without order date",
+  od_sacrifice_no_order_date: "sacrifices without order date", od_confirm: "I checked the numbers: mark {w} wells and {s} sacrifices as delivered.",
+  od_apply: "Mark as delivered", od_done: "Marked delivered", od_undone: "Put back", od_history: "Earlier runs", od_undo: "Undo", od_was_undone: "undone",
+  delivery_estimated: "estimated date",
   help_btn: "Assistant", help_title: "HAYAH assistant", help_ph: "Ask how to do something…",
   help_hello: "Hi! Ask me how to use the system: where to find something, what a status means, or the state of a project by its number. I only explain; I never change anything.",
   help_ex1: "How do I confirm a plaque with the customer?", help_ex2: "What does the open icon next to the number do?", help_ex3: "Where is project 1305 now?",
@@ -15,6 +22,13 @@ export const toolsEn: Record<string, string> = {
   plaque_auto_preview: "The plaque as it stands now, drawn from this order's details. Edit it in the designer as usual.",
 };
 export const toolsAr: Record<string, string> = {
+  od_tab: "تسليم المشاريع القديمة", od_title: "تعليم المشاريع القديمة كمُسلّمة",
+  od_intro: "المشاريع المطلوبة قبل {d} وغير المعلّمة كمُسلّمة. تواريخ التسليم الحقيقية تبقى كما هي. وإن لم يوجد تاريخ يُستخدم آخر يوم من شهر الطلب ويظهر كتاريخ تقديري. لا تتغير الأرقام ولا الأسماء ولا الأسعار. لا يتغير شيء قبل تأكيدك، ويمكن التراجع.",
+  od_none: "لا يوجد ما يُعلَّم: كل مشاريع ما قبل هذا الشهر مُسلّمة.", od_month: "شهر الطلب", od_wells: "الآبار", od_sacs: "الذبائح",
+  od_real: "تاريخ حقيقي", od_est: "تاريخ تقديري", od_total: "المجموع", od_skipped: "مستثنى", od_well_cancelled: "آبار ملغاة", od_well_no_order_date: "آبار بلا تاريخ طلب",
+  od_sacrifice_no_order_date: "ذبائح بلا تاريخ طلب", od_confirm: "راجعت الأعداد: علّم {w} بئراً و{s} ذبيحة كمُسلّمة.",
+  od_apply: "تعليم كمُسلّمة", od_done: "تم التعليم كمُسلّمة", od_undone: "تمت الإعادة", od_history: "عمليات سابقة", od_undo: "تراجع", od_was_undone: "تم التراجع",
+  delivery_estimated: "تاريخ تقديري",
   help_btn: "المساعد", help_title: "مساعد حياة", help_ph: "اسأل كيف تفعل شيئاً…",
   help_hello: "أهلاً! اسألني عن طريقة استخدام النظام: أين تجد شيئاً، ماذا تعني حالة معينة، أو أين وصل مشروع برقمه. أنا أشرح فقط ولا أغيّر أي شيء.",
   help_ex1: "كيف أؤكد اللوحة مع العميل؟", help_ex2: "ماذا تفعل أيقونة الفتح بجانب الرقم؟", help_ex3: "أين وصل المشروع 1305؟",

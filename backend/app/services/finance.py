@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import (
-    Contractor, FinanceAccount, Project, Sacrifice, Transaction, TX_DEFAULT_DIRECTION, TxKind, User, utcnow,
+    Contractor, DeliveryStatus, FinanceAccount, Project, Sacrifice, Transaction, TX_DEFAULT_DIRECTION, TxKind, User, utcnow,
 )
 from app.services import phones
 from app.services.audit import audit, snapshot
@@ -87,6 +87,8 @@ def create_sacrifice(db: Session, data: dict, *, actor: User | None, is_sample: 
         from app.services.addons import normalize
         data["extras"] = normalize(data["extras"])
     s = Sacrifice(**data, is_sample=is_sample)
+    if s.delivery_date:
+        s.delivery_status = DeliveryStatus.delivered
     phones.apply(s, hints=hints, fallback_country=fallback)
     try:
         with db.begin_nested():
@@ -116,6 +118,9 @@ def update_sacrifice(db: Session, s: Sacrifice, changes: dict, *, actor: User | 
     before = snapshot(s)
     for k, v in changes.items():
         setattr(s, k, v)
+    if "delivery_date" in changes:  # a typed delivery date is a real one (the workbook rule)
+        s.delivery_status = DeliveryStatus.delivered if s.delivery_date else DeliveryStatus.not_ready
+        s.delivery_estimated = False
     if {"customer_phone", "customer_phone_country"} & set(changes):
         phones.apply(s)
     if snapshot(s) == before:

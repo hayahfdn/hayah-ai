@@ -221,6 +221,7 @@ class ProjectOut(ORM):
     completion_date: date | None
     delivery_status: DeliveryStatus
     delivery_date: date | None
+    delivery_estimated: bool = False
     raw_media_folder_id: str | None
     raw_media_folder_url: str | None
     final_video_link: str | None
@@ -478,6 +479,8 @@ class SacrificeOut(ORM):
     customer_phone_status: str | None = None
     received_date: date | None
     delivery_date: date | None
+    delivery_status: DeliveryStatus = DeliveryStatus.not_ready
+    delivery_estimated: bool = False
     contractor_id: int | None
     animal_type: str | None
     cost: Decimal | None

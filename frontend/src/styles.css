@@ -576,3 +576,4 @@ a.btn.wa-btn:hover { background: #1a9449; }
 .mobile-bar .zoom-ctl.compact button { min-width: 30px; padding: 0 6px; }
 @media (max-width: 860px) { .app-top { display: none; } }
 @media (max-width: 380px) { .mobile-bar .zoom-ctl.compact button:last-child { display: none; } }
+.est-date { font-style: italic; color: var(--warn); } .est-date::after { content: " ~"; }

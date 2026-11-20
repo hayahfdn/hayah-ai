@@ -9,6 +9,7 @@ import { dateCol, HayahGrid, moneyCol, n, newestFirst, sum, useDataReload, useMo
 import { Link, useNavigate } from "react-router-dom";
 import { useIsMobile } from "../nav";
 import { AddonPicker, splitAddons } from "../AddonPicker";
+import { ChangeNumber, OrderChip } from "../Renumber";
 
 export default function SacrificesGrid({ month, contractorId, height, title }: { month?: string; contractorId?: number; height?: string; title?: string }) {
   const { t, lang } = useI18n();
@@ -52,7 +53,7 @@ export default function SacrificesGrid({ month, contractorId, height, title }: {
         cellRenderer: (p: any) => (p.value ? <Link to={`/projects/${p.value}`} className="mono">{p.value}</Link> : null) }, col("sales_source", { width: 120, valueGetter: (p) => p.data?.source_group ?? p.data?.sales_source,
         tooltipValueGetter: (p) => (p.data?.sales_source && p.data.sales_source !== p.data.source_group ? `${t("src_original")}: ${p.data.sales_source}` : null),
         cellEditor: "agSelectCellEditor", cellEditorParams: { values: ["", ...(lists.data?.sales_sources || [])] } }),
-      col("shopify_order", { width: 105 }), col("intention", { width: 130 }),
+      col("shopify_order", { headerName: t("order_no"), width: 110, cellRenderer: (p: any) => (p.node.isRowPinned() || !p.data ? null : <OrderChip order={p.value} />) }), col("intention", { width: 130 }),
       col("dedication", { width: 200, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true }),
       col("notes", { width: 220, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true }),
     ];
@@ -110,25 +111,35 @@ function NewSacrifice({ month, contractorId, animals, addons, onClose, onSaved }
   const { t } = useI18n();
   const next = useApi<{ suggested_next: number }>("/api/sacrifices/next-number");
   const [no, setNo] = useState("");
-  const [f, setF] = useState<{ donor_name: string; animal_type: string; sale_price: string; extras: string | null; dedication: string }>(
-    { donor_name: "", animal_type: "", sale_price: "", extras: null, dedication: "" });
+  const [qty, setQty] = useState("1");
+  const [f, setF] = useState<{ donor_name: string; animal_type: string; sale_price: string; extras: string | null; dedication: string; shopify_order: string }>(
+    { donor_name: "", animal_type: "", sale_price: "", extras: null, dedication: "", shopify_order: "" });
   const [err, setErr] = useState<string | null>(null);
   const today = new Date().toISOString().slice(0, 10);
   const orderDate = month && !today.startsWith(month) ? `${month}-01` : today;
-  const value = no || (next.data ? String(next.data.suggested_next) : "");
+  const count = Math.max(1, Math.min(50, Number(qty) || 1));
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
+    const fields = { order_date: orderDate, contractor_id: contractorId ?? null,
+      donor_name: f.donor_name.trim() || null, animal_type: f.animal_type || null, extras: f.extras,
+      shopify_order: f.shopify_order.trim() || null,
+      sale_price: f.sale_price ? Number(f.sale_price).toFixed(2) : null, dedication: f.dedication.trim() || null };
     try {
-      await api("/api/sacrifices", { body: { sacrifice_no: Number(value), order_date: orderDate, contractor_id: contractorId ?? null,
-        donor_name: f.donor_name.trim() || null, animal_type: f.animal_type || null, extras: f.extras,
-        sale_price: f.sale_price ? Number(f.sale_price).toFixed(2) : null, dedication: f.dedication.trim() || null } });
+      if (no && count === 1) await api("/api/sacrifices", { body: { ...fields, sacrifice_no: Number(no) } });
+      else {
+        const made = await api<Sacrifice[]>("/api/sacrifices/bulk", { body: { ...fields, quantity: count } });
+        toast(made.map((s) => s.sacrifice_no).join(", "));
+      }
       onSaved();
     } catch (x: any) { setErr(x.message); }
   };
   return (
     <Modal title={t("add_row")} onClose={onClose}><form onSubmit={save}>
       <div className="form-grid">
-        <Field label={t("new_sacrifice_no")}><input inputMode="numeric" value={value} onChange={(e) => setNo(e.target.value.replace(/\D/g, ""))} autoFocus /></Field>
+        <Field label={t("new_sacrifice_no")} hint={t("num_auto_hint")}><input inputMode="numeric" value={count > 1 ? "" : no} disabled={count > 1}
+          placeholder={`${t("num_auto")}${next.data ? ` · ${next.data.suggested_next}` : ""}`} onChange={(e) => setNo(e.target.value.replace(/\D/g, ""))} /></Field>
+        <Field label={t("order_no")}><input className="mono" value={f.shopify_order} onChange={(e) => setF({ ...f, shopify_order: e.target.value })} placeholder="#1231" autoFocus /></Field>
+        <Field label={t("quantity")}><input type="number" min={1} max={50} value={qty} onChange={(e) => setQty(e.target.value)} /></Field>
         <Field label={t("donor_name")}><input value={f.donor_name} onChange={(e) => setF({ ...f, donor_name: e.target.value })} /></Field>
         <Field label={t("animal_type")}><select value={f.animal_type} onChange={(e) => setF({ ...f, animal_type: e.target.value })}><option value="">—</option>
           {animals.map((a) => <option key={a} value={a}>{a}</option>)}</select></Field>
@@ -138,7 +149,7 @@ function NewSacrifice({ month, contractorId, animals, addons, onClose, onSaved }
       </div>
       <div style={{ marginTop: 12 }}><Field label={t("dedication")}><textarea value={f.dedication} onChange={(e) => setF({ ...f, dedication: e.target.value })} /></Field></div>
       <ErrorBox error={err} />
-      <div className="actions"><button type="button" onClick={onClose}>{t("cancel")}</button><button className="primary" disabled={!value}>{t("create")}</button></div>
+      <div className="actions"><button type="button" onClick={onClose}>{t("cancel")}</button><button className="primary">{t("create")}{count > 1 ? ` (${count})` : ""}</button></div>
     </form></Modal>
   );
 }
@@ -157,6 +168,7 @@ function SacCards({ rows, colorById, codeById, onEdit }: { rows: Sacrifice[]; co
           {splitAddons(s.extras).map((a) => <span key={a} className="chip addon">＋ {a}</span>)}<span className="grow" />
           {s.delivery_date ? <span className="badge ok">{t("delivered")}</span> : <span className="badge warn">{t("st_pending")}</span>}</header>
         <div className="who">{s.donor_name || s.dedication || "—"}</div>
+        {s.shopify_order && <div className="muted" style={{ fontSize: 12.5 }} onClick={(e) => e.stopPropagation()}>{t("order_no")} <OrderChip order={s.shopify_order} /></div>}
         {s.parent_well_id && <div className="muted" style={{ fontSize: 12.5 }}>{t("parent_well")} <Link to={`/projects/${s.parent_well_id}`} onClick={(e) => e.stopPropagation()} className="mono">{s.parent_well_id}</Link></div>}
         <div className="meta"><span>{s.contractor_id ? codeById[s.contractor_id] : "—"}</span><span>{fmtDate(s.order_date)}</span>
           {s.sale_price != null && <span className="num strong">{money(s.sale_price)}</span>}</div>
@@ -172,6 +184,7 @@ function SacrificeForm({ s, contractors, animals, addons, onClose, onSaved }: { 
   const { t } = useI18n();
   const [f, setF] = useState<any>({ ...s });
   const [err, setErr] = useState<string | null>(null);
+  const [renumbering, setRenumbering] = useState(false);
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
   const keys = ["order_date", "donor_name", "delivery_date", "contractor_id", "animal_type", "cost", "sale_price", "payment_method",
     "extras", "sales_source", "shopify_order", "intention", "dedication", "notes"];
@@ -190,7 +203,12 @@ function SacrificeForm({ s, contractors, animals, addons, onClose, onSaved }: { 
     catch (x: any) { setErr(x.message); }
   };
   const inp = (k: string, extra: any = {}) => <Field label={t(k)}><input value={f[k] ?? ""} onChange={set(k)} {...extra} /></Field>;
+  if (renumbering) return <ChangeNumber kind="sacrifice" current={s.sacrifice_no} onClose={() => setRenumbering(false)}
+    onDone={(_, r) => onSaved(r.sacrifice)} />;
   return <Modal title={`${t("edit")} · ${s.sacrifice_no}`} onClose={onClose}><form onSubmit={save}>
+    <div className="actions" style={{ justifyContent: "flex-start", marginTop: 0 }}>
+      <button type="button" onClick={() => setRenumbering(true)}>🔢 {t("num_change")}</button>
+      {s.shopify_order && <span className="muted">{t("order_no")} <OrderChip order={s.shopify_order} /></span>}</div>
     <div className="form-grid">
       {inp("order_date", { type: "date" })}{inp("donor_name")}{inp("delivery_date", { type: "date" })}
       <Field label={t("contractor")}><select value={f.contractor_id ?? ""} onChange={set("contractor_id")}><option value="">—</option>

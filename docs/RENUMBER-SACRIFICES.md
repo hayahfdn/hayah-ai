@@ -1,0 +1,7 @@
+# Project and sacrifice numbers (20 Nov 2026)
+
+- **Change a project number:** project page → 🔢 Change number (managers). A number used by another project is refused. Everything links by internal id, so plaque, videos, sheep sacrifices, WhatsApp, reports and history follow. History rows (audit_log), plaque drafts, the Sheets row key and the sheep's notes are rewritten to the new number. Saved plaque images keep the old number: save a new version.
+- **Change a sacrifice number:** sacrifice edit form → 🔢 Change number. Same rules.
+- **Automatic numbering:** a sacrifice created without a number gets the highest real number + 1 (under a lock, so two orders never share a number). The new-row form takes an order number and a quantity: each sacrifice gets its own number, all linked to the order (`POST /api/sacrifices/bulk`). Shopify and sheep add-ons use the same numbering.
+- **Order link:** the "Order number" column opens the order with all its sacrifices and wells (`GET /api/sacrifices/orders/{order}`), matched by the order number field and by the Shopify import links.
+- **Settings → Sacrifice numbers:** renames (current → correct) plus "order → sacrifice numbers". Preview shows every row before/after and changes nothing; Apply runs it in one transaction (swaps allowed) and refuses if data changed since the preview; Undo puts it back. Button "Fill in the 20 Nov 2026 correction" loads Hayah's table.

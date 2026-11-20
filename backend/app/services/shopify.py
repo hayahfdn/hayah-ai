@@ -433,8 +433,8 @@ def _next_well_id(db: Session, cfg: dict) -> int:
 
 
 def _next_sacrifice_no(db: Session, cfg: dict) -> int:
-    hi = db.scalar(select(func.max(Sacrifice.sacrifice_no)).where(Sacrifice.is_sample.is_(False))) or 0
-    return max(hi + 1, int(cfg.get("sacrifice_no_start") or 0))
+    from app.services.renumber import next_sacrifice_no
+    return next_sacrifice_no(db, cfg.get("sacrifice_no_start"))
 
 
 def _existing_in_workbook(db: Session, name: str):

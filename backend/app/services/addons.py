@@ -74,8 +74,8 @@ def options(db: Session) -> dict:
 
 
 def _next_sacrifice_no(db: Session) -> int:
-    hi = db.scalar(select(func.max(Sacrifice.sacrifice_no)).where(Sacrifice.is_sample.is_(False))) or 0
-    return hi + 1
+    from app.services.renumber import next_sacrifice_no
+    return next_sacrifice_no(db)
 
 
 def linked(db: Session, project: Project) -> list[Sacrifice]:

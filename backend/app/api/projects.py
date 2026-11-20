@@ -15,6 +15,7 @@ from app.models import (
     DeliveryConfirmation, MaintenanceRecord, MediaAsset, Project, ProjectEvent, Role, User,
 )
 from app.schemas import (
+    NumberChange,
     DeliveryOut, EventOut, MaintenanceOut, MediaOut, MergeRequestIn, ProjectCreate, ProjectOut, ProjectPage,
     ProjectUpdate, ReviewOut,
 )
@@ -108,6 +109,17 @@ def update(well_id: int, body: ProjectUpdate, request: Request, db: Session = De
     svc.update_project(db, p, data, actor=user, ip=client_ip(request), expected_version=expected)
     db.commit()
     return _out(p, user)
+
+
+@router.patch("/{well_id}/number")
+def change_number(well_id: int, body: NumberChange, request: Request, db: Session = Depends(get_db),
+                  user: User = Depends(require_roles(MANAGERS))):
+    """Give the project another number. Everything linked to it follows (it is linked by id)."""
+    from app.services.renumber import renumber_project
+    p = svc.require_project(db, well_id, for_update=True)
+    out = renumber_project(db, p, body.new_number, actor=user, ip=client_ip(request))
+    db.commit()
+    return out
 
 
 @router.get("/{well_id}/history")

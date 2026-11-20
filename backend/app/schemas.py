@@ -46,6 +46,7 @@ class UserOut(ORM):
     phone: str | None
     contractor_id: int | None
     last_login_at: datetime | None
+    ui_zoom: int | None = None
 
 
 class UserCreate(BaseModel):
@@ -237,6 +238,16 @@ class ProjectOut(ORM):
     version: int
     created_at: datetime
     updated_at: datetime
+    listed_at: datetime | None = None
+    addon_sacrifices: list["AddonSacrificeOut"] = []
+
+
+class AddonSacrificeOut(ORM):
+    """A sacrifice created from this well's add-on (selling price only; never the cost)."""
+    sacrifice_no: int
+    animal_type: str | None = None
+    sale_price: Decimal | None = None
+    currency: str = "USD"
 
 
 class ProjectPage(BaseModel):
@@ -483,6 +494,8 @@ class SacrificeOut(ORM):
     is_sample: bool
     version: int
     updated_at: datetime
+    parent_project_id: int | None = None
+    parent_well_id: int | None = None
 
 
 class AccountOut(ORM):
@@ -560,3 +573,4 @@ class DirectDeliveryIn(BaseModel):
 
 
 TokenOut.model_rebuild()
+ProjectOut.model_rebuild()

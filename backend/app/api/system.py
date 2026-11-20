@@ -230,8 +230,10 @@ def put_ai_key(body: APIKeyIn, db: Session = Depends(get_db), user: User = Depen
 @router.get("/settings/lists")
 def get_lists(db: Session = Depends(get_db), _: User = Depends(require_roles(ALL_ROLES))):
     """Dropdown values used by the sheets. Well types are always the four HAYAH types."""
+    from app.services import addons
     out = {k: get_setting(db, k).get("values", []) for k in ("countries", "animal_types")}
-    return {"well_types": list(well_types.TYPES), "sales_sources": sales_sources.group_names(db), **out}
+    return {"well_types": list(well_types.TYPES), "sales_sources": sales_sources.group_names(db), **out,
+            **addons.options(db)}
 
 
 # ---------------- unified sales sources (managed here, no code change needed) ----------------
@@ -254,9 +256,11 @@ def put_sources(body: list[SourceGroupIn], db: Session = Depends(get_db), user: 
 
 @router.put("/settings/lists/{key}")
 def put_list(key: str, values: list[str], db: Session = Depends(get_db), user: User = Depends(require_roles(ADMINS))):
-    if key not in ("well_types", "countries", "animal_types"):
+    if key not in ("well_types", "countries", "animal_types", "well_addons", "sacrifice_addons"):
         raise HTTPException(404, "Unknown list")
     clean = sorted({v.strip()[:80] for v in values if v.strip()})
+    if key in ("well_addons", "sacrifice_addons"):  # keep the order typed (the form shows them in this order)
+        clean = list(dict.fromkeys(v.strip()[:80].replace(",", " ").replace("،", " ") for v in values if v.strip()))
     if key == "well_types":  # one name per type: long names fold into the four types
         clean = [t for t in well_types.TYPES if t in {well_types.normalize(v) for v in clean}] or list(well_types.TYPES)
     set_setting(db, key, {"values": clean}, user.id)

@@ -16,7 +16,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     BigInteger, Boolean, CheckConstraint, Date, DateTime, Enum, ForeignKey, Index, Integer,
-    Numeric, String, Text, UniqueConstraint, func,
+    Numeric, SmallInteger, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
@@ -126,6 +126,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(200))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     preferred_lang: Mapped[str] = mapped_column(String(5), default="ar")
+    ui_zoom: Mapped[int | None] = mapped_column(SmallInteger)  # interface zoom in %, per person (80-150)
     phone: Mapped[str | None] = mapped_column(String(40))  # used to match WhatsApp senders
     contractor_id: Mapped[int | None] = mapped_column(ForeignKey("contractors.id"))
     token_version: Mapped[int] = mapped_column(Integer, default=0)  # bump to revoke sessions
@@ -201,8 +202,14 @@ class Project(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)  # optimistic locking
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    # Place in the projects list (newest first). Set once when the project is added; edits never change it.
+    listed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
 
     contractor: Mapped[Contractor | None] = relationship(lazy="selectin")
+    # Sheep (and any other add-on that became its own sacrifice) bought with this well
+    addon_sacrifices: Mapped[list["Sacrifice"]] = relationship(
+        "Sacrifice", foreign_keys="Sacrifice.parent_project_id", lazy="selectin", viewonly=True,
+        order_by="Sacrifice.sacrifice_no")
     __mapper_args__ = {"version_id_col": version}
 
     @validates("well_type")
@@ -456,6 +463,8 @@ class Sacrifice(Base):
     source_group: Mapped[str | None] = mapped_column(String(40), index=True)  # unified source (app/services/sales_sources.py)
     shopify_order: Mapped[str | None] = mapped_column(String(60))
     intention: Mapped[str | None] = mapped_column(String(120))  # صدقة / عقيقة / بنية الشفاء ...
+    # A sheep bought as an add-on of a well: the well it belongs to (its price is counted here, not on the well).
+    parent_project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)
     dedication: Mapped[str | None] = mapped_column(Text)  # الإهداء
     notes: Mapped[str | None] = mapped_column(Text)
     is_sample: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -463,7 +472,12 @@ class Sacrifice(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     contractor: Mapped[Contractor | None] = relationship(lazy="selectin")
+    parent_project: Mapped["Project | None"] = relationship(foreign_keys=[parent_project_id], lazy="selectin", viewonly=True)
     __mapper_args__ = {"version_id_col": version}
+
+    @property
+    def parent_well_id(self) -> int | None:
+        return self.parent_project.well_id if self.parent_project else None
 
     @validates("well_type")
     def _one_name_per_type(self, _key, value):

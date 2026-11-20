@@ -72,7 +72,7 @@ def test_webhook_creates_well_with_dedication_price_and_addons(client, shop):
     assert w["customer_name"] == "Test Donor"
     assert w["dedication"] == "صدقة جارية عن والدي"
     assert w["sale_amount"] == "988.00"  # 899 well + 89 tank; the 99 sheep is its own sacrifice
-    assert "خروف" not in (w["extras"] or "") and "sacrifice 300" in w["notes"]
+    assert "خروف" in (w["extras"] or "") and "sacrifice 300" in w["notes"]  # listed as an add-on, priced on the sacrifice
     sac = [s for s in client.get("/api/sacrifices", headers=login(client, "manager@hayah.local")).json() if s["shopify_order"] == "#2001"]
     assert len(sac) == 1 and sac[0]["sacrifice_no"] == 300 and sac[0]["sale_price"] == "99.00"
     assert sac[0]["dedication"] == "صدقة جارية عن والدي" and sac[0]["animal_type"] == "خروف" and sac[0]["intention"] == "صدقة"

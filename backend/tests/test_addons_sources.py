@@ -23,7 +23,8 @@ def test_two_sheep_with_one_well_make_two_sacrifices_and_resync_adds_none(client
     assert w["sale_amount"] == "329.00"  # 240 + 89 tank; each sheep is its own sacrifice
     sac = _sacs(client, "#1225")
     assert sorted(s["sacrifice_no"] for s in sac) == [300, 301]
-    assert all(s["sale_price"] == "99.00" and s["dedication"] == "صدقة جارية عن شيماء" for s in sac)
+    assert all(s["sale_price"] == "99.00" and s["dedication"] == "صدقة جارية عن شيماء" and s["parent_well_id"] == 1400 for s in sac)
+    assert "خروف ×2" in w["extras"] and [a["sacrifice_no"] for a in w["addon_sacrifices"]] == [300, 301]
     # the same order again (webhook retry + sync) creates nothing new
     assert post_webhook(client, o, "orders/paid", "w9").status_code == 200
     run_jobs()
@@ -67,11 +68,12 @@ def test_already_imported_order_is_split_once(client, shop):
     db.commit()
     assert len(done) == 1
     db.refresh(w)
-    assert w.sale_amount == Decimal("240.00") and "خروف" not in (w.extras or "")
+    # the price moved to the sacrifice; the sheep stays listed in the well's add-ons, linked to it
+    assert w.sale_amount == Decimal("240.00") and "خروف" in (w.extras or "")
     assert svc.split_imported_addons(db) == []
     db.close()
     sac = _sacs(client, "#1230")
-    assert len(sac) == 1 and sac[0]["dedication"] == "محمد"
+    assert len(sac) == 1 and sac[0]["dedication"] == "محمد" and sac[0]["parent_well_id"] == w.well_id
 
 
 def test_feeding_and_tiles_stay_add_ons(client, shop):
@@ -132,7 +134,9 @@ def test_lists_are_newest_first(client, seeded):
     for wid, day in [(8101, "2026-11-01"), (8102, "2026-11-15"), (8103, None), (8104, "2026-11-15")]:
         assert client.post("/api/projects", headers=mgr, json={"well_id": wid, "order_date": day}).status_code == 201
     ids = [p["well_id"] for p in client.get("/api/projects", headers=mgr, params={"page_size": 500}).json()["items"] if 8100 < p["well_id"] < 8200]
-    assert ids == [8104, 8102, 8101, 8103]
+    assert ids == [8104, 8103, 8102, 8101]  # newest created first (Hayah, 2026-11-20)
+    ids = [p["well_id"] for p in client.get("/api/projects", headers=mgr, params={"page_size": 500, "sort": "-order_date"}).json()["items"] if 8100 < p["well_id"] < 8200]
+    assert ids == [8104, 8102, 8101, 8103]  # by order date when asked
     for no, day in [(5101, "2026-10-01"), (5102, "2026-11-02")]:
         client.post("/api/sacrifices", headers=mgr, json={"sacrifice_no": no, "order_date": day})
     nos = [s["sacrifice_no"] for s in client.get("/api/sacrifices", headers=mgr).json() if s["sacrifice_no"] in (5101, 5102)]

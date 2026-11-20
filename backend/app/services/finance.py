@@ -82,8 +82,12 @@ def create_sacrifice(db: Session, data: dict, *, actor: User | None, is_sample: 
         raise HTTPException(409, f"Sacrifice number {data['sacrifice_no']} already exists")
     _check_contractor(db, data.get("contractor_id"))
     hints = data.pop("_phone_hints", None)
+    fallback = data.pop("_phone_fallback_country", None)
+    if data.get("extras") is not None:
+        from app.services.addons import normalize
+        data["extras"] = normalize(data["extras"])
     s = Sacrifice(**data, is_sample=is_sample)
-    phones.apply(s, hints=hints)
+    phones.apply(s, hints=hints, fallback_country=fallback)
     try:
         with db.begin_nested():
             db.add(s)
@@ -106,6 +110,9 @@ def update_sacrifice(db: Session, s: Sacrifice, changes: dict, *, actor: User | 
         raise HTTPException(422, f"These fields cannot be changed here: {', '.join(sorted(bad))}")
     if "contractor_id" in changes:
         _check_contractor(db, changes["contractor_id"])
+    if changes.get("extras") is not None:
+        from app.services.addons import normalize
+        changes = {**changes, "extras": normalize(changes["extras"])}
     before = snapshot(s)
     for k, v in changes.items():
         setattr(s, k, v)

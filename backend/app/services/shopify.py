@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 
 from app.integrations import shopify as api
 from app.models import PaymentStatus, Project, Sacrifice, ShopifyOrder, ShopifyOrderItem, utcnow
+from app.services import addons
 from app.services import finance as fin
 from app.services import projects as psvc
 from app.services import secrets_store
@@ -185,7 +186,7 @@ ORDERS_QUERY = """query($first: Int!, $after: String, $q: String) {
     nodes { id name createdAt displayFinancialStatus cancelledAt note phone
       customAttributes { key value }
       currentTotalPriceSet { shopMoney { amount currencyCode } }
-      billingAddress { name phone }
+      billingAddress { name phone countryCodeV2 }
       lineItems(first: 50) { nodes { id title variantTitle quantity
         product { id }
         customAttributes { key value }
@@ -204,7 +205,7 @@ def orders_page(db: Session, query: str, variables: dict) -> dict:
             raise
         log.warning("shopify: customer fields blocked, using the order-only query (%s)", exc)
     # (also without the product ID, in case the app lacks read_products: add-ons then match by title)
-    small = query.replace("note phone\n", "note\n").replace("      billingAddress { name phone }\n", "").replace("        product { id }\n", "")
+    small = query.replace("note phone\n", "note\n").replace("      billingAddress { name phone countryCodeV2 }\n", "").replace("        product { id }\n", "")
     return gql(db, small, variables)["orders"]
 
 
@@ -242,6 +243,9 @@ def sync_now(db: Session, *, full: bool = False, max_pages: int = 20) -> dict:
         split = split_imported_addons(db)
         if split:
             counts["addons_split"] = split
+        fixed = repair_phone_countries(db)
+        if fixed:
+            counts["phones_completed"] = fixed
         db.commit()
     except Exception:  # never let this stop the sync itself
         db.rollback()
@@ -273,7 +277,7 @@ def slim_rest(o: dict) -> dict:
             "landing_site", "referring_site")
     return {**{k: o.get(k) for k in keep},
             "customer": {"first_name": cust.get("first_name"), "last_name": cust.get("last_name"), "phone": cust.get("phone")},
-            "billing_address": {"name": bill.get("name"), "phone": bill.get("phone")},
+            "billing_address": {"name": bill.get("name"), "phone": bill.get("phone"), "country_code": bill.get("country_code")},
             "line_items": [{k: li.get(k) for k in ("id", "product_id", "title", "variant_title", "quantity", "price",
                                                     "discount_allocations", "properties")}
                            for li in o.get("line_items") or []]}
@@ -297,6 +301,7 @@ def normalize_rest(o: dict) -> dict:
             "attrs": _attrs(o.get("note_attributes")),
             "customer_name": " ".join(x for x in [cust.get("first_name"), cust.get("last_name")] if x) or bill.get("name"),
             "phone": o.get("phone") or cust.get("phone") or bill.get("phone"),
+            "country_code": bill.get("country_code"),  # the customer's country (only the code is kept)
             "landing": o.get("landing_site"), "referrer": o.get("referring_site"), "lines": lines}
 
 
@@ -328,6 +333,7 @@ def normalize_graphql(n: dict) -> dict:
             "customer_name": " ".join(x for x in [cust.get("firstName"), cust.get("lastName")] if x) or bill.get("name")
             or _prop(_first_props(n), DEFAULTS["donor_keys"]),
             "phone": n.get("phone") or (cust.get("defaultPhoneNumber") or {}).get("phoneNumber") or bill.get("phone"),
+            "country_code": bill.get("countryCodeV2"),
             "landing": attrs.get("landing_page"), "referrer": attrs.get("referrer"), "lines": lines}
 
 
@@ -621,7 +627,7 @@ def _create_unit(db: Session, row: ShopifyOrder, o: dict, x: dict, cfg: dict, pa
     item.title, item.kind, item.amount, item.match = li["title"][:300], x["kind"], x["amount"], match
     if x["kind"] == "well":
         data = {"well_id": _next_well_id(db, cfg), "order_date": day, "customer_name": (f["donor"] or "")[:200] or None,
-                "customer_phone": f["phone"], "_phone_hints": [o.get("phone")], "country": f["country"], "well_type": well_type(f["title"]), "sales_source": src,
+                "customer_phone": f["phone"], "_phone_hints": [o.get("phone")], "_phone_fallback_country": o.get("country_code"), "country": f["country"], "well_type": well_type(f["title"]), "sales_source": src,
                 "sale_amount": x["amount"], "currency": o["currency"][:3], "payment_method": "Shopify",
                 "payment_status": PaymentStatus.paid if paid else PaymentStatus.unpaid,
                 "extras": extras, "shopify_order": o["name"][:60], "dedication": f["dedication"], "notes": notes}
@@ -630,19 +636,22 @@ def _create_unit(db: Session, row: ShopifyOrder, o: dict, x: dict, cfg: dict, pa
         x["created_project"] = p
         label = f"well {p.well_id}"
     else:
-        data = {"sacrifice_no": _next_sacrifice_no(db, cfg), "order_date": day, "donor_name": (f["donor"] or "")[:200] or None,
+        well = (x.get("parent") or {}).get("created_project")
+        data = {"sacrifice_no": _next_sacrifice_no(db, cfg), "parent_project_id": well.id if well is not None else None, "order_date": day, "donor_name": (f["donor"] or "")[:200] or None,
                 "animal_type": (x.get("rule") or {}).get("animal") or animal_type(f["title"]), "sale_price": x["amount"],
-                "customer_phone": f["phone"], "_phone_hints": [o.get("phone")],
+                "customer_phone": f["phone"], "_phone_hints": [o.get("phone")], "_phone_fallback_country": o.get("country_code"),
                 "currency": o["currency"][:3], "payment_method": "Shopify", "extras": extras, "sales_source": src,
                 "shopify_order": o["name"][:60], "intention": f["intention"],
                 "dedication": f["dedication"], "notes": "\n".join(filter(None, [notes, f"Phone: {f['phone']}" if f["phone"] else None]))}
         sac = fin.create_sacrifice(db, data, actor=None, source="shopify")
         item.sacrifice_id = sac.id
         label = f"sacrifice {sac.sacrifice_no}"
-        well = (x.get("parent") or {}).get("created_project")
-        if well is not None:
-            psvc.update_project(db, well, {"notes": ((well.notes or "") + f"\n{li['title']} add-on: sacrifice {sac.sacrifice_no}").strip()},
-                                actor=None, source="shopify")
+        if well is not None:  # the sheep stays listed in the well's add-ons; its price is on the sacrifice only
+            listed, n = addons.split(well.extras), len(addons.linked(db, well))
+            if addons.sheep_count(well.extras) != n:
+                listed = [e for e in listed if not addons.is_sheep(e)] + [li["title"] if n == 1 else f"{li['title']} ×{n}"]
+            psvc.update_project(db, well, {"notes": ((well.notes or "") + f"\n{li['title']} add-on: sacrifice {sac.sacrifice_no}").strip(),
+                                           "extras": addons.join(listed)}, actor=None, source="shopify")
     db.add(item)
     db.flush()
     return label
@@ -688,17 +697,39 @@ def split_imported_addons(db: Session) -> list[str]:
                     db.delete(item)  # the folded add-on row becomes unit 1 of the new sacrifice
                     db.flush()
                 label = _create_unit(db, row, o, x, cfg, paid=True)
-                extras = [e.strip() for e in (well.extras or "").split(",")]
-                if li["title"] in extras:
-                    extras.remove(li["title"])
-                psvc.update_project(db, well, {"sale_amount": (well.sale_amount or Decimal(0)) - net,
-                                               "extras": ", ".join(e for e in extras if e) or None},
+                # only the price moves to the sacrifice; the sheep stays in the well's add-ons (linked)
+                psvc.update_project(db, well, {"sale_amount": (well.sale_amount or Decimal(0)) - net},
                                     actor=None, source="shopify")
                 pi.amount = (pi.amount or Decimal(0)) - net
                 done.append(f"{row.name}: {label} (well {well.well_id} -{net})")
         if len(done) > before:
             audit(db, "shopify.addon_split", "shopify_order", row.name, actor_label="Shopify", after={"done": done[before:]})
     return done
+
+
+def repair_phone_countries(db: Session) -> int:
+    """Local customer numbers saved without a country ("needs_country") get the customer's own
+    country from their Shopify order (billing address country code), so WhatsApp links work.
+    A country chosen by staff is never replaced. Returns how many numbers were completed."""
+    from app.services import phones
+    fixed = 0
+    rows = db.scalars(select(ShopifyOrder).where(ShopifyOrder.raw.is_not(None)))
+    for row in rows:
+        code = (row.raw or {}).get("country_code")
+        if not code:
+            continue
+        for item in db.scalars(select(ShopifyOrderItem).where(ShopifyOrderItem.order_id == row.id)):
+            rec = db.get(Project, item.project_id) if item.project_id else db.get(Sacrifice, item.sacrifice_id) if item.sacrifice_id else None
+            if rec is None or rec.customer_phone_status != "needs_country":
+                continue
+            hint = (row.raw or {}).get("phone")
+            phones.apply(rec, hints=[hint], fallback_country=code)
+            if rec.customer_phone_status == "valid":
+                fixed += 1
+                audit(db, "phone.country_from_shopify", "project" if isinstance(rec, Project) else "sacrifice",
+                      getattr(rec, "well_id", None) or rec.sacrifice_no, actor_label="Shopify",
+                      after={"country": rec.customer_phone_country, "e164": rec.customer_phone_e164})
+    return fixed
 
 
 def _from_raw_order(raw: dict) -> dict:

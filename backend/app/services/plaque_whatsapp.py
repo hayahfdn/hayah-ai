@@ -49,7 +49,8 @@ def info(db: Session, pl: Plaque, rec=None) -> dict:
     if not flow._has_file(db, pl):
         problems.append("no_file")
     if not rec.customer_phone_e164:
-        problems.append("no_phone")
+        # say exactly what is wrong with the number: none, local without its country, or not a real number
+        problems.append({"needs_country": "phone_country", "invalid": "phone_invalid"}.get(rec.customer_phone_status or "", "no_phone"))
     if not delivery_time(rec):
         problems.append("no_time")  # a well without one of the four types
     return {"text": message_text(rec), "time": delivery_time(rec), "phone": rec.customer_phone_e164, "problems": problems}
@@ -58,6 +59,7 @@ def info(db: Session, pl: Plaque, rec=None) -> dict:
 def opened(db: Session, pl: Plaque, actor: User) -> dict:
     """The employee opened WhatsApp on the customer's number: log it and move the plaque on."""
     rec = flow.record_of(db, pl)
+    flow.refresh_missing(db, pl, rec)
     w = info(db, pl, rec)
     if w["problems"]:
         raise HTTPException(409, "Not ready to send: " + ", ".join(w["problems"]))

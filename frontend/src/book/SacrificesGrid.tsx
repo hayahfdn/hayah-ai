@@ -8,6 +8,7 @@ import { ErrorBox, Field, Modal, toast, useApi } from "../ui";
 import { dateCol, HayahGrid, moneyCol, n, newestFirst, sum, useDataReload, useMoney } from "./grid";
 import { Link, useNavigate } from "react-router-dom";
 import { useIsMobile } from "../nav";
+import { AddonPicker, splitAddons } from "../AddonPicker";
 
 export default function SacrificesGrid({ month, contractorId, height, title }: { month?: string; contractorId?: number; height?: string; title?: string }) {
   const { t, lang } = useI18n();
@@ -46,7 +47,9 @@ export default function SacrificesGrid({ month, contractorId, height, title }: {
       { colId: "profit", headerName: t("profit"), editable: false, width: 100, cellClass: "num locked",
         valueGetter: (p) => (p.data?.sale_price == null && p.data?.cost == null ? null : n(p.data?.sale_price) - n(p.data?.cost)),
         valueFormatter: (p) => money(p.value) },
-      col("payment_method", { width: 120 }), col("extras", { width: 110 }), col("sales_source", { width: 120, valueGetter: (p) => p.data?.source_group ?? p.data?.sales_source,
+      col("payment_method", { width: 120 }), col("extras", { headerName: t("addons"), width: 130, tooltipValueGetter: (p) => p.value || null }),
+      { colId: "parent_well_id", headerName: t("parent_well"), editable: false, width: 110, valueGetter: (p) => p.data?.parent_well_id ?? null,
+        cellRenderer: (p: any) => (p.value ? <Link to={`/projects/${p.value}`} className="mono">{p.value}</Link> : null) }, col("sales_source", { width: 120, valueGetter: (p) => p.data?.source_group ?? p.data?.sales_source,
         tooltipValueGetter: (p) => (p.data?.sales_source && p.data.sales_source !== p.data.source_group ? `${t("src_original")}: ${p.data.sales_source}` : null),
         cellEditor: "agSelectCellEditor", cellEditorParams: { values: ["", ...(lists.data?.sales_sources || [])] } }),
       col("shopify_order", { width: 105 }), col("intention", { width: 130 }),
@@ -93,33 +96,50 @@ export default function SacrificesGrid({ month, contractorId, height, title }: {
         rowStyle={(p) => (p.data?.contractor_id && colorById[p.data.contractor_id] ? { background: colorById[p.data.contractor_id] } : undefined)}
         rowClass={(p) => (p.data?.delivery_date ? "row-done" : "row-wait")} />}
       {editing && <SacrificeForm s={editing} contractors={contractors.data || []} animals={lists.data?.animal_types || []}
+        addons={lists.data?.sacrifice_addons || ["إطعام"]}
         onClose={() => setEditing(null)} onSaved={(u) => { setEditing(null); data.setData((d) => d && d.map((r) => (r.id === u.id ? u : r))); dataChanged(); }} />}
-      {adding && <NewSacrifice month={month} contractorId={contractorId} onClose={() => setAdding(false)}
+      {adding && <NewSacrifice month={month} contractorId={contractorId} animals={lists.data?.animal_types || []}
+        addons={lists.data?.sacrifice_addons || ["إطعام"]} onClose={() => setAdding(false)}
         onSaved={() => { setAdding(false); data.reload(); dataChanged(); }} />}
     </>
   );
 }
 
-function NewSacrifice({ month, contractorId, onClose, onSaved }: { month?: string; contractorId?: number; onClose: () => void; onSaved: () => void }) {
+function NewSacrifice({ month, contractorId, animals, addons, onClose, onSaved }: { month?: string; contractorId?: number; animals: string[];
+  addons: string[]; onClose: () => void; onSaved: () => void }) {
   const { t } = useI18n();
   const next = useApi<{ suggested_next: number }>("/api/sacrifices/next-number");
   const [no, setNo] = useState("");
+  const [f, setF] = useState<{ donor_name: string; animal_type: string; sale_price: string; extras: string | null; dedication: string }>(
+    { donor_name: "", animal_type: "", sale_price: "", extras: null, dedication: "" });
   const [err, setErr] = useState<string | null>(null);
   const today = new Date().toISOString().slice(0, 10);
   const orderDate = month && !today.startsWith(month) ? `${month}-01` : today;
   const value = no || (next.data ? String(next.data.suggested_next) : "");
-  const save = async () => {
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
-      await api("/api/sacrifices", { body: { sacrifice_no: Number(value), order_date: orderDate, contractor_id: contractorId ?? null } });
+      await api("/api/sacrifices", { body: { sacrifice_no: Number(value), order_date: orderDate, contractor_id: contractorId ?? null,
+        donor_name: f.donor_name.trim() || null, animal_type: f.animal_type || null, extras: f.extras,
+        sale_price: f.sale_price ? Number(f.sale_price).toFixed(2) : null, dedication: f.dedication.trim() || null } });
       onSaved();
-    } catch (e: any) { setErr(e.message); }
+    } catch (x: any) { setErr(x.message); }
   };
   return (
-    <Modal title={t("add_row")} onClose={onClose}>
-      <Field label={t("new_sacrifice_no")}><input inputMode="numeric" value={value} onChange={(e) => setNo(e.target.value.replace(/\D/g, ""))} autoFocus /></Field>
+    <Modal title={t("add_row")} onClose={onClose}><form onSubmit={save}>
+      <div className="form-grid">
+        <Field label={t("new_sacrifice_no")}><input inputMode="numeric" value={value} onChange={(e) => setNo(e.target.value.replace(/\D/g, ""))} autoFocus /></Field>
+        <Field label={t("donor_name")}><input value={f.donor_name} onChange={(e) => setF({ ...f, donor_name: e.target.value })} /></Field>
+        <Field label={t("animal_type")}><select value={f.animal_type} onChange={(e) => setF({ ...f, animal_type: e.target.value })}><option value="">—</option>
+          {animals.map((a) => <option key={a} value={a}>{a}</option>)}</select></Field>
+        <Field label={t("sale_price")}><input type="number" min={0} step="0.01" value={f.sale_price} onChange={(e) => setF({ ...f, sale_price: e.target.value })} /></Field>
+        <div className="field span-all"><label>{t("addons")}</label>
+          <AddonPicker value={f.extras} options={addons} onChange={(v) => setF({ ...f, extras: v })} /></div>
+      </div>
+      <div style={{ marginTop: 12 }}><Field label={t("dedication")}><textarea value={f.dedication} onChange={(e) => setF({ ...f, dedication: e.target.value })} /></Field></div>
       <ErrorBox error={err} />
-      <div className="actions"><button onClick={onClose}>{t("cancel")}</button><button className="primary" disabled={!value} onClick={save}>{t("create")}</button></div>
-    </Modal>
+      <div className="actions"><button type="button" onClick={onClose}>{t("cancel")}</button><button className="primary" disabled={!value}>{t("create")}</button></div>
+    </form></Modal>
   );
 }
 
@@ -133,9 +153,11 @@ function SacCards({ rows, colorById, codeById, onEdit }: { rows: Sacrifice[]; co
     <div className="well-cards">{list.map((s) => {
       const color = s.contractor_id ? colorById[s.contractor_id] : "";
       return <article key={s.id} className="well-card" style={color ? { background: color } : undefined} onClick={() => onEdit(s)}>
-        <header><span className="well-no">{s.sacrifice_no}</span><OpenIcon kind="sacrifice" no={s.sacrifice_no} />{s.animal_type && <span className="chip">{s.animal_type}</span>}<span className="grow" />
+        <header><span className="well-no">{s.sacrifice_no}</span><OpenIcon kind="sacrifice" no={s.sacrifice_no} />{s.animal_type && <span className="chip">{s.animal_type}</span>}
+          {splitAddons(s.extras).map((a) => <span key={a} className="chip addon">＋ {a}</span>)}<span className="grow" />
           {s.delivery_date ? <span className="badge ok">{t("delivered")}</span> : <span className="badge warn">{t("st_pending")}</span>}</header>
         <div className="who">{s.donor_name || s.dedication || "—"}</div>
+        {s.parent_well_id && <div className="muted" style={{ fontSize: 12.5 }}>{t("parent_well")} <Link to={`/projects/${s.parent_well_id}`} onClick={(e) => e.stopPropagation()} className="mono">{s.parent_well_id}</Link></div>}
         <div className="meta"><span>{s.contractor_id ? codeById[s.contractor_id] : "—"}</span><span>{fmtDate(s.order_date)}</span>
           {s.sale_price != null && <span className="num strong">{money(s.sale_price)}</span>}</div>
         <footer onClick={(e) => e.stopPropagation()}>
@@ -146,7 +168,7 @@ function SacCards({ rows, colorById, codeById, onEdit }: { rows: Sacrifice[]; co
   </>;
 }
 
-function SacrificeForm({ s, contractors, animals, onClose, onSaved }: { s: Sacrifice; contractors: Contractor[]; animals: string[]; onClose: () => void; onSaved: (s: Sacrifice) => void }) {
+function SacrificeForm({ s, contractors, animals, addons, onClose, onSaved }: { s: Sacrifice; contractors: Contractor[]; animals: string[]; addons: string[]; onClose: () => void; onSaved: (s: Sacrifice) => void }) {
   const { t } = useI18n();
   const [f, setF] = useState<any>({ ...s });
   const [err, setErr] = useState<string | null>(null);
@@ -176,7 +198,10 @@ function SacrificeForm({ s, contractors, animals, onClose, onSaved }: { s: Sacri
       <Field label={t("animal_type")}><select value={f.animal_type ?? ""} onChange={set("animal_type")}><option value="">—</option>
         {[...new Set([...animals, ...(f.animal_type ? [f.animal_type] : [])])].map((a) => <option key={a} value={a}>{a}</option>)}</select></Field>
       {inp("cost", { type: "number", step: "0.01", min: 0 })}{inp("sale_price", { type: "number", step: "0.01", min: 0 })}
-      {inp("payment_method")}{inp("extras")}{inp("sales_source")}{inp("shopify_order")}{inp("intention")}
+      {inp("payment_method")}{inp("sales_source")}{inp("shopify_order")}{inp("intention")}
+      <div className="field span-all"><label>{t("addons")}</label>
+        <AddonPicker value={f.extras} options={addons} onChange={(v) => setF({ ...f, extras: v })} />
+        {s.parent_well_id && <span className="hint muted">{t("parent_well")} {s.parent_well_id}</span>}</div>
     </div>
     <div style={{ marginTop: 12 }}><Field label={t("dedication")}><textarea value={f.dedication ?? ""} onChange={set("dedication")} /></Field></div>
     <div style={{ marginTop: 12 }}><Field label={t("notes")}><textarea value={f.notes ?? ""} onChange={set("notes")} /></Field></div>

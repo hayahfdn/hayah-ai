@@ -9,7 +9,8 @@ import { Modal, Status, toast } from "../ui";
 import ProjectForm from "../pages/ProjectForm";
 import PlaqueBadge from "../plaque/PlaqueBadge";
 import OpenIcon from "../OpenIcon";
-import { newestFirst, sum, useMoney } from "./grid";
+import { sum, useMoney } from "./grid";
+import { splitAddons } from "../AddonPicker";
 
 const PAGE = 60;
 
@@ -26,7 +27,7 @@ export default function WellCards({ rows, quick, colorById, contractors, showSal
   const nameById = useMemo(() => Object.fromEntries(contractors.map((c) => [c.id, c.name])), [contractors]);
   const list = useMemo(() => {
     const q = quick.trim().toLowerCase();
-    const sorted = [...rows].sort(newestFirst((p) => p.well_id));
+    const sorted = rows;  // the server's order: newest created first, never moved by edits
     if (!q) return sorted;
     return sorted.filter((r) => [r.well_id, r.customer_name, r.dedication, r.well_type, r.customer_phone, r.shopify_order,
       r.contractor_id ? nameById[r.contractor_id] : ""].some((v) => String(v ?? "").toLowerCase().includes(q)));
@@ -53,6 +54,7 @@ export default function WellCards({ rows, quick, colorById, contractors, showSal
               <header>
                 <span className="well-no">{p.well_id}</span><OpenIcon no={p.well_id} />
                 {p.well_type && <span className="chip">{p.well_type}</span>}
+                {splitAddons(p.extras).map((a) => <span key={a} className="chip addon">＋ {a}</span>)}
                 <span className="grow" />
                 <PlaqueBadge p={p} compact />
               </header>

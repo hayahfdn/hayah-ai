@@ -521,3 +521,29 @@ button.wa-btn:disabled { background: #a9d9bb; border-color: #a9d9bb; color: #fff
 .help-link { unicode-bidi: isolate; direction: ltr; font-family: ui-monospace, monospace; font-size: .9em; }
 .help-panel .composer textarea { resize: none; }
 @media (min-width: 861px) { .main { padding-block-end: 84px; } }  /* room so the floating buttons never sit over the last row */
+
+/* ---- add-ons (الإضافات), 2026-11-20 ---- */
+.form-grid .span-all { grid-column: 1 / -1; }
+.addons { display: flex; flex-direction: column; gap: 6px; }
+.addon-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.addon-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px;
+  padding: 3px 6px 3px 12px; background: var(--surface); min-height: 36px; }
+[dir=rtl] .addon-chip { padding: 3px 12px 3px 6px; }
+.addon-chip label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; margin: 0; color: var(--ink); font-size: 14px; }
+.addon-chip.on { border-color: var(--brand); background: var(--brand-soft); }
+.addon-chip input[type=checkbox] { width: 17px; height: 17px; accent-color: var(--brand); margin: 0; }
+.addon-qty { display: inline-flex; align-items: center; gap: 4px; }
+.addon-qty button { min-width: 28px; min-height: 28px; padding: 0; }
+.addon-other input { min-width: 140px; max-width: 200px; }
+.addon-list { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.addon-list .chip { background: var(--brand-soft); color: var(--brand); }
+.linked-sac { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* ---- WhatsApp buttons: reason shown beside a disabled button, link-style button (2026-11-20) ---- */
+.wa-wrap { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wa-why { font-size: 12.5px; color: var(--bad); }
+a.btn.wa-btn { display: inline-flex; align-items: center; gap: 6px; background: #1faa53; border-color: #1a9449; color: #fff; text-decoration: none; }
+a.btn.wa-btn:hover { background: #1a9449; }
+.wa-btn.icon { padding-inline: 8px; }
+.wa-country { max-width: 220px; }
+.row-actions { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }

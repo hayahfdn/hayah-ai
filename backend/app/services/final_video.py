@@ -129,7 +129,7 @@ def data(db: Session, rec) -> dict:
         "ready_at": fv.ready_at if fv else None, "ready_by": fv.ready_by if fv else None,
         "sent_at": fv.sent_at if fv else None, "sent_by": fv.sent_by if fv else None, "sent_note": fv.sent_note if fv else None,
         "customer_name": rec.customer_name if isinstance(rec, Project) else rec.donor_name,
-        "customer_phone_e164": phone,
+        "customer_phone_e164": phone, "customer_phone_status": rec.customer_phone_status,
         "final_video_link": rec.final_video_link if isinstance(rec, Project) else None,
         "versions": [{"media_id": v.id, "filename": v.filename, "original_filename": v.original_filename, "mime_type": v.mime_type,
                       "size_bytes": v.size_bytes, "created_at": v.created_at,
@@ -183,10 +183,12 @@ def waiting_list(db: Session, limit: int = 300) -> list[dict]:
     out = []
     for p in db.scalars(select(Project).where(_waiting_filter_wells()).order_by(Project.well_id.desc()).limit(limit)):
         out.append({"kind": "well", "number": p.well_id, "status": V.not_uploaded.value, "status_ar": LABELS_AR[V.not_uploaded],
-                    "customer_name": p.customer_name, "customer_phone_e164": p.customer_phone_e164})
+                    "customer_name": p.customer_name, "customer_phone_e164": p.customer_phone_e164,
+                    "customer_phone_status": p.customer_phone_status})
     sac_has_video = exists().where(FinalVideo.sacrifice_id == Sacrifice.id, FinalVideo.current_media_id.is_not(None))
     for s in db.scalars(select(Sacrifice).join(Plaque, Plaque.sacrifice_id == Sacrifice.id)
                         .where(Plaque.status == PlaqueStatus.sent_to_contractor, ~sac_has_video).limit(limit)):
         out.append({"kind": "sacrifice", "number": s.sacrifice_no, "status": V.not_uploaded.value,
-                    "status_ar": LABELS_AR[V.not_uploaded], "customer_name": s.donor_name, "customer_phone_e164": s.customer_phone_e164})
+                    "status_ar": LABELS_AR[V.not_uploaded], "customer_name": s.donor_name, "customer_phone_e164": s.customer_phone_e164,
+                    "customer_phone_status": s.customer_phone_status})
     return out

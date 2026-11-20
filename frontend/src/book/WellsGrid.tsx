@@ -27,7 +27,7 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
   const { can, user, refreshCounts } = useAuth();
   const nav = useNavigate();
   const money = useMoney();
-  const projects = useApi<{ items: Project[] }>("/api/projects", { page_size: 5000, sort: "-order_date", month, contractor_id: contractorId });
+  const projects = useApi<{ items: Project[] }>("/api/projects", { page_size: 5000, sort: "-listed_at", month, contractor_id: contractorId });
   const contractors = useApi<Contractor[]>("/api/contractors");
   const lists = useApi<Record<string, string[]>>("/api/settings/lists");
   useDataReload(projects.reload);
@@ -41,6 +41,14 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
       const [last] = await api<Change[]>("/api/undo/recent", { query: { mine: true, limit: 1 } });
       if (!last || last.undone) { toast(t("undo_nothing")); return; }
       if (await undoChange(last.id, t)) projects.reload();
+    } catch (e: any) { toast(e.message); }
+  };
+  // «إعادة ترتيب المشاريع»: newest first by creation date; any column sort or filter the person set is cleared.
+  const resort = async () => {
+    try {
+      await api("/api/projects/resort", { method: "POST" });
+      gridRef.current?.applyColumnState({ defaultState: { sort: null } });
+      projects.reload(); toast(t("resort_done"));
     } catch (e: any) { toast(e.message); }
   };
   const manager = can(...MANAGERS);
@@ -65,13 +73,13 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
     const showMoney = manager;        // cost and profit: managers only
     const c: (ColDef<Project> | false)[] = [
       col("well_id", { editable: false, pinned: lang === "ar" ? "right" : "left", width: 96, filter: "agNumberColumnFilter",
-        cellClass: "well-no cell-link", sort: "desc", sortIndex: 1, valueFormatter: (p) => (p.node?.isRowPinned() ? t("total_row") : String(p.value ?? "")),
+        cellClass: "well-no cell-link", valueFormatter: (p) => (p.node?.isRowPinned() ? t("total_row") : String(p.value ?? "")),
         cellRenderer: (p: any) => (p.node.isRowPinned() || !p.data ? p.valueFormatted : <span className="no-cell">{p.value}<OpenIcon no={p.value} /></span>),
         cellClassRules: { "id-done": (p) => p.data?.delivery_status === "delivered", "id-wait": (p) => p.data?.delivery_status === "pending" } }),
       { colId: "plaque", headerName: t("plaque"), pinned: lang === "ar" ? "right" : "left", width: 118, editable: false, sortable: false,
         filter: false, cellClass: "plaque-cell",
         cellRenderer: (p: any) => (p.node.isRowPinned() || !p.data ? null : <PlaqueBadge p={p.data} compact />) },
-      col("order_date", { ...dateCol, sort: "desc", sortIndex: 0 }), col("customer_name", { width: 180, cellClass: "strong" }),
+      col("order_date", dateCol), col("customer_name", { width: 180, cellClass: "strong" }),
       col("customer_phone", { width: 145, cellStyle: { direction: "ltr", textAlign: "end" } }),
       col("well_type", { width: 100, ...pick(lists.data?.well_types) }),
       col("contractor_id", { headerName: t("contractor"), width: 105, cellEditor: "agSelectCellEditor",
@@ -84,7 +92,7 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
         valueGetter: (p) => (p.data?.sale_amount == null && p.data?.cost == null ? null : n(p.data?.sale_amount) - n(p.data?.cost)),
         valueFormatter: (p) => money(p.value), cellClassRules: { "neg": (p) => n(p.value) < 0 } },
       col("payment_status", { ...status(PAYMENT), width: 110 }), col("payment_method", { width: 125 }),
-      col("extras", { width: 110 }), col("shopify_order", { width: 105 }), col("sales_source", { width: 120, valueGetter: (p) => p.data?.source_group ?? p.data?.sales_source,
+      col("extras", { headerName: t("addons"), width: 150, tooltipValueGetter: (p) => p.value || null }), col("shopify_order", { width: 105 }), col("sales_source", { width: 120, valueGetter: (p) => p.data?.source_group ?? p.data?.sales_source,
         tooltipValueGetter: (p) => (p.data?.sales_source && p.data.sales_source !== p.data.source_group ? `${t("src_original")}: ${p.data.sales_source}` : null),
         cellEditor: "agSelectCellEditor", cellEditorParams: { values: ["", ...(lists.data?.sales_sources || [])] } }),
       col("dedication", { width: 200, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true }),
@@ -140,6 +148,7 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
         </div>}
         <span className="muted save-state" aria-live="polite">{saving ? t("saving") : t("all_saved")}</span>
         {!cards && <button onClick={() => gridRef.current?.setFilterModel(null)}>{t("clear_filters")}</button>}
+        {(manager || staff) && <button title={t("resort_help")} onClick={resort}>⇅ {t("resort")}</button>}
         {(manager || staff) && <button title={t("undo_last_help")} onClick={undoLast}>↶ {t("undo_last")}</button>}
         {(manager || staff) && <button onClick={() => setHistory(true)}>{t("undo_title")}</button>}
         {manager && !month && !contractorId && <button onClick={() => download("/api/projects/export.csv", "hayah-projects.csv")}>{t("export_csv")}</button>}

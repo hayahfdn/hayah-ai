@@ -6,6 +6,7 @@ import { EDITORS, MANAGERS, useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { Empty, ErrorBox, Field, Modal, Status, toast, useApi } from "../ui";
 import ProjectForm from "./ProjectForm";
+import { AddonChips } from "../AddonPicker";
 import { MediaTable } from "./MediaLibrary";
 import PlaqueBadge, { usePlaqueImage } from "../plaque/PlaqueBadge";
 import { PlaqueRow, PlaqueWhatsApp } from "../plaque/flow";
@@ -49,6 +50,9 @@ export default function ProjectDetail() {
             {d.customer_phone_e164 && d.customer_phone_e164 !== d.customer_phone && <span className="muted"> ({t("ph_original")}: {d.customer_phone})</span>}
             {d.customer_phone_status && d.customer_phone_status !== "valid" && <span className="badge warn" dir="auto"> {t(d.customer_phone_status === "invalid" ? "ph_invalid" : "ph_needs_country")}</span>}</span>)}
           {item("well_type", d.well_type)}
+          {item("addons", <AddonChips value={d.extras} />)}
+          {!!d.addon_sacrifices?.length && item("addon_sacrifices", <span className="linked-sac">{d.addon_sacrifices.map((a) =>
+            <span key={a.sacrifice_no} className="chip">{t("addon_sac_no")} <b className="mono">{a.sacrifice_no}</b>{a.animal_type ? ` · ${a.animal_type}` : ""}{a.sale_price ? ` · ${num(a.sale_price)} ${a.currency}` : ""}</span>)}</span>)}
           {item("sales_source", d.source_group || d.sales_source ? <>{d.source_group || d.sales_source}{d.sales_source && d.sales_source !== d.source_group && <span className="muted"> ({t("src_original")}: {d.sales_source})</span>}</> : null)}{item("contractor", d.contractor ? `${d.contractor.code} · ${d.contractor.name}` : null)}
           {item("sale_amount", d.sale_amount && `${num(d.sale_amount)} ${d.currency}`)}{item("order_date", fmtDate(d.order_date))}
           {item("delivery_date", fmtDate(d.delivery_date))}{item("last_maintenance_date", fmtDate(d.last_maintenance_date))}

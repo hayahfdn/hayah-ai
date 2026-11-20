@@ -3,6 +3,7 @@ import { api, Contractor, Project } from "../api";
 import { useI18n } from "../i18n";
 import { ErrorBox, Field, useApi } from "../ui";
 import { PhoneField } from "../PhoneField";
+import { AddonPicker } from "../AddonPicker";
 
 const CONSTRUCTION = ["new_order", "scheduled", "in_progress", "completed", "on_hold", "cancelled"];
 const PAYMENT = ["unpaid", "partial", "paid", "refunded"];
@@ -22,7 +23,7 @@ export default function ProjectForm({ project, onSaved, onCancel, prefill }: { p
   }, [f.well_id, project]);
   // Country, city, village and the build dates are no longer typed here (Hayah, 2026-11-18). Their old
   // values stay in the database; the country follows the contractor and the dates fill in from the status.
-  const fields = ["order_date", "customer_name", "customer_phone", "customer_phone_country", "well_type", "sales_source",
+  const fields = ["order_date", "customer_name", "customer_phone", "customer_phone_country", "well_type", "extras", "sales_source",
     "contractor_id", "sale_amount", "currency", "payment_status", "construction_status",
     "final_video_link", "video_status", "next_maintenance_date", "dedication", "notes"];
   const submit = async (e: React.FormEvent) => {
@@ -61,6 +62,11 @@ export default function ProjectForm({ project, onSaved, onCancel, prefill }: { p
           onPhone={(v) => setF({ ...f, customer_phone: v })} onCountry={(v) => setF({ ...f, customer_phone_country: v })} />
         <Field label={t("well_type")}><select value={f.well_type ?? ""} onChange={set("well_type")}><option value="">—</option>
           {typeOpts.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
+        <div className="field span-all"><label>{t("addons")}</label>
+          <AddonPicker value={f.extras} options={lists.data?.well_addons || ["خزان", "سيراميك", "خروف"]} sheepNote
+            onChange={(v) => setF({ ...f, extras: v })} />
+          {!!project?.addon_sacrifices?.length && <span className="hint muted">{t("addon_sacrifices")}: {project.addon_sacrifices.map((a) => `${t("addon_sac_no")} ${a.sacrifice_no}`).join("، ")}</span>}
+        </div>
         <Field label={t("sales_source")} hint={f.sales_source && f.sales_source !== f.source_group ? `${t("src_original")}: ${f.sales_source}` : undefined}>
           <select value={(lists.data?.sales_sources || []).includes(f.sales_source) ? f.sales_source : (f.source_group ?? "")}
             onChange={(e) => setF({ ...f, sales_source: e.target.value, source_group: e.target.value })}>

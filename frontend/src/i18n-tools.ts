@@ -1,6 +1,16 @@
 // Labels for: unified sales sources, the project-open icon, the assistant, the movable prompt button,
 // Wise and the old-projects delivery update.
 export const toolsEn: Record<string, string> = {
+  wise_tab: "Wise", wise_intro: "Read only: the system only reads transactions from the Wise business account and never sends, moves or cancels money. Each transaction is stored once, matched to the ledger when the amount and date agree, and the rest are listed here for review.",
+  wise_connected: "Connected", wise_last_sync: "Last sync", wise_not_connected: "Wise is not connected yet. A super admin pastes a read only token below.",
+  wise_token: "Read only API token", wise_token_ph: "Paste the Wise token", wise_disconnect: "Disconnect", wise_disconnected: "Disconnected",
+  wise_step1: "In Wise, switch to the business account, open Settings and find API tokens.", wise_step2: "Create a token and choose Read only.", wise_step3: "Copy it, paste it here and press Save. It is stored encrypted on the server and never shown again.",
+  wise_sync_now: "Sync now", wise_new: "New", wise_auto: "Matched automatically",
+  wise_recipients: "Recipients who are contractors", wise_recipients_note: "One per line: the Wise recipient name = the contractor code. Transfers to these names are classified as contractor payments.",
+  wise_list: "Transactions", wise_unmatched: "Not matched", wise_matched: "Matched", wise_ignored: "Ignored", wise_who: "From / to", wise_cat: "Type",
+  wise_match: "Match", wise_record: "Add to ledger", wise_recorded: "Added to the ledger", wise_ignore: "Ignore", wise_unmatch: "Unmatch",
+  wise_no_cands: "No ledger row is close to this one. Use “Add to ledger”.", wise_this_one: "This one", wise_empty: "Nothing here.",
+  wcat_shopify_payout: "Shopify payout", wcat_income: "Money in", wcat_contractor: "Contractor", wcat_ads: "Ads", wcat_tools: "Tools", wcat_transfer_out: "Transfer out", wcat_neutral: "Between balances", wcat_other: "Other",
   od_tab: "Old projects delivered", od_title: "Mark old projects as delivered",
   od_intro: "Projects ordered before {d} that are not marked delivered. Real delivery dates are kept. Without one, the last day of the order month is used and shown as estimated. Numbers, names and prices are not changed. Nothing changes until you confirm, and it can be undone.",
   od_none: "Nothing to mark: every project from before this month is already delivered.", od_month: "Order month", od_wells: "Wells", od_sacs: "Sacrifices",
@@ -22,6 +32,16 @@ export const toolsEn: Record<string, string> = {
   plaque_auto_preview: "The plaque as it stands now, drawn from this order's details. Edit it in the designer as usual.",
 };
 export const toolsAr: Record<string, string> = {
+  wise_tab: "Wise", wise_intro: "قراءة فقط: النظام يقرأ معاملات حساب Wise التجاري فقط، ولا يرسل أو يحوّل أو يلغي أي مبلغ. كل معاملة تُحفظ مرة واحدة، وتُطابق مع الدفتر عندما يتفق المبلغ والتاريخ، والباقي يظهر هنا للمراجعة.",
+  wise_connected: "متصل", wise_last_sync: "آخر مزامنة", wise_not_connected: "Wise غير متصل بعد. يلصق المدير العام مفتاح قراءة فقط في الأسفل.",
+  wise_token: "مفتاح API للقراءة فقط", wise_token_ph: "الصق مفتاح Wise", wise_disconnect: "فصل", wise_disconnected: "تم الفصل",
+  wise_step1: "في Wise انتقل إلى الحساب التجاري، وافتح الإعدادات، ثم ابحث عن API tokens.", wise_step2: "أنشئ مفتاحاً واختر Read only (قراءة فقط).", wise_step3: "انسخه والصقه هنا ثم اضغط حفظ. يُحفظ مشفّراً على الخادم ولا يظهر مرة أخرى.",
+  wise_sync_now: "مزامنة الآن", wise_new: "جديد", wise_auto: "طوبقت تلقائياً",
+  wise_recipients: "المستلمون من المقاولين", wise_recipients_note: "سطر لكل مستلم: اسم المستلم في Wise = رمز المقاول. التحويلات لهذه الأسماء تُصنّف كدفعات للمقاولين.",
+  wise_list: "المعاملات", wise_unmatched: "غير مطابقة", wise_matched: "مطابقة", wise_ignored: "متجاهلة", wise_who: "من / إلى", wise_cat: "النوع",
+  wise_match: "مطابقة", wise_record: "إضافة للدفتر", wise_recorded: "أضيفت للدفتر", wise_ignore: "تجاهل", wise_unmatch: "إلغاء المطابقة",
+  wise_no_cands: "لا يوجد سطر قريب منها في الدفتر. استخدم «إضافة للدفتر».", wise_this_one: "هذا", wise_empty: "لا شيء هنا.",
+  wcat_shopify_payout: "دفعة Shopify", wcat_income: "وارد", wcat_contractor: "مقاول", wcat_ads: "إعلانات", wcat_tools: "أدوات", wcat_transfer_out: "تحويل صادر", wcat_neutral: "بين الأرصدة", wcat_other: "أخرى",
   od_tab: "تسليم المشاريع القديمة", od_title: "تعليم المشاريع القديمة كمُسلّمة",
   od_intro: "المشاريع المطلوبة قبل {d} وغير المعلّمة كمُسلّمة. تواريخ التسليم الحقيقية تبقى كما هي. وإن لم يوجد تاريخ يُستخدم آخر يوم من شهر الطلب ويظهر كتاريخ تقديري. لا تتغير الأرقام ولا الأسماء ولا الأسعار. لا يتغير شيء قبل تأكيدك، ويمكن التراجع.",
   od_none: "لا يوجد ما يُعلَّم: كل مشاريع ما قبل هذا الشهر مُسلّمة.", od_month: "شهر الطلب", od_wells: "الآبار", od_sacs: "الذبائح",

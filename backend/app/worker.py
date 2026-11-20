@@ -9,12 +9,14 @@ import app.services.sheets_sync  # noqa: F401
 import app.services.shopify  # noqa: F401
 import app.services.sales_sources  # noqa: F401  (keeps the unified source current)
 import app.services.wa_inbox  # noqa: F401  (WhatsApp inbox: media download, send retries)
+import app.services.wise  # noqa: F401  (Wise read only sync)
 from app.db import SessionLocal
 from app.services.audit import audit
 from app.services.jobs import enqueue, handler, run_due_jobs
 
 log = logging.getLogger("hayah.worker")
 SYNC_EVERY_S = 15 * 60
+WISE_EVERY_S = 60 * 60
 
 
 @handler("daily_health_check")
@@ -30,7 +32,7 @@ def daily_health(db, payload):
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    last_sync = 0.0
+    last_sync = last_wise = 0.0
     while True:
         db = SessionLocal()
         try:
@@ -42,6 +44,10 @@ def main():
                 enqueue(db, "shopify_sync", {"trigger": "scheduled"}, coalesce=True)
                 db.commit()
                 last_sync = now
+            if now - last_wise > WISE_EVERY_S:  # hourly, read only
+                enqueue(db, "wise_sync", {"trigger": "scheduled"}, coalesce=True)
+                db.commit()
+                last_wise = now
             stats = run_due_jobs(db)
             if any(stats.values()):
                 log.info("jobs: %s", stats)

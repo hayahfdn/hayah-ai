@@ -733,3 +733,31 @@ class BulkChange(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     undone_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     undone_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+
+
+class WiseTransaction(Base):
+    """One activity read from Wise (read only). match_status: unmatched | matched | ignored."""
+    __tablename__ = "wise_transactions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    wise_id: Mapped[str] = mapped_column(String(200), unique=True)
+    profile_id: Mapped[int] = mapped_column(BigInteger)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    activity_type: Mapped[str | None] = mapped_column(String(40))
+    status: Mapped[str | None] = mapped_column(String(30))
+    direction: Mapped[str] = mapped_column(String(8))  # in | out | neutral
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    currency: Mapped[str] = mapped_column(String(3))
+    usd_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    counterparty: Mapped[str | None] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text)
+    resource_type: Mapped[str | None] = mapped_column(String(40))
+    resource_id: Mapped[str | None] = mapped_column(String(60))
+    category: Mapped[str] = mapped_column(String(30), default="other", index=True)
+    contractor_id: Mapped[int | None] = mapped_column(ForeignKey("contractors.id"))
+    match_status: Mapped[str] = mapped_column(String(12), default="unmatched", index=True)
+    transaction_id: Mapped[int | None] = mapped_column(ForeignKey("transactions.id"), unique=True)
+    matched_by: Mapped[str | None] = mapped_column(String(200))
+    matched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    raw: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    contractor: Mapped["Contractor | None"] = relationship()

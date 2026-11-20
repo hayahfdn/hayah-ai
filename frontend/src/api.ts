@@ -49,7 +49,7 @@ export interface Project {
   payment_method: string | null; extras: string | null; shopify_order: string | null; dedication?: string | null; received_date: string | null;
   listed_at?: string | null; addon_sacrifices?: { sacrifice_no: number; animal_type: string | null; sale_price: string | null; currency: string }[];
   payment_status: string; construction_status: string; construction_start_date: string | null; completion_date: string | null;
-  delivery_status: string; delivery_date: string | null; raw_media_folder_url: string | null; final_video_link: string | null;
+  delivery_status: string; delivery_date: string | null; delivery_estimated?: boolean; raw_media_folder_url: string | null; final_video_link: string | null;
   video_status: string; maintenance_status: string; last_maintenance_date: string | null; next_maintenance_date: string | null;
   notes: string | null; merged_into_id: number | null; is_sample: boolean; version: number; updated_at: string; created_at: string;
   plaque_status?: "draft" | "approved" | null; plaque_media_id?: number | null; plaque_approved_at?: string | null; plaque_approved_by?: string | null;
@@ -68,7 +68,7 @@ export async function fileUrl(path: string): Promise<string> {
 }
 export interface Sacrifice {
   id: number; sacrifice_no: number; order_date: string | null; donor_name: string | null; received_date: string | null;
-  delivery_date: string | null; contractor_id: number | null; animal_type: string | null; cost: string | null; sale_price: string | null;
+  delivery_date: string | null; delivery_status?: string; delivery_estimated?: boolean; contractor_id: number | null; animal_type: string | null; cost: string | null; sale_price: string | null;
   currency: string; payment_method: string | null; extras: string | null; sales_source: string | null; source_group?: string | null; shopify_order: string | null;
   parent_project_id?: number | null; parent_well_id?: number | null;
   intention: string | null; dedication?: string | null; notes: string | null; is_sample: boolean; version: number; updated_at: string;

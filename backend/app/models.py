@@ -183,6 +183,7 @@ class Project(Base):
     delivery_status: Mapped[DeliveryStatus] = mapped_column(
         _enum(DeliveryStatus, "delivery_status"), default=DeliveryStatus.not_ready, index=True)
     delivery_date: Mapped[date | None] = mapped_column(Date)
+    delivery_estimated: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     raw_media_folder_id: Mapped[str | None] = mapped_column(String(200))
     raw_media_folder_url: Mapped[str | None] = mapped_column(String(500))
     final_video_link: Mapped[str | None] = mapped_column(String(500))
@@ -452,6 +453,9 @@ class Sacrifice(Base):
     customer_phone_status: Mapped[str | None] = mapped_column(String(16))
     received_date: Mapped[date | None] = mapped_column(Date)
     delivery_date: Mapped[date | None] = mapped_column(Date)
+    delivery_status: Mapped[DeliveryStatus] = mapped_column(
+        _enum(DeliveryStatus, "delivery_status"), default=DeliveryStatus.not_ready, server_default="not_ready", index=True)
+    delivery_estimated: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     contractor_id: Mapped[int | None] = mapped_column(ForeignKey("contractors.id"), index=True)
     animal_type: Mapped[str | None] = mapped_column(String(60))
     cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
@@ -716,3 +720,44 @@ class WaMessage(Base):
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)  # when sent / received
     status_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class BulkChange(Base):
+    """One bulk action (e.g. mark old projects delivered), with every record's before/after for undo."""
+    __tablename__ = "bulk_changes"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    summary: Mapped[dict] = mapped_column(JSONB, default=dict)
+    items: Mapped[list] = mapped_column(JSONB, default=list)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    undone_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    undone_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+
+
+class WiseTransaction(Base):
+    """One activity read from Wise (read only). match_status: unmatched | matched | ignored."""
+    __tablename__ = "wise_transactions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    wise_id: Mapped[str] = mapped_column(String(200), unique=True)
+    profile_id: Mapped[int] = mapped_column(BigInteger)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    activity_type: Mapped[str | None] = mapped_column(String(40))
+    status: Mapped[str | None] = mapped_column(String(30))
+    direction: Mapped[str] = mapped_column(String(8))  # in | out | neutral
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    currency: Mapped[str] = mapped_column(String(3))
+    usd_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    counterparty: Mapped[str | None] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text)
+    resource_type: Mapped[str | None] = mapped_column(String(40))
+    resource_id: Mapped[str | None] = mapped_column(String(60))
+    category: Mapped[str] = mapped_column(String(30), default="other", index=True)
+    contractor_id: Mapped[int | None] = mapped_column(ForeignKey("contractors.id"))
+    match_status: Mapped[str] = mapped_column(String(12), default="unmatched", index=True)
+    transaction_id: Mapped[int | None] = mapped_column(ForeignKey("transactions.id"), unique=True)
+    matched_by: Mapped[str | None] = mapped_column(String(200))
+    matched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    raw: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    contractor: Mapped["Contractor | None"] = relationship()

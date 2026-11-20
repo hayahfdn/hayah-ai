@@ -11,6 +11,7 @@ import { AddonChips } from "../AddonPicker";
 import { MediaTable } from "./MediaLibrary";
 import PlaqueBadge, { usePlaqueImage } from "../plaque/PlaqueBadge";
 import { PlaqueRow, PlaqueWhatsApp } from "../plaque/flow";
+const CertificateCard = lazy(() => import("../certificate/Certificate").then((m) => ({ default: m.CertificateCard })));
 const FinalVideoSection = lazy(() => import("./FinalVideos").then((m) => ({ default: m.FinalVideoSection })));
 
 export default function ProjectDetail() {
@@ -70,6 +71,7 @@ export default function ProjectDetail() {
       <PlaqueCard p={d} />
       {can(...EDITORS) && d.customer_phone_e164 && <div className="actions" style={{ marginTop: 10 }}><Link className="btn" to={`/inbox?phone=${encodeURIComponent(d.customer_phone_e164)}`}>🟢 {t("wa_start")}</Link></div>}
       {can(...EDITORS) && <div id="final-video" style={{ marginTop: 14 }}><Suspense fallback={null}><FinalVideoSection kind="well" no={d.well_id} /></Suspense></div>}
+      {can(...EDITORS) && <Suspense fallback={null}><CertificateCard p={d} /></Suspense>}
       <div className="card" style={{ marginTop: 14 }}>
         <div className="tabs">{["timeline", "media", "maintenance", "deliveries"].map((k) => (
           <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{t(k)} {h.data && k !== "timeline" ? `(${h.data[k].length})` : ""}</button>))}</div>

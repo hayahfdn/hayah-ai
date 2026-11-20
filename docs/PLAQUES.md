@@ -36,3 +36,17 @@ Code: `frontend/src/plaque/render.ts` (drawing and export), `frontend/src/plaque
 - **Well icons**: six HAYAH well types (hand pump, hand pump with tank, one or two tanks with 4 taps, one or two tanks
   with a tap wall) in `frontend/public/wells/`, background removed. Icon can sit left or right.
 - **Flags**: Pakistan, Bangladesh, Nepal, India, Tanzania first, then all 22 Arab League countries, then others.
+
+## «شهادة وقفية» (endowment certificate)
+Every well has a certificate card on its project page and an editor at `/certificate/<well>`.
+- Filled from the order: donor names (the plaque's name, else the dedication, else the customer), project type
+  ("حفر بئر مياه", solar adds "بالطاقة الشمسية"), opening month/year (delivery date, then completion date, else this
+  month with a warning), well number, country (in Arabic). Every line is editable; Save keeps the design as a
+  `certificate_saved` timeline event (no new table).
+- Layout matches HAYAH's sample (1080 × 1640, exported at 2×). The stamp at `frontend/public/certificate-stamp.png`
+  was cut from that sample with its background removed.
+- One-tap WhatsApp ("إرسال الشهادة والفيديو"), on the card, the editor and the well's final-video section. Phone: the share
+  sheet opens with the certificate PNG and the final video; the employee picks WhatsApp and the customer. If the phone
+  needs a fresh tap after a large video loads, the button says "tap again". Computer: WhatsApp Web opens on the customer's
+  chat and both files download. Each send is logged (`certificate_sent`); after a phone share, a video that was
+  "ready for delivery" becomes "sent to customer". Nothing is sent automatically or by unofficial tools.

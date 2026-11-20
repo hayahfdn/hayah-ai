@@ -10,9 +10,16 @@ import { Link, useNavigate } from "react-router-dom";
 import { useIsMobile } from "../nav";
 import { AddonPicker, splitAddons } from "../AddonPicker";
 import { ChangeNumber, OrderChip } from "../Renumber";
+import { MANAGERS, useAuth } from "../App";
+
+// Employees (موظف) see every sacrifice detail and the selling price. Cost and profit are for managers
+// only (the server strips them too), and a delivery date means "delivered", which a manager confirms.
+const STAFF_LOCKED = new Set(["cost", "delivery_date"]);
 
 export default function SacrificesGrid({ month, contractorId, height, title }: { month?: string; contractorId?: number; height?: string; title?: string }) {
   const { t, lang } = useI18n();
+  const { can } = useAuth();
+  const manager = can(...MANAGERS);
   const money = useMoney();
   const data = useApi<Sacrifice[]>("/api/sacrifices", { month, contractor_id: contractorId });
   const contractors = useApi<Contractor[]>("/api/contractors");
@@ -30,7 +37,8 @@ export default function SacrificesGrid({ month, contractorId, height, title }: {
 
   const cols = useMemo<ColDef<Sacrifice>[]>(() => {
     const col = (field: keyof Sacrifice, extra: Partial<ColDef<Sacrifice>> = {}): ColDef<Sacrifice> => ({
-      field, headerName: t(field as string), editable: (p) => !p.node.isRowPinned(), ...extra });
+      field, headerName: t(field as string), editable: (p) => !p.node.isRowPinned() && (manager || !STAFF_LOCKED.has(field as string)),
+      ...(manager || !STAFF_LOCKED.has(field as string) ? {} : { cellClass: "locked" }), ...extra });
     return [
       col("sacrifice_no", { editable: false, pinned: lang === "ar" ? "right" : "left", width: 95, sort: "desc", sortIndex: 1, cellClass: "well-no",
         cellRenderer: (p: any) => (p.node.isRowPinned() || !p.data ? p.valueFormatted : <span className="no-cell">{p.value}<OpenIcon kind="sacrifice" no={p.value} /></span>),
@@ -44,10 +52,10 @@ export default function SacrificesGrid({ month, contractorId, height, title }: {
         valueFormatter: (p) => (p.node?.isRowPinned() ? "" : p.value ? codeById[p.value] || String(p.value) : "—"),
         filterValueGetter: (p) => (p.data?.contractor_id ? codeById[p.data.contractor_id] : "") }),
       col("animal_type", { width: 110, cellEditor: "agSelectCellEditor", cellEditorParams: { values: ["", ...(lists.data?.animal_types || [])] } }),
-      moneyCol<Sacrifice>("cost", t("cost"), true, money), moneyCol<Sacrifice>("sale_price", t("sale_price"), true, money),
-      { colId: "profit", headerName: t("profit"), editable: false, width: 100, cellClass: "num locked",
-        valueGetter: (p) => (p.data?.sale_price == null && p.data?.cost == null ? null : n(p.data?.sale_price) - n(p.data?.cost)),
-        valueFormatter: (p) => money(p.value) },
+      ...(manager ? [moneyCol<Sacrifice>("cost", t("cost"), true, money)] : []), moneyCol<Sacrifice>("sale_price", t("sale_price"), true, money),
+      ...(manager ? [{ colId: "profit", headerName: t("profit"), editable: false, width: 100, cellClass: "num locked",
+        valueGetter: (p: any) => (p.data?.sale_price == null && p.data?.cost == null ? null : n(p.data?.sale_price) - n(p.data?.cost)),
+        valueFormatter: (p: any) => money(p.value) } as ColDef<Sacrifice>] : []),
       col("payment_method", { width: 120 }), col("extras", { headerName: t("addons"), width: 130, tooltipValueGetter: (p) => p.value || null }),
       { colId: "parent_well_id", headerName: t("parent_well"), editable: false, width: 110, valueGetter: (p) => p.data?.parent_well_id ?? null,
         cellRenderer: (p: any) => (p.value ? <Link to={`/projects/${p.value}`} className="mono">{p.value}</Link> : null) }, col("sales_source", { width: 120, valueGetter: (p) => p.data?.source_group ?? p.data?.sales_source,
@@ -57,10 +65,10 @@ export default function SacrificesGrid({ month, contractorId, height, title }: {
       col("dedication", { width: 200, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true }),
       col("notes", { width: 220, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true }),
     ];
-  }, [t, lang, contractors.data, codeById, lists.data, money]);
+  }, [t, lang, contractors.data, codeById, lists.data, money, manager]);
 
   const totals = useMemo(() => [{ id: -1, donor_name: `${rows.length} ${t("sacrifices")}`,
-    cost: String(sum(rows, (r) => r.cost)), sale_price: String(sum(rows, (r) => r.sale_price)) } as Partial<Sacrifice>], [rows, t]);
+    cost: manager ? String(sum(rows, (r) => r.cost)) : null, sale_price: String(sum(rows, (r) => r.sale_price)) } as Partial<Sacrifice>], [rows, t, manager]);
 
   const onEdit = useCallback(async (e: CellValueChangedEvent<Sacrifice>) => {
     const field = e.colDef.field as string;
@@ -185,9 +193,11 @@ function SacrificeForm({ s, contractors, animals, addons, onClose, onSaved }: { 
   const [f, setF] = useState<any>({ ...s });
   const [err, setErr] = useState<string | null>(null);
   const [renumbering, setRenumbering] = useState(false);
+  const { can } = useAuth();
+  const manager = can(...MANAGERS);
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
   const keys = ["order_date", "donor_name", "delivery_date", "contractor_id", "animal_type", "cost", "sale_price", "payment_method",
-    "extras", "sales_source", "shopify_order", "intention", "dedication", "notes"];
+    "extras", "sales_source", "shopify_order", "intention", "dedication", "notes"].filter((k) => manager || !STAFF_LOCKED.has(k));
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     const body: any = {};
@@ -207,15 +217,15 @@ function SacrificeForm({ s, contractors, animals, addons, onClose, onSaved }: { 
     onDone={(_, r) => onSaved(r.sacrifice)} />;
   return <Modal title={`${t("edit")} · ${s.sacrifice_no}`} onClose={onClose}><form onSubmit={save}>
     <div className="actions" style={{ justifyContent: "flex-start", marginTop: 0 }}>
-      <button type="button" onClick={() => setRenumbering(true)}>🔢 {t("num_change")}</button>
+      {manager && <button type="button" onClick={() => setRenumbering(true)}>🔢 {t("num_change")}</button>}
       {s.shopify_order && <span className="muted">{t("order_no")} <OrderChip order={s.shopify_order} /></span>}</div>
     <div className="form-grid">
-      {inp("order_date", { type: "date" })}{inp("donor_name")}{inp("delivery_date", { type: "date" })}
+      {inp("order_date", { type: "date" })}{inp("donor_name")}{inp("delivery_date", { type: "date", disabled: !manager })}
       <Field label={t("contractor")}><select value={f.contractor_id ?? ""} onChange={set("contractor_id")}><option value="">—</option>
         {contractors.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select></Field>
       <Field label={t("animal_type")}><select value={f.animal_type ?? ""} onChange={set("animal_type")}><option value="">—</option>
         {[...new Set([...animals, ...(f.animal_type ? [f.animal_type] : [])])].map((a) => <option key={a} value={a}>{a}</option>)}</select></Field>
-      {inp("cost", { type: "number", step: "0.01", min: 0 })}{inp("sale_price", { type: "number", step: "0.01", min: 0 })}
+      {manager && inp("cost", { type: "number", step: "0.01", min: 0 })}{inp("sale_price", { type: "number", step: "0.01", min: 0 })}
       {inp("payment_method")}{inp("sales_source")}{inp("shopify_order")}{inp("intention")}
       <div className="field span-all"><label>{t("addons")}</label>
         <AddonPicker value={f.extras} options={addons} onChange={(v) => setF({ ...f, extras: v })} />

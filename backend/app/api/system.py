@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db
-from app.deps import ADMINS, ALL_ROLES, MANAGERS, get_current_user, require_roles
+from app.deps import ADMINS, ALL_ROLES, MANAGERS, PROJECT_CREATORS, get_current_user, require_roles
 from app.integrations.drive import get_drive_client
 from app.models import (
     ApprovalStatus, AuditLog, ConstructionStatus, Contractor, DeliveryConfirmation, DeliveryStatus, Job, JobStatus,
@@ -27,12 +27,13 @@ router = APIRouter(prefix="/api", tags=["system"])
 @router.get("/nav")
 def nav(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """What the side menu lists for this person: month pages, contractors by country, partners.
-    Finance pages (sacrifices, contractor ledgers, partners) are for managers only."""
+    Finance pages (contractor ledgers, partners, banks) are for managers only; sacrifice months
+    are listed for employees too (their sacrifice pages never show cost or profit)."""
     from app.models import FinanceAccount, Role
     from app.services.finance import months
     manager = user.role in MANAGERS
     m = months(db)
-    out: dict = {"current": m["current"], "wells": m["wells"], "sacrifices": m["sacrifices"] if manager else [],
+    out: dict = {"current": m["current"], "wells": m["wells"], "sacrifices": m["sacrifices"] if user.role in PROJECT_CREATORS else [],
                  "contractors": [], "partners": [], "banks": []}
     if user.role != Role.contractor:
         cons = db.scalars(select(Contractor).where(Contractor.is_active.is_(True)).order_by(Contractor.code))

@@ -47,6 +47,7 @@ def decide(db: Session, dc: DeliveryConfirmation, *, approve: bool, actor: User,
         before = snapshot(project)
         project.delivery_status = DeliveryStatus.delivered
         project.delivery_date = dc.delivery_date
+        project.delivery_estimated = False  # a confirmed date is a real date
         project.updated_at = utcnow()
         add_event(db, project, "delivery_confirmed", source="dashboard", actor=actor,
                   summary=f"Delivery approved for {dc.delivery_date}",

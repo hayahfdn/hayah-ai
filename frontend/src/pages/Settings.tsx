@@ -10,6 +10,8 @@ import ShopifySettings from "../admin/ShopifySettings";
 import WhatsAppSettings from "../admin/WhatsAppSettings";
 import SalesSources from "../admin/SalesSources";
 import RenumberSacrifices from "../admin/RenumberSacrifices";
+import OldDelivered from "../admin/OldDelivered";
+import WiseSettings from "../admin/WiseSettings";
 
 export default function Settings() {
   const { t } = useI18n();
@@ -17,7 +19,7 @@ export default function Settings() {
   const admin = can("super_admin");
   const [tab, setTab] = useState("integrations");
   const manager = can("super_admin", "operations_manager");
-  const tabs = ["integrations", "shopify_tab", ...(manager ? ["src_tab", "ren_tab"] : []), "sync_conflicts", "ai_settings", "undo_tab", ...(admin ? ["was_tab", "users", "imp_tab"] : []), "jobs", "audit_log"];
+  const tabs = ["integrations", "shopify_tab", ...(manager ? ["src_tab", "ren_tab", "wise_tab", "od_tab"] : []), "sync_conflicts", "ai_settings", "undo_tab", ...(admin ? ["was_tab", "users", "imp_tab"] : []), "jobs", "audit_log"];
   return (
     <>
       <div className="topbar"><h1>{t("nav_settings")}</h1></div>
@@ -27,6 +29,8 @@ export default function Settings() {
       {tab === "was_tab" && <WhatsAppSettings />}
       {tab === "src_tab" && <SalesSources />}
       {tab === "ren_tab" && <RenumberSacrifices />}
+      {tab === "od_tab" && <OldDelivered />}
+      {tab === "wise_tab" && <WiseSettings />}
       {tab === "sync_conflicts" && <Conflicts />}
       {tab === "ai_settings" && <AISettings admin={admin} />}
       {tab === "users" && <Users />}

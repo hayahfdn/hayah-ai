@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { ErrorBox, Field, toast, useApi } from "../ui";
+import WaCoexistence from "./WaCoexistence";
 
 export default function WhatsAppSettings() {
   const { t } = useI18n();
@@ -59,6 +60,7 @@ export default function WhatsAppSettings() {
         <div><span>{t("was_webhook")}</span><bdi dir="ltr" className="mono">{window.location.origin}{d.webhook_path}</bdi></div>
         <div><span>Webhook</span>{t("was_fields")}</div>
       </div>
+      <WaCoexistence />
     </div>
   );
 }

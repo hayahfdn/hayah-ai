@@ -582,3 +582,4 @@ a.btn.wa-btn:hover { background: #1a9449; }
 .ren-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
 .ren-cols table input { width: 100%; min-width: 80px; }
 .ren-table td.changed { background: rgba(255, 196, 0, .22); font-weight: 700; }
+.est-date { font-style: italic; color: var(--warn); } .est-date::after { content: " ~"; }

@@ -320,6 +320,12 @@ def handle_webhook(db: Session, payload: dict) -> set[str]:
                             conv.last_inbound_at = msg.at
                         if conv.status == "closed":
                             conv.status = "open"  # a customer writing again reopens the chat
+            elif field == "history":  # Coexistence: past chats from the phone app
+                from app.services import wa_coexist
+                taken |= wa_coexist.handle_history(db, value, (value.get("metadata") or {}).get("display_phone_number"))
+            elif field == "smb_app_state_sync":  # Coexistence: contacts from the phone app
+                from app.services import wa_coexist
+                wa_coexist.handle_contacts(db, value)
             elif field == "smb_message_echoes":  # sent from the WhatsApp Business app on the phone (Coexistence)
                 for m in value.get("message_echoes") or []:
                     conv = get_or_create(db, m.get("to"))

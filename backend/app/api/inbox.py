@@ -307,3 +307,38 @@ def test_wa(db: Session = Depends(get_db), _: User = Depends(require_roles(ADMIN
         return {"ok": True, "phone": wa.client(db).phone_info()}
     except WaSendError as e:
         raise HTTPException(502, str(e))
+
+
+# ---------------- Coexistence: connect the current WhatsApp Business app number ----------------
+from app.services import wa_coexist  # noqa: E402
+
+
+class CoexIdsIn(BaseModel):
+    app_id: str = Field(min_length=5, max_length=40, pattern=r"^\d+$")
+    config_id: str = Field(min_length=5, max_length=40, pattern=r"^\d+$")
+
+
+class CoexDoneIn(BaseModel):
+    code: str = Field(min_length=5, max_length=2000)
+    phone_number_id: str = Field(min_length=3, max_length=40, pattern=r"^\d+$")
+    waba_id: str = Field(min_length=3, max_length=40, pattern=r"^\d+$")
+
+
+@settings_router.get("/whatsapp-coexistence")
+def coex_state(db: Session = Depends(get_db), _: User = Depends(require_roles(ADMINS))):
+    return wa_coexist.state(db)
+
+
+@settings_router.put("/whatsapp-coexistence")
+def coex_ids(body: CoexIdsIn, db: Session = Depends(get_db), user: User = Depends(require_roles(ADMINS))):
+    return wa_coexist.save_ids(db, body.app_id, body.config_id, user)
+
+
+@settings_router.post("/whatsapp-coexistence/finish")
+def coex_finish(body: CoexDoneIn, db: Session = Depends(get_db), user: User = Depends(require_roles(ADMINS))):
+    return wa_coexist.finish_signup(db, body.code, body.phone_number_id, body.waba_id, user)
+
+
+@settings_router.post("/whatsapp-coexistence/sync")
+def coex_sync(db: Session = Depends(get_db), user: User = Depends(require_roles(ADMINS))):
+    return wa_coexist.start_sync(db, user)

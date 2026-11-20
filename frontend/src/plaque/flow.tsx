@@ -40,8 +40,20 @@ const BTN: Partial<Record<PlaqueState, string>> = {
 };
 
 export const designerLink = (p: { kind: string; number: number }) => (p.kind === "well" ? `/plaque/${p.number}` : `/plaque/sacrifice/${p.number}`);
-export const waLink = (e164: string | null, text?: string) =>
-  e164 ? `https://wa.me/${e164.replace(/\D/g, "")}${text ? `?text=${encodeURIComponent(text)}` : ""}` : null;
+/** Phones and tablets open the WhatsApp app (wa.me); a computer opens WhatsApp Web straight on the chat.
+ *  The number is the customer's international number (E.164) without "+", as WhatsApp expects. */
+export const isPhoneDevice = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+  || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+export const waLink = (e164: string | null, text?: string) => {
+  const digits = (e164 || "").replace(/\D/g, "");
+  if (digits.length < 8) return null;
+  const q = text ? encodeURIComponent(text) : "";
+  return isPhoneDevice() ? `https://wa.me/${digits}${q ? `?text=${q}` : ""}`
+    : `https://web.whatsapp.com/send?phone=${digits}${q ? `&text=${q}` : ""}`;
+};
+/** Why a WhatsApp chat cannot open yet, in words for the person (null when it can). */
+export const waProblem = (t: (k: string) => string, e164: string | null | undefined, status: string | null | undefined) =>
+  e164 ? null : status === "needs_country" ? t("plwa_phone_country") : status === "invalid" ? t("plwa_phone_invalid") : t("wa_chat_missing");
 export const plaqueFile = (p: PlaqueRow, download = false) =>
   `/api/plaques/${p.id}/file?version_id=${p.file_version_id}${download ? "&download=true" : ""}`;
 
@@ -107,7 +119,7 @@ export function PlaqueThumb({ p, onClick }: { p: PlaqueRow; onClick?: () => void
 }
 
 /** WhatsApp's colour; a plain chat-bubble drawing (not the WhatsApp logo). */
-const WaIcon = () => (
+export const WaIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
     <path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 14.9L2 22l5.3-1.3A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-4.1 14.9l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 0 1 12 4z" />
     <path fill="currentColor" d="M8.6 7.5c.2-.4.4-.4.7-.4h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .5-.1.6l-.5.6c-.1.2-.2.3 0 .6.6 1 1.4 1.8 2.5 2.4.3.2.5.1.6 0l.7-.8c.2-.2.4-.2.6-.1l1.8.9c.3.1.4.3.4.5 0 .6-.3 1.3-.8 1.6-.6.4-1.4.5-2.5.1a9.4 9.4 0 0 1-4.6-4.1c-.7-1.2-.9-2.3-.4-3.2z" />
@@ -123,6 +135,7 @@ export function PlaqueWhatsApp({ p, onDone, label }: { p: PlaqueRow; onDone?: (p
   if (!w) return null;
   const why = w.problems.includes("missing") ? `${t("pla_missing")}: ${p.missing.map((m) => t("miss_" + m)).join("، ")}`
     : w.problems.includes("no_file") ? t("plwa_no_file") : w.problems.includes("no_phone") ? t("plwa_no_phone")
+    : w.problems.includes("phone_country") ? t("plwa_phone_country") : w.problems.includes("phone_invalid") ? t("plwa_phone_invalid")
     : w.problems.includes("no_time") ? t("plwa_no_time") : "";
   const go = () => {
     const link = waLink(w.phone, w.text || undefined);
@@ -140,8 +153,44 @@ export function PlaqueWhatsApp({ p, onDone, label }: { p: PlaqueRow; onDone?: (p
       .then((r) => { toast(t("plwa_done")); refreshCounts(); onDone?.(r); }).catch((e) => toast(e.message));
   };
   return (
-    <button type="button" className={`sm wa-btn${label ? "" : " icon"}`} disabled={!!why} onClick={go}
-      title={why || t("plwa_help")} aria-label={t("plwa_send")}>
-      <WaIcon />{label && <span>{t("plwa_send")}</span>}
-    </button>);
+    <span className="wa-wrap">
+      <button type="button" className={`sm wa-btn${label ? "" : " icon"}`} disabled={!!why} onClick={go}
+        title={why || t("plwa_help")} aria-label={t("plwa_send")} aria-describedby={why ? `wa-why-${p.id}` : undefined}>
+        <WaIcon />{label && <span>{t("plwa_send")}</span>}
+      </button>
+      {why && label && <span className="wa-why" id={`wa-why-${p.id}`}>⚠ {why}</span>}
+      {w.problems.includes("phone_country") && <PhoneCountryFix p={p} onDone={onDone} />}
+    </span>);
+}
+
+/** A local customer number without its country: choose the country here and the button works straight away. */
+function PhoneCountryFix({ p, onDone }: { p: PlaqueRow; onDone?: (p: PlaqueRow) => void }) {
+  const { t, lang } = useI18n();
+  const [list, setList] = useState<{ code: string; dial: string; ar: string | null; en: string | null }[]>([]);
+  useEffect(() => { api<any[]>("/api/phones/countries").then(setList).catch(() => {}); }, []);
+  const save = async (code: string) => {
+    if (!code) return;
+    try {
+      const url = p.kind === "well" ? `/api/projects/${p.number}` : `/api/sacrifices/${p.number}`;
+      await api(url, { method: "PATCH", body: { customer_phone_country: code } });
+      onDone?.(await api<PlaqueRow>(`/api/plaques/${p.id}`)); toast(t("plwa_country_saved"));
+    } catch (e: any) { toast(e.message); }
+  };
+  return <select className="sm wa-country" defaultValue="" onChange={(e) => save(e.target.value)} aria-label={t("plwa_pick_country")}>
+    <option value="">{t("plwa_pick_country")}…</option>
+    {list.map((c) => <option key={c.code} value={c.code}>{(lang === "ar" ? c.ar : c.en) || c.code} {c.dial}</option>)}
+  </select>;
+}
+
+/** The WhatsApp icon beside the final-video upload: opens the customer's chat (app on a phone, WhatsApp Web on a
+ *  computer). Disabled with the reason when the number is missing, has no country, or is not valid. */
+export function WaChatButton({ e164, status, text, label }: { e164: string | null | undefined; status?: string | null; text?: string; label?: boolean }) {
+  const { t } = useI18n();
+  const why = waProblem(t, e164, status);
+  const link = why ? null : waLink(e164 || null, text);
+  return link
+    ? <a className={`btn sm wa-btn${label ? "" : " icon"}`} href={link} target="_blank" rel="noopener noreferrer"
+        title={`${t("wa_chat")} · ${e164}`} aria-label={t("wa_chat")}><WaIcon />{label && <span>{t("wa_chat")}</span>}</a>
+    : <span className="wa-wrap"><button type="button" className={`sm wa-btn${label ? "" : " icon"}`} disabled title={why || ""} aria-label={t("wa_chat")}>
+        <WaIcon />{label && <span>{t("wa_chat")}</span>}</button>{label && <span className="wa-why">⚠ {why}</span>}</span>;
 }

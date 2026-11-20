@@ -16,6 +16,9 @@ def defaults() -> dict:
         "well_types": {"values": ["يدوي", "متوسط", "عميق", "شمسي"]},
         "countries": {"values": ["Pakistan", "Nepal", "Bangladesh", "India", "Tanzania"]},
         "animal_types": {"values": ["خروف", "ماعز", "بقرة"]},
+        # Add-ons a customer can buy with a well or a sacrifice (Settings → Lists). خروف becomes its own sacrifice.
+        "well_addons": {"values": ["خزان", "سيراميك", "خروف"]},
+        "sacrifice_addons": {"values": ["إطعام"]},
         "branding": {"logo_drive_file_id": None, "primary_color": "#0E7C86", "font": "Noto Sans Arabic"},
     }
 

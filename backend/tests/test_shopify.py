@@ -71,9 +71,14 @@ def test_webhook_creates_well_with_dedication_price_and_addons(client, shop):
     w = client.get("/api/projects/1400", headers=shop).json()
     assert w["customer_name"] == "Test Donor"
     assert w["dedication"] == "صدقة جارية عن والدي"
-    assert w["sale_amount"] == "1087.00"  # 899 well + 89 tank + 99 sheep bought for this well
+    assert w["sale_amount"] == "988.00"  # 899 well + 89 tank; the 99 sheep is its own sacrifice
+    assert "خروف" in (w["extras"] or "") and "sacrifice 300" in w["notes"]  # listed as an add-on, priced on the sacrifice
+    sac = [s for s in client.get("/api/sacrifices", headers=login(client, "manager@hayah.local")).json() if s["shopify_order"] == "#2001"]
+    assert len(sac) == 1 and sac[0]["sacrifice_no"] == 300 and sac[0]["sale_price"] == "99.00"
+    assert sac[0]["dedication"] == "صدقة جارية عن والدي" and sac[0]["animal_type"] == "خروف" and sac[0]["intention"] == "صدقة"
+    assert sac[0]["donor_name"] == "Test Donor" and sac[0]["customer_phone"] == "+971 500000001"
     assert w["well_type"] == "عميق" and w["shopify_order"] == "#2001"
-    assert w["payment_status"] == "paid" and w["sales_source"] == "Shopify (Instagram)"
+    assert w["payment_status"] == "paid" and w["sales_source"] == "Shopify (Instagram)" and w["source_group"] == "Instagram"
     assert w["customer_phone"] == "+971 500000001" and w["order_date"] == "2026-11-18"
     assert "خزان مياه إضافي" in w["extras"] and w["cost"] is None
     orders = client.get("/api/shopify/orders", headers=shop).json()
@@ -160,8 +165,9 @@ def test_summary_counts_sales_by_month(client, shop):
     post_webhook(client, WELL_ORDER, wid="r1")
     run_jobs()
     s = client.get("/api/shopify/summary", headers=shop, params={"start": "2026-01-01", "end": "2026-12-31"}).json()
-    assert s["orders"] == 1 and s["by_month"][0]["wells"] == 1 and s["by_month"][0]["wells_amount"] == 1087.0
-    assert s["by_source"][0]["source"] == "Shopify (Instagram)"
+    assert s["orders"] == 1 and s["by_month"][0]["wells"] == 1 and s["by_month"][0]["wells_amount"] == 988.0
+    assert s["by_month"][0]["sacrifices"] == 1 and s["by_month"][0]["sacrifices_amount"] == 99.0
+    assert s["by_source"][0]["source"] == "Instagram"
 
 
 def test_sync_uses_client_credentials_and_graphql(client, shop):

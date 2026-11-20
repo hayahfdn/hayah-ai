@@ -1,11 +1,13 @@
+import OpenIcon from "../OpenIcon";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { download, Project } from "../api";
+import { api, download, Project } from "../api";
 import { EDITORS, MANAGERS, useAuth } from "../App";
 import { useI18n } from "../i18n";
-import { Empty, ErrorBox, Modal, Status, useApi } from "../ui";
+import { Empty, ErrorBox, Modal, Status, toast, useApi } from "../ui";
 import ProjectForm from "./ProjectForm";
 import PlaqueBadge from "../plaque/PlaqueBadge";
+import { AddonChips } from "../AddonPicker";
 
 export default function Projects() {
   const { t, st, fmtDate, num } = useI18n();
@@ -25,6 +27,9 @@ export default function Projects() {
       <div className="topbar"><h1>{t("nav_projects")}</h1>
         <div style={{ display: "flex", gap: 8 }}>
           {can(...MANAGERS) && <button onClick={() => download("/api/projects/export.csv", "hayah-projects.csv")}>{t("export_csv")}</button>}
+          {can(...EDITORS) && <button title={t("resort_help")} onClick={async () => {
+            try { await api("/api/projects/resort", { method: "POST" }); const n = new URLSearchParams(params); n.delete("page"); n.delete("sort"); setParams(n); reload(); toast(t("resort_done")); }
+            catch (e: any) { toast(e.message); } }}>⇅ {t("resort")}</button>}
           {can(...EDITORS) && <button className="primary" onClick={() => setCreating(true)}>+ {t("new_project")}</button>}
         </div>
       </div>
@@ -45,16 +50,16 @@ export default function Projects() {
       <div className="table-wrap">
         <table>
           <thead><tr>
-            <th>{t("well_id")}</th><th>{t("plaque")}</th><th>{t("customer_name")}</th><th>{t("well_type")}</th>
+            <th>{t("well_id")}</th><th>{t("plaque")}</th><th>{t("customer_name")}</th><th>{t("well_type")}</th><th>{t("addons")}</th>
             <th>{t("contractor")}</th><th>{t("construction_status")}</th><th>{t("delivery_status")}</th><th>{t("video_status")}</th>
             <th>{t("payment_status")}</th><th>{t("order_date")}</th>
           </tr></thead>
           <tbody>
             {data?.items.map((p) => (
               <tr key={p.id} onClick={() => nav(`/projects/${p.well_id}`)} style={{ cursor: "pointer", background: p.contractor?.color || undefined }}>
-                <td className="row-head"><Link to={`/projects/${p.well_id}`} className="well-no">{p.well_id}</Link> {p.is_sample && <span className="badge">{t("sample")}</span>}</td>
+                <td className="row-head"><Link to={`/projects/${p.well_id}`} className="well-no">{p.well_id}</Link><OpenIcon no={p.well_id} /> {p.is_sample && <span className="badge">{t("sample")}</span>}</td>
                 <td><PlaqueBadge p={p} compact /></td>
-                <td className="strong">{p.customer_name || "—"}</td><td>{p.well_type || "—"}</td>
+                <td className="strong">{p.customer_name || "—"}</td><td>{p.well_type || "—"}</td><td><AddonChips value={p.extras} /></td>
                 <td>{p.contractor?.name || "—"}</td><td><Status v={p.construction_status} /></td><td><Status v={p.delivery_status} /></td>
                 <td><Status v={p.video_status} /></td><td><Status v={p.payment_status} /></td><td className="muted">{fmtDate(p.order_date)}</td>
               </tr>

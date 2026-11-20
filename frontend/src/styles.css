@@ -139,7 +139,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   .mobile-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; padding-top: calc(8px + env(safe-area-inset-top));
     background: #0f2b2e; color: #fff; position: sticky; top: 0; z-index: 20; }
   .mobile-bar button { background: transparent; color: #fff; border-color: rgba(255,255,255,.3); }
-  .main { padding: 14px 14px calc(84px + env(safe-area-inset-bottom)); }
+  .main { padding: 14px 14px calc(140px + env(safe-area-inset-bottom)); }
   .search { min-width: 0; max-width: none; width: 100%; }
   .timeline li { grid-template-columns: 1fr; gap: 2px; }
   .bar-row { grid-template-columns: 90px 1fr 36px; }
@@ -472,3 +472,107 @@ td.row-head { white-space: nowrap; }
 button.wa-btn { display: inline-flex; align-items: center; gap: 6px; background: #1faa53; border-color: #1a9449; color: #fff; }
 button.wa-btn:hover:not(:disabled) { background: #1a9449; }
 button.wa-btn:disabled { background: #a9d9bb; border-color: #a9d9bb; color: #fff; opacity: 1; cursor: not-allowed; }
+/* ---- open icon beside project numbers (2026-11-19) ---- */
+.no-cell { display: inline-flex; align-items: center; gap: 6px; }
+.open-ico { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-inline-start: 6px;
+  border-radius: 6px; color: var(--brand); background: var(--brand-soft);
+  vertical-align: middle; flex: none; text-decoration: none; }
+.open-ico:hover, .open-ico:focus-visible { background: var(--brand); color: var(--brand-ink); outline: none; }
+.edit-plaque { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.edit-plaque .plaque-thumb { width: 160px; height: 160px; }
+.plaque-thumb.empty { display: flex; align-items: center; justify-content: center; background: var(--brand-soft); border-radius: 8px; }
+@media (max-width: 640px) { .open-ico { width: 32px; height: 32px; } .edit-plaque .plaque-thumb { width: 110px; height: 110px; } }
+.fab-movable { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.fab-movable.dragging { cursor: grabbing; transform: scale(1.08); box-shadow: 0 10px 28px rgba(14,124,134,.45); opacity: 1; transition: transform .12s; }
+
+/* ---- calm UI polish, phone + desktop (2026-11-19) ---- */
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.btn, button { -webkit-tap-highlight-color: transparent; }
+@media (max-width: 760px) {
+  .btn, button.btn, select, input:not([type=checkbox]):not([type=radio]) { min-height: 40px; }
+  .modal { max-height: calc(100dvh - 24px); overflow-y: auto; }
+  .page-head h1, .page-head h2 { font-size: 19px; }
+  table td, table th { padding-block: 9px; }
+}
+.prompt-fab.fab-movable { touch-action: none; }
+.no-cell .open-ico { margin-inline-start: 0; }
+@media (prefers-reduced-motion: reduce) { .fab-movable.dragging { transition: none; transform: none; } }
+
+/* ---- floating assistant (2026-11-19): opposite side from «عدّل بكتابة طلب» ---- */
+.help-fab { position: fixed; inset-block-end: 18px; inset-inline-start: calc(var(--side-w, 0px) + 18px); z-index: 35;
+  background: var(--surface, #fff); color: var(--brand); border: 1px solid var(--brand); border-radius: 999px; padding: 10px 16px;
+  box-shadow: 0 6px 18px rgba(14,124,134,.22); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.help-fab:hover { background: var(--brand-soft); }
+.help-fab > span[aria-hidden] { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center;
+  background: var(--brand); color: #fff; font-size: 14px; }
+.help-panel { position: fixed; z-index: 40; inset-block-end: 76px; inset-inline-start: calc(var(--side-w, 0px) + 18px); width: min(380px, calc(100vw - 24px));
+  height: min(560px, calc(100dvh - 110px)); display: flex; flex-direction: column; background: var(--surface, #fff);
+  border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.18); overflow: hidden; }
+.help-panel > header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.help-body { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; background: var(--surface-2); }
+.help-body .bubble { max-width: 90%; }
+.help-body .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.help-reset { margin: 0 8px 8px; align-self: flex-start; }
+@media (max-width: 860px) {
+  .help-fab { width: 48px; height: 48px; padding: 0; justify-content: center; inset-block-end: calc(72px + env(safe-area-inset-bottom)); inset-inline-start: 12px; }
+  .help-fab .fab-label { display: none; }
+  .help-panel { inset-inline: 8px; width: auto; inset-block-end: calc(70px + env(safe-area-inset-bottom)); height: min(70dvh, 560px); }
+}
+.help-link { unicode-bidi: isolate; direction: ltr; font-family: ui-monospace, monospace; font-size: .9em; }
+.help-panel .composer textarea { resize: none; }
+@media (min-width: 861px) { .main { padding-block-end: 84px; } }  /* room so the floating buttons never sit over the last row */
+
+/* ---- add-ons (الإضافات), 2026-11-20 ---- */
+.form-grid .span-all { grid-column: 1 / -1; }
+.addons { display: flex; flex-direction: column; gap: 6px; }
+.addon-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.addon-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px;
+  padding: 3px 6px 3px 12px; background: var(--surface); min-height: 36px; }
+[dir=rtl] .addon-chip { padding: 3px 12px 3px 6px; }
+.addon-chip label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; margin: 0; color: var(--ink); font-size: 14px; }
+.addon-chip.on { border-color: var(--brand); background: var(--brand-soft); }
+.addon-chip input[type=checkbox] { width: 17px; height: 17px; accent-color: var(--brand); margin: 0; }
+.addon-qty { display: inline-flex; align-items: center; gap: 4px; }
+.addon-qty button { min-width: 28px; min-height: 28px; padding: 0; }
+.addon-other input { min-width: 140px; max-width: 200px; }
+.addon-list { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.addon-list .chip { background: var(--brand-soft); color: var(--brand); }
+.linked-sac { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* ---- WhatsApp buttons: reason shown beside a disabled button, link-style button (2026-11-20) ---- */
+.wa-wrap { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wa-why { font-size: 12.5px; color: var(--bad); }
+a.btn.wa-btn { display: inline-flex; align-items: center; gap: 6px; background: #1faa53; border-color: #1a9449; color: #fff; text-decoration: none; }
+a.btn.wa-btn:hover { background: #1a9449; }
+.wa-btn.icon { padding-inline: 8px; }
+.wa-country { max-width: 220px; }
+.row-actions { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* ---- plaque designer: tools side by side in rows, line breaks, picture, final preview (2026-11-20) ---- */
+.plaque-tools { margin-bottom: 14px; }
+.tool-rows { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-start; margin-top: 10px; }
+.tool-rows > .field { flex: 1 1 170px; min-width: 150px; margin: 0; }
+.tool-rows > .field.wide { flex: 2 1 280px; }
+.tool-rows > .field.full { flex: 1 1 100%; }
+.tool-rows input[type=file] { max-width: 100%; font-size: 13px; }
+.multiline { display: flex; flex-direction: column; gap: 4px; }
+.multiline textarea { min-height: 42px; resize: vertical; line-height: 1.5; }
+.multiline button { align-self: flex-start; }
+.image-tool { margin-top: 12px; }
+.image-tool .icon-picks button img { height: 70px; }
+.final-preview { display: block; width: 100%; max-height: 75vh; object-fit: contain; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+@media (max-width: 640px) { .tool-rows > .field { flex: 1 1 140px; min-width: 130px; } .tool-rows > .field.wide { flex-basis: 100%; } }
+
+/* ---- interface zoom (2026-11-20) ---- */
+.app-top { display: flex; justify-content: flex-end; margin: -6px 0 8px; }
+.zoom-ctl { display: inline-flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px 5px; box-shadow: var(--shadow); }
+.zoom-ctl button, .zoom-ctl select { min-height: 30px; border-radius: 999px; }
+.zoom-ctl button { min-width: 32px; padding: 0 9px; font-weight: 700; }
+.zoom-ctl select { width: auto; padding: 0 8px; font-variant-numeric: tabular-nums; }
+.zoom-ctl.compact { background: transparent; border-color: rgba(255,255,255,.25); box-shadow: none; gap: 2px; }
+.mobile-bar .zoom-ctl.compact select { background: transparent; color: #fff; border-color: rgba(255,255,255,.3); min-height: 30px; }
+.mobile-bar .zoom-ctl.compact select option { color: #111; }
+.mobile-bar .zoom-ctl.compact button { min-width: 30px; padding: 0 6px; }
+@media (max-width: 860px) { .app-top { display: none; } }
+@media (max-width: 380px) { .mobile-bar .zoom-ctl.compact button:last-child { display: none; } }

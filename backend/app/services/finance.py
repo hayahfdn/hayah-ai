@@ -82,8 +82,12 @@ def create_sacrifice(db: Session, data: dict, *, actor: User | None, is_sample: 
         raise HTTPException(409, f"Sacrifice number {data['sacrifice_no']} already exists")
     _check_contractor(db, data.get("contractor_id"))
     hints = data.pop("_phone_hints", None)
+    fallback = data.pop("_phone_fallback_country", None)
+    if data.get("extras") is not None:
+        from app.services.addons import normalize
+        data["extras"] = normalize(data["extras"])
     s = Sacrifice(**data, is_sample=is_sample)
-    phones.apply(s, hints=hints)
+    phones.apply(s, hints=hints, fallback_country=fallback)
     try:
         with db.begin_nested():
             db.add(s)
@@ -106,6 +110,9 @@ def update_sacrifice(db: Session, s: Sacrifice, changes: dict, *, actor: User | 
         raise HTTPException(422, f"These fields cannot be changed here: {', '.join(sorted(bad))}")
     if "contractor_id" in changes:
         _check_contractor(db, changes["contractor_id"])
+    if changes.get("extras") is not None:
+        from app.services.addons import normalize
+        changes = {**changes, "extras": normalize(changes["extras"])}
     before = snapshot(s)
     for k, v in changes.items():
         setattr(s, k, v)
@@ -127,7 +134,7 @@ def list_sacrifices(db: Session, *, month: str | None = None, contractor_id: int
         q = q.where(Sacrifice.order_date >= a, Sacrifice.order_date < b)
     if contractor_id:
         q = q.where(Sacrifice.contractor_id == contractor_id)
-    return list(db.scalars(q.order_by(Sacrifice.sacrifice_no)))
+    return list(db.scalars(q.order_by(Sacrifice.order_date.desc().nulls_last(), Sacrifice.sacrifice_no.desc())))
 
 
 # ---------------- transactions ----------------
@@ -216,7 +223,8 @@ def _live_projects():
 
 
 def contractor_ledger(db: Session, c: Contractor) -> dict:
-    wells = list(db.scalars(_live_projects().where(Project.contractor_id == c.id).order_by(Project.well_id)))
+    wells = list(db.scalars(_live_projects().where(Project.contractor_id == c.id)
+                            .order_by(Project.order_date.desc().nulls_last(), Project.well_id.desc())))
     sac = list_sacrifices(db, contractor_id=c.id)
     payments = list_transactions(db, contractor_id=c.id, kind=TxKind.contractor_payment.value)
     extras = [t for t in list_transactions(db, contractor_id=c.id, kind=TxKind.operating_expense.value)

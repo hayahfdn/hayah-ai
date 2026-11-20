@@ -90,20 +90,40 @@ def _result(status: str, raw: str | None, e164: str | None = None, region: str |
             "whatsapp_ok": status == "valid"}
 
 
-def normalize(raw: str | None, country: str | None = None, hints: list[str | None] | None = None) -> dict:
-    """Returns {status, original, e164, country, note, whatsapp_ok}. Never raises."""
+def normalize(raw: str | None, country: str | None = None, hints: list[str | None] | None = None,
+              fallback_country: str | None = None) -> dict:
+    """Returns {status, original, e164, country, note, whatsapp_ok}. Never raises.
+    country: chosen by staff for this number. hints: the same number written internationally elsewhere
+    on the order. fallback_country: the customer's own country on the order (Shopify billing address),
+    used only for a local number when nothing better is known (never the country of the well)."""
     if not raw or not raw.strip():
         return _result("empty", raw)
     s = _clean(raw)
     if len(re.sub(r"\D", "", s)) < 6:
         return _result("invalid", raw, note="Too few digits")
     region = country_code(country)
-    if not s.startswith("+") and not region:
-        region = _region_from_hints(s, hints or [])
+    if not s.startswith("+"):
+        if region:
+            r = _parse(s, region, raw)
+            if r["status"] == "valid" or s.startswith("0"):
+                return r
+        # Written with the country code but without "+" or "00" (e.g. 447911123456, 962791234567):
+        # a full international number on its own, so it is read as one (that is also the wa.me format).
+        if not s.startswith("0") and len(s) >= 10:
+            r = _parse("+" + s, None, raw)
+            if r["status"] == "valid":
+                return {**r, "note": "Country code read from the number"}
+        if region:
+            return _parse(s, region, raw)
+        region = _region_from_hints(s, hints or []) or country_code(fallback_country)
         if not region:
             return _result("needs_country", raw, note="Local number: choose the customer's country")
+    return _parse(s, None if s.startswith("+") else region, raw)
+
+
+def _parse(s: str, region: str | None, raw: str) -> dict:
     try:
-        num = phonenumbers.parse(s, None if s.startswith("+") else region)
+        num = phonenumbers.parse(s, region)
     except NumberParseException as e:
         return _result("invalid", raw, note=str(e))
     if not phonenumbers.is_valid_number(num):
@@ -134,11 +154,11 @@ def _region_from_hints(local: str, hints: list[str | None]) -> str | None:
     return None
 
 
-def apply(obj, *, hints: list[str | None] | None = None) -> None:
+def apply(obj, *, hints: list[str | None] | None = None, fallback_country: str | None = None) -> None:
     """Fill customer_phone_e164 / _country / _status on a Project or Sacrifice from its
     customer_phone (kept unchanged) and the staff-chosen customer_phone_country."""
     obj.customer_phone_country = country_code(obj.customer_phone_country)
-    r = normalize(obj.customer_phone, obj.customer_phone_country, hints)
+    r = normalize(obj.customer_phone, obj.customer_phone_country, hints, fallback_country)
     obj.customer_phone_status = r["status"]
     obj.customer_phone_e164 = r["e164"]
     if r["country"]:

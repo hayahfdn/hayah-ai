@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -38,6 +39,24 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
+    return user
+
+
+ZOOM_LEVELS = (80, 90, 100, 110, 125, 150)
+
+
+class PreferencesIn(BaseModel):
+    ui_zoom: int | None = None
+
+
+@router.patch("/me/preferences", response_model=UserOut)
+def set_preferences(body: PreferencesIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Each person's own interface zoom (80, 90, 100, 110, 125 or 150 %). Stored on the user so it follows them."""
+    if body.ui_zoom is not None and body.ui_zoom not in ZOOM_LEVELS:
+        raise HTTPException(422, "Zoom must be one of " + ", ".join(map(str, ZOOM_LEVELS)))
+    user.ui_zoom = None if body.ui_zoom in (None, 100) else body.ui_zoom
+    db.commit()
+    db.refresh(user)
     return user
 
 

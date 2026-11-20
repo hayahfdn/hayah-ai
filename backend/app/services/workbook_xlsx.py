@@ -30,8 +30,8 @@ WELL_HEADERS = {
     "مصدر الشزا،": "sales_source", "متابع": "follow_up", "تاريخ المتابعة": "follow_up", "notes": "notes", "": "notes2",
 }
 SAC_HEADERS = {
-    "الرقم": "sacrifice_no", "تاريخ الطلب": "order_date", "اسم الأضحية": "donor_name", "تاريخ الاستلام": "received_date",
-    "تاريخ التسليم": "delivery_date", "المقاول": "contractor", "نوع الأضحية": "animal_type", "نوع": "animal_type",
+    "الرقم": "sacrifice_no", "تاريخ الطلب": "order_date", "اسم الأضحية": "donor_name", "اسم الذبيحة": "donor_name", "تاريخ الاستلام": "received_date",
+    "تاريخ التسليم": "delivery_date", "المقاول": "contractor", "نوع الأضحية": "animal_type", "نوع الذبيحة": "animal_type", "نوع": "animal_type",
     "التكلفة": "cost", "التكلفة (Out)": "cost", "سعر البيع": "sale_price", "سعر البيع (In)": "sale_price",
     "طريقة الدفع": "payment_method", "الإضافات": "extras", "مصدر الشراء": "sales_source", "ملاحظات": "intention",
 }

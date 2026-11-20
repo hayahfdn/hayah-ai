@@ -74,9 +74,18 @@ def compute_missing(db: Session, plaque: Plaque, rec, name: str | None = None) -
         out.append("well_type")
     if isinstance(rec, Sacrifice) and not rec.animal_type:
         out.append("animal")
-    if not _country(db, rec):
+    if not _country(db, rec) and not design_flag(db, plaque):
         out.append("country")
     return out
+
+
+def design_flag(db: Session, plaque: Plaque) -> str | None:
+    """The flag chosen on the plaque in the designer. The flag is the country on the plaque, so a
+    plaque with a flag is not missing its country, even before a contractor is chosen (the country
+    only follows the contractor, and the contractor is chosen after the customer approves)."""
+    v = db.get(PlaqueVersion, plaque.current_version_id) if plaque.current_version_id else None
+    flag = ((v.design or {}).get("flag") if v else None) or None
+    return flag if isinstance(flag, str) and flag.strip() else None
 
 
 # ---------------------------------------------------------------- creating
@@ -159,6 +168,7 @@ def _has_file(db: Session, pl: Plaque) -> bool:
 
 def set_status(db: Session, pl: Plaque, to: S, actor: User, note: str | None = None) -> Plaque:
     rec = record_of(db, pl)
+    refresh_missing(db, pl, rec, promote=False)
     if to not in MOVES.get(pl.status, set()):
         raise HTTPException(409, f"A plaque that is '{LABELS_AR[pl.status]}' cannot move to '{LABELS_AR[to]}'")
     if to in (S.ready_for_review, S.awaiting_customer, S.customer_approved) and pl.missing:
@@ -256,8 +266,21 @@ def number(rec) -> int:
     return rec.well_id if isinstance(rec, Project) else rec.sacrifice_no
 
 
+def refresh_missing(db: Session, pl: Plaque, rec, promote: bool = True) -> None:
+    """The order may have changed since the plaque was saved (contractor chosen, well type or name
+    filled in): read what is missing again, so the plaque never stays blocked by old information."""
+    cur = db.get(PlaqueVersion, pl.current_version_id) if pl.current_version_id else None
+    name = (cur.design or {}).get("name") if cur else None
+    now = compute_missing(db, pl, rec, name if isinstance(name, str) else None)
+    if now != (pl.missing or []):
+        pl.missing = now
+        if promote and pl.status == S.draft and not now:
+            pl.status = S.ready_for_review
+
+
 def row(db: Session, pl: Plaque, rec=None, versions: bool = False) -> dict:
     rec = rec or record_of(db, pl)
+    refresh_missing(db, pl, rec)
     cur = db.get(PlaqueVersion, pl.current_version_id) if pl.current_version_id else None
     appr = db.get(PlaqueVersion, pl.approved_version_id) if pl.approved_version_id else None
     con = db.get(Contractor, pl.contractor_id) if pl.contractor_id else None
@@ -305,12 +328,13 @@ def list_plaques(db: Session, statuses: list[S], kind: str | None = None, q: str
     return out
 
 
-def counts(db: Session) -> dict:
+def counts(db: Session, for_manager: bool = True) -> dict:
     by = dict(db.execute(select(Plaque.status, func.count()).group_by(Plaque.status)).all())
     g = lambda *ss: sum(by.get(s, 0) for s in ss)  # noqa: E731
     return {"needs_confirmation": g(*OPEN), "draft": g(S.draft), "ready_for_review": g(S.ready_for_review),
             "awaiting_customer": g(S.awaiting_customer), "needs_changes": g(S.needs_changes),
-            "ready_for_contractor": g(S.approved_for_contractor), "sent_to_contractor": g(S.sent_to_contractor)}
+            "ready_for_contractor": g(S.approved_for_contractor) if for_manager else 0,
+            "sent_to_contractor": g(S.sent_to_contractor)}
 
 
 def version_file(db: Session, v: PlaqueVersion) -> tuple[bytes, str, str]:

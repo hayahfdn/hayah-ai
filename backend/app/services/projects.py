@@ -12,7 +12,7 @@ from app.models import (
     ConstructionStatus, Contractor, DeliveryStatus, Project, ProjectEvent, ReviewCase, ReviewKind,
     Role, User, utcnow,
 )
-from app.services import phones
+from app.services import addons, phones
 from app.services.audit import audit, jsonable, snapshot
 from app.services.jobs import enqueue
 
@@ -103,8 +103,11 @@ def create_project(db: Session, data: dict, *, actor: User | None, source: str =
         raise HTTPException(403, "Only managers can set the well cost")
     _check_contractor(db, data.get("contractor_id"))
     hints = data.pop("_phone_hints", None)
+    fallback = data.pop("_phone_fallback_country", None)
+    if data.get("extras") is not None:
+        data["extras"] = addons.normalize(data["extras"])
     p = Project(**data, is_sample=is_sample)
-    phones.apply(p, hints=hints)
+    phones.apply(p, hints=hints, fallback_country=fallback)
     _country_from_contractor(db, p)
     _enforce_dates(p)
     try:
@@ -118,6 +121,7 @@ def create_project(db: Session, data: dict, *, actor: User | None, source: str =
     audit(db, "project.create", "project", p.well_id, actor=actor, after=snapshot(p), ip=ip)
     from app.services.plaque_flow import maybe_create_for_new_order
     maybe_create_for_new_order(db, p, source=source, is_sample=is_sample, actor=actor)
+    addons.sync_sheep(db, p, actor=actor, source=source)
     queue_sheet_sync(db)
     return p
 
@@ -143,6 +147,8 @@ def update_project(db: Session, project: Project, changes: dict, *, actor: User 
         raise HTTPException(403, "Only managers can change the well cost")
     if "contractor_id" in changes:
         _check_contractor(db, changes["contractor_id"])
+    if changes.get("extras") is not None:
+        changes = {**changes, "extras": addons.normalize(changes["extras"])}
     before = snapshot(project)
     for k, v in changes.items():
         setattr(project, k, v)
@@ -161,6 +167,8 @@ def update_project(db: Session, project: Project, changes: dict, *, actor: User 
     add_event(db, project, etype, source=source, actor=actor, payload={"changes": diff},
               summary=", ".join(f"{k}: {v['from']} → {v['to']}" for k, v in diff.items())[:500])
     audit(db, "project.update", "project", project.well_id, actor=actor, before=before, after=snapshot(project), ip=ip)
+    if "extras" in diff:
+        addons.sync_sheep(db, project, actor=actor, source=source)
     queue_sheet_sync(db)
     return project
 
@@ -168,8 +176,17 @@ def update_project(db: Session, project: Project, changes: dict, *, actor: User 
 def list_projects(db: Session, *, q: str | None = None, country: str | None = None,
                   construction_status: str | None = None, delivery_status: str | None = None,
                   contractor_id: int | None = None, page: int = 1, page_size: int = 50,
-                  sort: str = "-well_id", contractor_scope: int | None = None, month: str | None = None):
+                  sort: str = "-listed_at", contractor_scope: int | None = None, month: str | None = None,
+                  hide_waiting_contractor: bool = False):
     stmt = select(Project).where(Project.merged_into_id.is_(None))
+    if hide_waiting_contractor:
+        # Employees: a well whose plaque is approved and waiting for the contractor is the manager's next step,
+        # so it is left out of their lists and search (still open by number, and on the contractor's page once
+        # a contractor is set). Nothing is hidden from managers and nothing is changed (Hayah, 2026-11-19).
+        from app.models import Plaque, PlaqueStatus
+        waiting = select(Plaque.project_id).where(Plaque.project_id.is_not(None),
+                                                  Plaque.status == PlaqueStatus.approved_for_contractor)
+        stmt = stmt.where(Project.id.not_in(waiting))
     if month:
         from app.services.finance import month_bounds
         a, b = month_bounds(month)
@@ -194,7 +211,10 @@ def list_projects(db: Session, *, q: str | None = None, country: str | None = No
         stmt = stmt.where(Project.contractor_id == contractor_scope)
     total = db.scalar(select(func.count()).select_from(stmt.subquery()))
     col = getattr(Project, sort.lstrip("-"), Project.well_id)
-    stmt = stmt.order_by(col.desc() if sort.startswith("-") else col.asc())
+    # newest first by default: the place each project got when it was added (projects.listed_at), then the
+    # higher Well ID; editing a project never moves it (services/project_order.py)
+    stmt = stmt.order_by((col.desc() if sort.startswith("-") else col.asc()).nulls_last(),
+                         Project.well_id.desc() if sort.startswith("-") else Project.well_id.asc())
     items = list(db.scalars(stmt.offset((page - 1) * page_size).limit(page_size)).unique())
     return items, total
 

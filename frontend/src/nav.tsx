@@ -126,7 +126,7 @@ export function SideNav({ counts }: { counts: Record<string, number> }) {
         <div className="nav-sec">{t("nav_sec_flow")}</div>
         {link("/inbox", "nav_inbox", counts.wa_unread, true)}
         {link("/plaques/confirm", "nav_pl_confirm", counts.pl_confirm, true)}
-        {link("/plaques/approved", "nav_pl_approved", counts.pl_ready, true)}
+        {manager && link("/plaques/approved", "nav_pl_approved", counts.pl_ready, true)}
         {link("/videos", "nav_videos", counts.vid_ready, true)}
       </>}
       <div className="nav-sec">{t("nav_sec_work")}</div>

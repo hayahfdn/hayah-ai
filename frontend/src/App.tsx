@@ -9,6 +9,7 @@ import Projects from "./pages/Projects";
 const Sheet = lazy(() => import("./pages/Sheet"));
 const Workbook = lazy(() => import("./book/Workbook"));
 const PromptBar = lazy(() => import("./book/PromptBar"));
+const HelpChat = lazy(() => import("./HelpChat"));
 const PlaqueDesigner = lazy(() => import("./plaque/PlaqueDesigner"));
 const PlaqueLists = lazy(() => import("./pages/PlaqueLists"));
 const Inbox = lazy(() => import("./pages/Inbox"));
@@ -25,6 +26,7 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import { MonthWells, ContractorWells } from "./pages/WellPages";
 import { BottomBar, NavProvider, SideNav } from "./nav";
+import { useZoom, ZoomControl } from "./Zoom";
 
 type AuthCtx = { user: User; can: (...roles: string[]) => boolean; logout: () => void; counts: Record<string, number>; refreshCounts: () => void; ops: Ops };
 /** Live operations counts (no money): plaques, final videos, new orders. Empty for roles that do not use them. */
@@ -76,10 +78,12 @@ function Shell({ children }: { children: React.ReactNode }) {
   const loc = useLocation();
   useEffect(() => { setOpen(false); window.scrollTo(0, 0); }, [loc.pathname]);
   useStackedTables();
+  const zoom = useZoom(user);
   return (
     <NavProvider>
       <div className="mobile-bar">
         <span className="brand-mini"><img src="/hayah-logo.png" alt="" /><b>{t("app_name")}</b></span>
+        <ZoomControl zoom={zoom} compact />
         <button className="sm" onClick={() => setOpen(!open)} aria-label={t("nav_menu")} aria-expanded={open}>☰</button>
       </div>
       <div className="shell">
@@ -98,8 +102,9 @@ function Shell({ children }: { children: React.ReactNode }) {
             {pw && <ChangePassword onClose={() => setPw(false)} />}
           </div>
         </aside>
-        <main className="main">{children}</main>
+        <main className="main"><div className="app-top"><ZoomControl zoom={zoom} /></div>{children}</main>
         {can(...MANAGERS) && <Suspense fallback={null}><PromptBar /></Suspense>}
+        <Suspense fallback={null}><HelpChat /></Suspense>
       </div>
       <BottomBar onMenu={() => setOpen(true)} />
     </NavProvider>

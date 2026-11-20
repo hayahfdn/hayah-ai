@@ -15,7 +15,7 @@ from app.models import (
     MaintenanceRecord, MaintenanceStatus, Project, ReviewCase, ReviewStatus, SyncConflict, User, VideoStatus,
 )
 from app.schemas import AISettingsIn, ConflictResolve, SyncConflictOut
-from app.services import sheets_sync, usage, well_types
+from app.services import sales_sources, sheets_sync, usage, well_types
 from app.services.audit import audit
 from app.services.jobs import enqueue, retry_job, run_due_jobs
 from app.services.secrets_store import anthropic_key_hint, set_anthropic_key
@@ -57,7 +57,7 @@ def ops_counts(db: Session = Depends(get_db), user: User = Depends(get_current_u
     new_orders = db.scalar(select(func.count()).select_from(Project).where(
         Project.merged_into_id.is_(None), Project.is_sample.is_(False), Project.construction_status == ConstructionStatus.new_order))
     from app.services import wa_inbox
-    return {"plaques": plaque_flow.counts(db), "videos": final_video.counts(db), "orders": {"new": new_orders or 0},
+    return {"plaques": plaque_flow.counts(db, for_manager=user.role in MANAGERS), "videos": final_video.counts(db), "orders": {"new": new_orders or 0},
             "whatsapp": {**wa_inbox.counts(db), "enabled": wa_inbox.enabled(db)}}
 
 
@@ -108,12 +108,16 @@ def report(start: date | None = None, end: date | None = None, db: Session = Dep
     by_type = db.execute(select(Project.well_type, func.count()).where(live).group_by(Project.well_type)).all()
     by_payment = db.execute(select(Project.payment_status, func.count(), func.coalesce(func.sum(Project.sale_amount), 0))
                             .where(live).group_by(Project.payment_status)).all()
+    grp = func.coalesce(Project.source_group, "Unknown")
+    by_source = db.execute(select(grp, func.count(), func.coalesce(func.sum(Project.sale_amount), 0))
+                           .where(live, Project.order_date.between(start, end)).group_by(grp).order_by(func.count().desc())).all()
     maint = db.execute(select(MaintenanceRecord.problem_type, func.count(), func.coalesce(func.sum(MaintenanceRecord.repair_cost), 0))
                        .group_by(MaintenanceRecord.problem_type)).all()
     return {"start": start, "end": end,
             "orders_by_month": [{"month": m, "orders": n, "amount": float(a)} for m, n, a in monthly],
             "deliveries_by_month": [{"month": m, "delivered": n} for m, n in delivered],
             "by_well_type": [{"well_type": t or "—", "count": n} for t, n in by_type],
+            "by_sales_source": [{"source": g, "count": n, "amount": float(a)} for g, n, a in by_source],
             "by_payment_status": [{"status": s.value, "count": n, "amount": float(a)} for s, n, a in by_payment],
             "maintenance_by_problem": [{"problem_type": p, "count": n, "cost": float(c) if user.role in MANAGERS else None}
                                        for p, n, c in maint]}
@@ -226,15 +230,37 @@ def put_ai_key(body: APIKeyIn, db: Session = Depends(get_db), user: User = Depen
 @router.get("/settings/lists")
 def get_lists(db: Session = Depends(get_db), _: User = Depends(require_roles(ALL_ROLES))):
     """Dropdown values used by the sheets. Well types are always the four HAYAH types."""
+    from app.services import addons
     out = {k: get_setting(db, k).get("values", []) for k in ("countries", "animal_types")}
-    return {"well_types": list(well_types.TYPES), **out}
+    return {"well_types": list(well_types.TYPES), "sales_sources": sales_sources.group_names(db), **out,
+            **addons.options(db)}
+
+
+# ---------------- unified sales sources (managed here, no code change needed) ----------------
+class SourceGroupIn(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    values: list[str] = []
+
+
+@router.get("/admin/sales-sources")
+def get_sources(db: Session = Depends(get_db), _: User = Depends(require_roles(MANAGERS))):
+    return sales_sources.overview(db)
+
+
+@router.put("/admin/sales-sources")
+def put_sources(body: list[SourceGroupIn], db: Session = Depends(get_db), user: User = Depends(require_roles(MANAGERS))):
+    r = sales_sources.save_groups(db, [g.model_dump() for g in body], user)
+    db.commit()
+    return {**sales_sources.overview(db), "records_changed": r["records_changed"]}
 
 
 @router.put("/settings/lists/{key}")
 def put_list(key: str, values: list[str], db: Session = Depends(get_db), user: User = Depends(require_roles(ADMINS))):
-    if key not in ("well_types", "countries", "animal_types"):
+    if key not in ("well_types", "countries", "animal_types", "well_addons", "sacrifice_addons"):
         raise HTTPException(404, "Unknown list")
     clean = sorted({v.strip()[:80] for v in values if v.strip()})
+    if key in ("well_addons", "sacrifice_addons"):  # keep the order typed (the form shows them in this order)
+        clean = list(dict.fromkeys(v.strip()[:80].replace(",", " ").replace("،", " ") for v in values if v.strip()))
     if key == "well_types":  # one name per type: long names fold into the four types
         clean = [t for t in well_types.TYPES if t in {well_types.normalize(v) for v in clean}] or list(well_types.TYPES)
     set_setting(db, key, {"values": clean}, user.id)

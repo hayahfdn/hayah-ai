@@ -22,7 +22,7 @@ export const uiEn: Record<string, string> = {
 };
 
 export const uiAr: Record<string, string> = {
-  nav_wells: "الآبار", nav_sacrifices: "الأضاحي", nav_people: "المسؤولون", nav_sec_book: "دفتر الحسابات", nav_sec_contractors: "المقاولون",
+  nav_wells: "الآبار", nav_sacrifices: "الذبائح", nav_people: "المسؤولون", nav_sec_book: "دفتر الحسابات", nav_sec_contractors: "المقاولون",
   nav_sec_work: "العمل اليومي", nav_sec_admin: "الإدارة", nav_menu: "القائمة", nav_home: "الرئيسية", nav_pick: "اختر…",
   nav_this_month: "الشهر الحالي", nav_prev_month: "الشهر السابق", nav_next_month: "الشهر التالي", nav_month: "الشهر",
   nav_contractors_list: "قائمة المقاولين", contractor_page: "المقاول", contractor_wells_help: "كل آبار هذا المقاول في جميع الأشهر.",

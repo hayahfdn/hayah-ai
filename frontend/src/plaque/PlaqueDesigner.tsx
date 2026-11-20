@@ -10,7 +10,7 @@ import {
   ANIMALS, applyOccasion, ARAB_FLAG_END, defaultDesign, defaultSacrificeDesign, Design, drawPlaque, DuaKind, duaText,
   exportPdf, exportPng, fileToSmallDataUrl, flagArabic, FLAGS, GRIDS, IconKey, loadAssets, MAIN_FLAG_COUNT, Occasion,
   OCCASIONS, SACRIFICE_DUA_KINDS, SacrificeDesign, sizeLabel, SIZES, SizeKey, WELL_DUA_KINDS, WELL_ICONS, WELL_TYPES, WellDesign,
-  DUAS, Align, textStyle,
+  DUAS, Align, textStyle, Assets, imageBox, imageLibrary, LibraryImage,
 } from "./render";
 import { FONTS } from "./fonts";
 import { MissingList, PlaqueActions, PlaqueRow, PlaqueStatusBadge, PlaqueWhatsApp } from "./flow";
@@ -73,19 +73,54 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, kind]);
 
-  // Live preview: the same drawing that gets exported, at screen size.
+  // Live preview: the same drawing that gets exported, at screen size. A dashed frame shows the picture
+  // that can be dragged (only on screen; it is never part of the PNG, PDF or saved image).
+  const assets = useRef<Assets | null>(null);
   useEffect(() => {
     let live = true;
     loadAssets(d).then((a) => {
       const c = canvas.current;
       if (!live || !c) return;
+      assets.current = a;
       const [gw, gh] = GRIDS[d.template];
       const px = Math.round(c.clientWidth * (window.devicePixelRatio || 1)) || gw;
       c.width = px; c.height = Math.round((px * gh) / gw);
-      drawPlaque(c.getContext("2d")!, d, a, px / gw);
+      const ctx = c.getContext("2d")!;
+      drawPlaque(ctx, d, a, px / gw);
+      const box = imageBox(d, a.image);
+      if (box) {
+        const k = px / gw;
+        ctx.save(); ctx.setLineDash([8, 6]); ctx.strokeStyle = "#0e7c86"; ctx.lineWidth = 2;
+        ctx.strokeRect(box.x * k, box.y * k, box.w * k, box.h * k); ctx.restore();
+      }
     });
     return () => { live = false; };
   }, [d]);
+
+  // Drag the picture on the plaque (mouse, pen or finger). Positions are kept in plaque units.
+  const drag = useRef<{ dx: number; dy: number; id: number } | null>(null);
+  const toGrid = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const [gw, gh] = GRIDS[d.template];
+    return { x: ((e.clientX - r.left) / r.width) * gw, y: ((e.clientY - r.top) / r.height) * gh };
+  };
+  const dragStart = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const box = imageBox(d, assets.current?.image);
+    if (!box || !d.image) return;
+    const g = toGrid(e);
+    if (g.x < box.x || g.x > box.x + box.w || g.y < box.y || g.y > box.y + box.h) return;
+    drag.current = { dx: g.x - d.image.x, dy: g.y - d.image.y, id: e.pointerId };
+    e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault();
+  };
+  const dragMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drag.current || drag.current.id !== e.pointerId) return;
+    const g = toGrid(e); const [gw, gh] = GRIDS[d.template];
+    const x = Math.max(0, Math.min(gw, g.x - drag.current.dx)), y = Math.max(0, Math.min(gh, g.y - drag.current.dy));
+    setD((v) => (v.image ? { ...v, image: { ...v.image, x: Math.round(x), y: Math.round(y) } } : v) as Design);
+  };
+  const dragEnd = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (drag.current?.id === e.pointerId) { drag.current = null; try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* already released */ } }
+  };
 
   const set = (k: string, v: any) => setD((x) => ({ ...x, [k]: v }) as Design);
   const setDua = (k: DuaKind) => setD((x) => {
@@ -110,6 +145,27 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
   };
   const downloadPng = () => run("png", async () => saveBlob(await exportPng(d), `${fileBase}.png`));
   const downloadPdf = () => run("pdf", async () => saveBlob(await exportPdf(d), `${fileBase}.pdf`));
+  // «حفظ في معرض الصور»: the finished plaque image only (no designer controls), at its full size.
+  // Phones get the share sheet ("Save Image" puts it in Photos); where sharing files is not possible
+  // the same PNG is downloaded. It is prepared in advance so the share happens straight from the tap.
+  const [photo, setPhoto] = useState<File | null>(null);
+  useEffect(() => {
+    setPhoto(null);
+    const h = window.setTimeout(() => { exportPng(d).then((b) => setPhoto(new File([b], `${fileBase}.png`, { type: "image/png" }))).catch(() => {}); }, 700);
+    return () => window.clearTimeout(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d]);
+  const saveToPhotos = () => run("photos", async () => {
+    const file = photo || new File([await exportPng(d)], `${fileBase}.png`, { type: "image/png" });
+    const nav: any = navigator;
+    if (nav.canShare && nav.canShare({ files: [file] })) {
+      try { await nav.share({ files: [file], title: file.name }); toast(t("pl_photos_shared")); return; }
+      catch (e: any) { if (e?.name === "AbortError") return; }
+    }
+    saveBlob(file, file.name); toast(t("pl_photos_downloaded"));
+  });
+  const [finalUrl, setFinalUrl] = useState<string | null>(null);
+  const showFinal = () => run("final", async () => setFinalUrl(URL.createObjectURL(await exportPng(d))));
   // Every save is a new version of this order's plaque; nothing is overwritten.
   const send = async (approve: boolean, replace = false) => {
     const png = await exportPng(d);
@@ -188,15 +244,31 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
       {!id && <p className="muted">{kind === "well" ? t("pl_no_well") : t("pl_no_sac")}</p>}
       {id && kind === "well" && record && <OrderBox p={record} />}
       {id && record && flow !== undefined && can(...EDITORS) && <FlowPanel flow={flow} kind={kind} id={id} onChange={(f) => { setFlow(f); load(); }} />}
+      <div className="card plaque-tools">
+        <h2 style={{ marginBottom: 8 }}>{t("pl_tools")}</h2>
+        {d.template === "hayah_square" ? <WellFields d={d} set={set} input={input} flagSelect={flagSelect} duaSelect={duaSelect(WELL_DUA_KINDS)} upload={upload} L={L} />
+          : <SacrificeFields d={d} setD={setD} set={set} input={input} flagSelect={flagSelect} duaSelect={duaSelect(SACRIFICE_DUA_KINDS)} upload={upload} L={L} />}
+        {d.dua_sure === false && <div className="error" role="alert" style={{ marginTop: 12 }}>{t("pl_dua_unsure")}</div>}
+        <div className="tool-rows">
+          <div className="field full"><label>{t("pl_dua")}</label>
+            <textarea dir="rtl" rows={4} value={d.dua} onChange={(e) => set("dua", e.target.value)} aria-describedby="pl-nl-hint" />
+            <span className="hint muted">{t("pl_dua_hint")}</span></div>
+        </div>
+        <p id="pl-nl-hint" className="muted" style={{ fontSize: 12.5, margin: "6px 0 0" }}>↵ {t("pl_newline_hint")}</p>
+      </div>
       <div className="plaque-layout">
         <div className="card plaque-preview">
-          <canvas ref={canvas} aria-label={t("pl_preview")} style={{ aspectRatio: `${GRIDS[d.template][0]} / ${GRIDS[d.template][1]}` }} />
+          <canvas ref={canvas} aria-label={t("pl_preview")} style={{ aspectRatio: `${GRIDS[d.template][0]} / ${GRIDS[d.template][1]}`, touchAction: d.image ? "none" : undefined, cursor: d.image ? "move" : undefined }}
+            onPointerDown={dragStart} onPointerMove={dragMove} onPointerUp={dragEnd} onPointerCancel={dragEnd} />
+          {d.image && <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>✥ {t("pl_solar_drag")}</p>}
           <div className="actions" style={{ flexWrap: "wrap" }}>
             <select value={d.size} onChange={(e) => set("size", e.target.value as SizeKey)} aria-label={t("pl_size")}>
               {(Object.keys(SIZES) as SizeKey[]).map((k) => <option key={k} value={k}>{sizeLabel(k, d.template, lang)}</option>)}
             </select>
             <button onClick={downloadPng} disabled={!!busy}>{busy === "png" ? "…" : t("pl_download_png")}</button>
+            <button onClick={saveToPhotos} disabled={!!busy}>{busy === "photos" ? t("pl_saving_photos") : `📷 ${t("pl_save_photos")}`}</button>
             <button onClick={downloadPdf} disabled={!!busy}>{busy === "pdf" ? "…" : t("pl_download_pdf")}</button>
+            <button onClick={showFinal} disabled={!!busy}>{busy === "final" ? "…" : `👁 ${t("pl_preview_final")}`}</button>
             {id && record && can(...EDITORS) && kind === "well" && <>
               <button onClick={saveTo} disabled={!!busy}>{busy === "save" ? "…" : t("plaque_save_draft")}</button>
               <button className="primary" onClick={() => approve()} disabled={!!busy}>{busy === "approve" ? "…" : `✓ ${t("plaque_approve")}`}</button>
@@ -208,13 +280,9 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
           </div>
         </div>
         <div className="card">
-          {d.template === "hayah_square" ? <WellFields d={d} set={set} input={input} flagSelect={flagSelect} duaSelect={duaSelect(WELL_DUA_KINDS)} upload={upload} L={L} />
-            : <SacrificeFields d={d} setD={setD} set={set} input={input} flagSelect={flagSelect} duaSelect={duaSelect(SACRIFICE_DUA_KINDS)} upload={upload} L={L} />}
-          {d.dua_sure === false && <div className="error" role="alert" style={{ marginTop: 12 }}>{t("pl_dua_unsure")}</div>}
+          {d.template === "hayah_square" && <WellIcons d={d} set={set} upload={upload} L={L} />}
+          <ImageTool d={d} setD={setD} />
           <TextControls d={d} set={set} />
-          <div style={{ marginTop: 12 }}>
-            <Field label={t("pl_dua")} hint={t("pl_dua_hint")}><textarea dir="rtl" rows={5} value={d.dua} onChange={(e) => set("dua", e.target.value)} /></Field>
-          </div>
           <details style={{ marginTop: 12 }}>
             <summary>{t("pl_more")}</summary>
             <div className="form-grid" style={{ marginTop: 10 }}>
@@ -251,6 +319,10 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
           </>}
         </div>
       </div>
+      {finalUrl && <Modal title={t("pl_preview_final")} onClose={() => { URL.revokeObjectURL(finalUrl); setFinalUrl(null); }}>
+        <img src={finalUrl} alt={t("pl_preview_final")} className="final-preview" />
+        <div className="actions"><button onClick={() => { URL.revokeObjectURL(finalUrl); setFinalUrl(null); }}>{t("close")}</button></div>
+      </Modal>}
       {confirm && <Modal title={t("plaque_approve")} onClose={() => setConfirm(null)}>
         <p>{t("plaque_replace_q")}</p>
         <div className="actions"><button onClick={() => setConfirm(null)}>{t("cancel")}</button>
@@ -313,24 +385,33 @@ type FieldProps = {
   L: (o: { en: string; ar: string }) => string;
 };
 
-function WellFields({ d, set, input, flagSelect, duaSelect, upload, L }: FieldProps & { d: WellDesign }) {
+function WellFields({ d, set, input, flagSelect, duaSelect, upload }: FieldProps & { d: WellDesign }) {
   const { t } = useI18n();
-  const icon = d.icon === "well" ? "hand_pump" : d.icon;
+  // Hayah's order (20 Nov 2026): flag, project number, well type, date, name, prayer form, prayer text.
   return <>
-    <div className="form-grid">
-      <Field label={t("pl_name")}>{input("name", d.name)}</Field>
+    <div className="tool-rows">
+      {flagSelect}
+      <Field label={t("pl_flag_upload")}><input type="file" accept="image/*" onChange={(e) => upload(e.target.files?.[0], "flag")} /></Field>
       <Field label={t("pl_project_no")}>{input("well_id", d.well_id, "ltr")}</Field>
       <Field label={t("pl_well_type")}>{input("well_type", d.well_type, "rtl", "pl-well-types")}</Field>
       <Field label={t("pl_sadaqa_label")}>{input("sadaqa_label", d.sadaqa_label, "rtl", "pl-sadaqa-labels")}</Field>
       <Field label={t("pl_month")}>{input("month", d.month)}</Field>
-      {flagSelect}
-      <Field label={t("pl_flag_upload")}><input type="file" accept="image/*" onChange={(e) => upload(e.target.files?.[0], "flag")} /></Field>
+    </div>
+    <div className="tool-rows">
+      <div className="field wide"><label>{t("pl_name")}</label><MultiLine value={d.name} onChange={(v) => set("name", v)} /></div>
       {duaSelect}
-      <Field label={t("pl_short_dua")}>{input("short_dua", d.short_dua)}</Field>
+      <div className="field wide"><label>{t("pl_short_dua")}</label><MultiLine value={d.short_dua} onChange={(v) => set("short_dua", v)} /></div>
     </div>
     <datalist id="pl-well-types">{WELL_TYPES.map((w) => <option key={w} value={w} />)}</datalist>
     <datalist id="pl-sadaqa-labels">{["صدقة جارية عن:", "صدقة جارية إهداء إلى:", "صدقة جارية لروح:"].map((w) => <option key={w} value={w} />)}</datalist>
-    <div style={{ marginTop: 12 }}>
+  </>;
+}
+
+function WellIcons({ d, set, upload, L }: { d: WellDesign; set: (k: string, v: any) => void; upload: FieldProps["upload"]; L: FieldProps["L"] }) {
+  const { t } = useI18n();
+  const icon = d.icon === "well" ? "hand_pump" : d.icon;
+  return (
+    <div>
       <label className="muted" style={{ display: "block", marginBottom: 6 }}>{t("pl_icon")}</label>
       <div className="icon-picks">
         {WELL_ICONS.map((w) => (
@@ -340,7 +421,7 @@ function WellFields({ d, set, input, flagSelect, duaSelect, upload, L }: FieldPr
         {d.icon_custom && <button type="button" className={icon === "custom" ? "on" : ""} onClick={() => set("icon", "custom")}><img src={d.icon_custom} alt="" /><span>{t("pl_uploaded")}</span></button>}
         <button type="button" className={icon === "none" ? "on" : ""} onClick={() => set("icon", "none")}><span>{t("pl_none")}</span></button>
       </div>
-      <div className="form-grid" style={{ marginTop: 10 }}>
+      <div className="tool-rows" style={{ marginTop: 10 }}>
         <Field label={t("pl_icon_upload")}><input type="file" accept="image/*" onChange={(e) => upload(e.target.files?.[0], "icon")} /></Field>
         <Field label={t("pl_icon_side")}>
           <select value={d.icon_side || "left"} onChange={(e) => set("icon_side", e.target.value)}>
@@ -349,34 +430,57 @@ function WellFields({ d, set, input, flagSelect, duaSelect, upload, L }: FieldPr
         </Field>
       </div>
     </div>
-  </>;
+  );
 }
 
-function SacrificeFields({ d, setD, input, flagSelect, duaSelect, upload, L }: FieldProps & { d: SacrificeDesign; setD: (fn: (x: Design) => Design) => void }) {
+/** A text box where Enter starts a new line (and a button that does the same, for phones).
+ *  The lines are saved as typed and drawn on the plaque exactly like that. */
+function MultiLine({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { t } = useI18n();
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const rows = Math.min(5, Math.max(1, value.split("\n").length));
+  const newline = () => {
+    const el = ref.current;
+    const a = el ? el.selectionStart : value.length, b = el ? el.selectionEnd : value.length;
+    onChange(value.slice(0, a) + "\n" + value.slice(b));
+    requestAnimationFrame(() => { if (el) { el.focus(); el.selectionStart = el.selectionEnd = a + 1; } });
+  };
+  return <div className="multiline">
+    <textarea ref={ref} dir="rtl" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} aria-describedby="pl-nl-hint" />
+    <button type="button" className="sm" onClick={newline} title={t("pl_newline_hint")} aria-label={t("pl_newline")}>↵ {t("pl_newline")}</button>
+  </div>;
+}
+
+function SacrificeFields({ d, setD, set, input, flagSelect, duaSelect, upload, L }: FieldProps & { d: SacrificeDesign; setD: (fn: (x: Design) => Design) => void }) {
   const { t } = useI18n();
   return <>
-    <div className="form-grid">
+    <div className="tool-rows">
       <Field label={t("pl_occasion")}>
         <select value={d.occasion} onChange={(e) => setD((x) => applyOccasion(x as SacrificeDesign, e.target.value as Occasion))}>
           {(Object.keys(OCCASIONS) as Occasion[]).map((k) => <option key={k} value={k}>{L(OCCASIONS[k])}</option>)}
         </select>
       </Field>
+      {flagSelect}
+      <Field label={t("pl_flag_upload")}><input type="file" accept="image/*" onChange={(e) => upload(e.target.files?.[0], "flag")} /></Field>
+      <Field label={t("pl_country_label")}>{input("country_label", d.country_label)}</Field>
+      <Field label={t("pl_sac_no")}>{input("sacrifice_no", d.sacrifice_no, "ltr")}</Field>
       <Field label={t("pl_animal")}>
         <input dir="rtl" list="pl-animals" value={d.animal} onChange={(e) => {
           const animal = e.target.value;
           setD((x) => { const s = x as SacrificeDesign; return { ...s, animal, title: s.title.replace(s.animal || "\u0000", animal) }; });
         }} />
       </Field>
-      <Field label={t("pl_name")}>{input("name", d.name)}</Field>
-      <Field label={t("pl_sac_no")}>{input("sacrifice_no", d.sacrifice_no, "ltr")}</Field>
+      <Field label={t("pl_month")}>{input("month", d.month)}</Field>
+    </div>
+    <div className="tool-rows">
       <Field label={t("pl_title_line")}>{input("title", d.title)}</Field>
       <Field label={t("pl_subtitle_line")}>{input("subtitle", d.subtitle)}</Field>
-      <Field label={t("pl_month")}>{input("month", d.month)}</Field>
-      {flagSelect}
-      <Field label={t("pl_flag_upload")}><input type="file" accept="image/*" onChange={(e) => upload(e.target.files?.[0], "flag")} /></Field>
-      <Field label={t("pl_country_label")}>{input("country_label", d.country_label)}</Field>
+    </div>
+    <div className="tool-rows">
+      <div className="field wide"><label>{t("pl_name")}</label><MultiLine value={d.name} onChange={(v) => set("name", v)} /></div>
       {duaSelect}
-      <Field label={t("pl_short_dua")} hint={t("pl_short_dua_hint")}>{input("short_dua", d.short_dua)}</Field>
+      <div className="field wide"><label>{t("pl_short_dua")}</label><MultiLine value={d.short_dua} onChange={(v) => set("short_dua", v)} />
+        <span className="hint muted">{t("pl_short_dua_hint")}</span></div>
     </div>
     <datalist id="pl-animals">{ANIMALS.map((w) => <option key={w} value={w} />)}</datalist>
     <p className="muted" style={{ marginBottom: 0 }}>{t("pl_occasion_hint")}</p>
@@ -421,4 +525,58 @@ function TextControls({ d, set }: { d: Design; set: (k: string, v: any) => void 
     );
   };
   return <div style={{ marginTop: 12 }}>{block("name")}{block("dua")}<p className="muted" style={{ fontSize: 12.5 }}>{t("pl_font_note")}</p></div>;
+}
+
+/** «صورة البئر الشمسي»: an optional picture on the plaque from the approved library (or a new upload).
+ *  Move it by dragging on the preview or with the sliders; size keeps its proportions. */
+function ImageTool({ d, setD }: { d: Design; setD: (fn: (x: Design) => Design) => void }) {
+  const { t } = useI18n();
+  const [lib, setLib] = useState<LibraryImage[]>([]);
+  const [open, setOpen] = useState(!!d.image);
+  const [busy, setBusy] = useState(false);
+  const [gw, gh] = GRIDS[d.template];
+  useEffect(() => { imageLibrary().then(setLib); }, []);
+  useEffect(() => { if (d.image) setOpen(true); }, [d.image]);
+  const place = (ref: string) => setD((x) => ({ ...x, image: x.image ? { ...x.image, ref } : { ref, x: Math.round(gw * 0.78), y: Math.round(gh * 0.55), w: Math.round(gw * 0.3) } }) as Design);
+  const upd = (k: "x" | "y" | "w", v: number) => setD((x) => (x.image ? { ...x, image: { ...x.image, [k]: v } } : x) as Design);
+  const add = async (f: File | undefined) => {
+    if (!f) return;
+    setBusy(true);
+    try {
+      const data_url = await fileToSmallDataUrl(f, 1200);
+      const item = await api<LibraryImage>("/api/plaque-images", { body: { name: f.name.replace(/\.[^.]+$/, "").slice(0, 80) || "image", data_url } });
+      setLib(await imageLibrary(true)); place(`lib:${item.id}`); toast(t("img_uploaded"));
+    } catch (e: any) { toast(e.message); } finally { setBusy(false); }
+  };
+  const cur = d.image?.ref;
+  return (
+    <fieldset className="text-controls image-tool">
+      <legend>{t("pl_solar")}</legend>
+      {!open && !d.image ? <button type="button" onClick={() => { setOpen(true); place("lib:solar-well"); }}>☀ {t("pl_solar_add")}</button> : <>
+        <label className="muted" style={{ display: "block", marginBottom: 6 }}>{t("pl_solar_library")}</label>
+        <div className="icon-picks">
+          {lib.map((im) => (
+            <button type="button" key={im.id} className={cur === `lib:${im.id}` ? "on" : ""} onClick={() => place(`lib:${im.id}`)} title={im.name}>
+              <img src={im.src} alt="" /><span>{im.name}</span>
+            </button>))}
+        </div>
+        <div className="tool-rows" style={{ marginTop: 10 }}>
+          <Field label={t("pl_solar_upload")}><input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={(e) => add(e.target.files?.[0])} /></Field>
+        </div>
+        {d.image && <>
+          <div className="tool-rows">
+            <Field label={`${t("pl_solar_size")} ${Math.round((d.image.w / gw) * 100)}%`}>
+              <input type="range" min={Math.round(gw * 0.08)} max={gw} step={2} value={d.image.w} onChange={(e) => upd("w", Number(e.target.value))} /></Field>
+            <Field label={t("pl_solar_x")}><input type="range" min={0} max={gw} step={2} value={d.image.x} onChange={(e) => upd("x", Number(e.target.value))} /></Field>
+            <Field label={t("pl_solar_y")}><input type="range" min={0} max={gh} step={2} value={d.image.y} onChange={(e) => upd("y", Number(e.target.value))} /></Field>
+          </div>
+          <div className="actions" style={{ justifyContent: "flex-start", flexWrap: "wrap" }}>
+            <button type="button" className="sm" onClick={() => { upd("x", Math.round(gw / 2)); upd("y", Math.round(gh / 2)); }}>⊕ {t("pl_solar_center")}</button>
+            <button type="button" className="sm danger" onClick={() => setD((x) => ({ ...x, image: null }) as Design)}>✕ {t("pl_solar_remove")}</button>
+          </div>
+          <p className="muted" style={{ fontSize: 12.5, margin: 0 }}>{t("pl_solar_drag")}</p>
+        </>}
+      </>}
+    </fieldset>
+  );
 }

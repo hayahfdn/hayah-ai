@@ -1,11 +1,12 @@
 // Final delivery videos: the section on each order (wells and sacrifices) and the list page.
+import OpenIcon from "../OpenIcon";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, getToken } from "../api";
 import { useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { Empty, ErrorBox, Field, Modal, toast } from "../ui";
-import { waLink } from "../plaque/flow";
+import { WaChatButton } from "../plaque/flow";
 
 type VState = "not_uploaded" | "uploaded" | "ready_for_delivery" | "sent_to_customer";
 interface Version { media_id: number; filename: string; original_filename: string | null; mime_type: string; size_bytes: number; created_at: string; uploaded_by: string | null; current: boolean; }
@@ -13,7 +14,7 @@ interface VideoData {
   kind: "well" | "sacrifice"; number: number; status: VState; current_media_id: number | null;
   uploaded_at: string | null; uploaded_by: string | null; ready_at: string | null; ready_by: string | null;
   sent_at: string | null; sent_by: string | null; sent_note: string | null; customer_name: string | null;
-  customer_phone_e164: string | null; final_video_link: string | null; versions: Version[];
+  customer_phone_e164: string | null; customer_phone_status?: string | null; final_video_link: string | null; versions: Version[];
 }
 const TONE: Record<VState, string> = { not_uploaded: "bad", uploaded: "warn", ready_for_delivery: "info", sent_to_customer: "ok" };
 const mb = (n: number) => `${(n / 1024 / 1024).toFixed(n > 100 * 1024 * 1024 ? 0 : 1)} MB`;
@@ -95,7 +96,6 @@ export function FinalVideoSection({ kind, no }: { kind: "well" | "sacrifice"; no
     } catch (e: any) { if (e?.name === "AbortError") return; }
     window.location.href = src.download_url;
   };
-  const wa = waLink(d?.customer_phone_e164 || null, d ? `${t("vid_share_text")} ${no}` : undefined);
   if (!d) return <div className="card"><h2>{t("vid_title")}</h2><ErrorBox error={error} />{!error && <p className="muted">…</p>}</div>;
   return (
     <div className={`card final-video${d.status === "not_uploaded" ? "" : " has"}`}>
@@ -111,9 +111,9 @@ export function FinalVideoSection({ kind, no }: { kind: "well" | "sacrifice"; no
       <div className="actions" style={{ flexWrap: "wrap" }}>
         <input ref={input} type="file" accept="video/mp4,video/quicktime,.mp4,.mov" hidden onChange={(e) => pick(e.target.files?.[0])} />
         <button className={cur ? "" : "primary"} disabled={progress !== null} onClick={() => input.current?.click()}>⬆ {cur ? t("vid_replace") : t("vid_upload")}</button>
+        <WaChatButton e164={d.customer_phone_e164} status={d.customer_phone_status} text={cur ? `${t("vid_share_text")} ${no}` : undefined} label />
         {src && <a className="btn" href={src.download_url}>⬇ {t("vid_download")}</a>}
         {src && <button onClick={share}>↗ {t("vid_share")}</button>}
-        {wa && <a className="btn" href={wa} target="_blank" rel="noreferrer">{t("vid_wa_customer")}</a>}
         {d.status === "uploaded" && <button className="primary" disabled={busy} onClick={() => move("ready_for_delivery")}>✓ {t("vid_ready")}</button>}
         {d.status === "ready_for_delivery" && <>
           <button className="primary" disabled={busy} onClick={() => setSending(true)}>✓ {t("vid_sent")}</button>
@@ -185,11 +185,12 @@ export default function FinalVideos() {
         <thead><tr><th>{t("pla_well")} / {t("pla_sac")}</th><th>{t("customer_name")}</th><th>{t("pla_status")}</th><th>{t("vid_uploaded_by")}</th><th></th></tr></thead>
         <tbody>{rows.map((r) => (
           <tr key={r.kind + r.number}>
-            <td><b className="mono">{r.kind === "sacrifice" ? "S" : ""}{r.number}</b> <span className="muted">{r.kind === "well" ? t("pla_well") : t("pla_sac")}</span></td>
+            <td><b className="mono">{r.kind === "sacrifice" ? "S" : ""}{r.number}</b><OpenIcon kind={r.kind} no={r.number} /> <span className="muted">{r.kind === "well" ? t("pla_well") : t("pla_sac")}</span></td>
             <td>{r.customer_name || "—"}</td>
             <td><VideoBadge s={r.status} /></td>
             <td>{r.uploaded_by ? `${r.uploaded_by} · ${fmtDate(r.uploaded_at)}` : "—"}</td>
-            <td><Link className="btn sm" to={r.kind === "well" ? `/projects/${r.number}#final-video` : `/videos/sacrifice/${r.number}`}>{t("vid_open")}</Link></td>
+            <td><span className="row-actions"><Link className="btn sm" to={r.kind === "well" ? `/projects/${r.number}#final-video` : `/videos/sacrifice/${r.number}`}>{t("vid_open")}</Link>
+              <WaChatButton e164={r.customer_phone_e164} status={r.customer_phone_status} /></span></td>
           </tr>))}</tbody>
       </table></div>)}
   </>;

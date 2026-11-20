@@ -8,6 +8,9 @@ import { useI18n } from "../i18n";
 
 export const n = (v: any) => (v === null || v === undefined || v === "" ? 0 : Number(v));
 export const sum = <T,>(rows: T[], f: (r: T) => any) => rows.reduce((a, r) => a + n(f(r)), 0);
+// Newest order first (order date, then the higher number); rows without a date go last (Hayah, 2026-11-19).
+export const newestFirst = <T extends { order_date: string | null }>(no: (r: T) => number) => (a: T, b: T) =>
+  (b.order_date || "").localeCompare(a.order_date || "") || no(b) - no(a);
 
 /** Reload whenever any part of the app changes data (prompt edits, new rows…). */
 export function useDataReload(reload: () => void) {

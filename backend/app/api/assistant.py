@@ -44,3 +44,35 @@ def plan(body: PlanIn, db: Session = Depends(get_db), user: User = Depends(requi
 @router.post("/apply")
 def apply(body: ApplyIn, db: Session = Depends(get_db), user: User = Depends(require_roles(MANAGERS))):
     return svc.apply(db, body.prompt, body.operations, user)
+
+
+# ---------------- floating help assistant (all roles, read only) ----------------
+from app.deps import ALL_ROLES  # noqa: E402
+from app.services import help_chat  # noqa: E402
+
+help_router = APIRouter(prefix="/api/help", tags=["help"])
+
+
+class HelpMsg(BaseModel):
+    role: str = Field(pattern="^(user|assistant)$")
+    content: str = Field(max_length=8000)
+
+
+class AskIn(BaseModel):
+    messages: list[HelpMsg] = Field(min_length=1, max_length=40)
+    page: str | None = Field(None, max_length=300)
+
+
+@help_router.get("/status")
+def help_status(db: Session = Depends(get_db), _: User = Depends(require_roles(ALL_ROLES))):
+    """Ready or not, and why, in plain words. No money is shown here."""
+    try:
+        svc.check_available(db)
+        return {"ready": True, "reason": None, "code": None}
+    except svc.AssistantUnavailable as e:
+        return {"ready": False, "reason": help_chat.UNAVAILABLE.get(e.code, e.detail), "code": e.code}
+
+
+@help_router.post("/ask")
+def help_ask(body: AskIn, db: Session = Depends(get_db), user: User = Depends(require_roles(ALL_ROLES))):
+    return help_chat.ask(db, user, [m.model_dump() for m in body.messages], body.page)

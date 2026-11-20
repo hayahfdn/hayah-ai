@@ -76,9 +76,10 @@ def test_nav_lists_months_contractors_by_country_and_partners_for_managers(clien
 
 def test_nav_hides_finance_pages_from_staff_and_contractors(client, seeded):
     staff = client.get("/api/nav", headers=login(client, "staff@hayah.local")).json()
-    assert staff["wells"] and staff["sacrifices"] == [] and staff["partners"] == [] and staff["contractors"]
+    # Employees get sacrifice months (no cost/profit on those pages); partners and banks stay hidden.
+    assert staff["wells"] and staff["sacrifices"] and staff["partners"] == [] and staff["banks"] == [] and staff["contractors"]
     con = client.get("/api/nav", headers=login(client, "p1@hayah.local")).json()
-    assert con["contractors"] == [] and con["partners"] == []
+    assert con["contractors"] == [] and con["partners"] == [] and con["sacrifices"] == []
 
 
 # ---------------- contractor colours ----------------

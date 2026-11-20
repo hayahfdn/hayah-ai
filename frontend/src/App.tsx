@@ -25,7 +25,7 @@ import Review from "./pages/Review";
 import Contractors from "./pages/Contractors";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
-import { MonthWells, ContractorWells } from "./pages/WellPages";
+import { MonthWells, MonthSacrifices, ContractorWells } from "./pages/WellPages";
 import { BottomBar, NavProvider, SideNav } from "./nav";
 import { useZoom, ZoomControl } from "./Zoom";
 
@@ -167,6 +167,7 @@ export default function App() {
             <Route path="/sheet" element={<Suspense fallback={null}><Sheet /></Suspense>} />
             <Route path="/projects/:wellId" element={<ProjectDetail />} />
             <Route path="/wells/:month" element={<MonthWells />} />
+            <Route path="/sacrifices/:month" element={<MonthSacrifices />} />
             <Route path="/contractor/:code" element={<ContractorWells />} />
             <Route path="/plaque" element={<Suspense fallback={null}><PlaqueDesigner key="well" /></Suspense>} />
             <Route path="/plaque/sacrifice" element={<Suspense fallback={null}><PlaqueDesigner kind="sacrifice" key="sac" /></Suspense>} />

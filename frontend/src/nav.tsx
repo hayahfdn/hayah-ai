@@ -49,7 +49,7 @@ export function useLinks() {
   const manager = can(...MANAGERS);
   return useMemo(() => ({
     wells: (m: string) => (manager ? `/book/wells/${m}` : `/wells/${m}`),
-    sac: (m: string) => `/book/sac/${m}`,
+    sac: (m: string) => (manager ? `/book/sac/${m}` : `/sacrifices/${m}`),
     con: (code: string) => (manager ? `/book/con/${code}` : `/contractor/${code}`),
     acc: (code: string) => `/book/acc/${code}`,
   }), [manager]);
@@ -116,7 +116,7 @@ export function SideNav({ counts }: { counts: Record<string, number> }) {
         {(nav?.banks || []).map((b) => <NavLink key={b.code} to={L.acc(b.code)}>{b.code === "WISE" ? "Wise" : b.name}</NavLink>)}
       </>}
       {nav && <NavPicker title={t("nav_wells")} icon="💧" items={months(nav.wells, L.wells)} defaultKey={cur} />}
-      {nav && manager && <NavPicker title={t("nav_sacrifices")} icon="🐑" items={months(nav.sacrifices, L.sac)} defaultKey={cur} />}
+      {nav && can(...EDITORS) && <NavPicker title={t("nav_sacrifices")} icon="🐑" items={months(nav.sacrifices, L.sac)} defaultKey={cur} />}
       {byCountry.length > 0 && user.role !== "contractor" && <>
         <div className="nav-sec">{t("nav_sec_contractors")}</div>
         {byCountry.map(([country, items]) => <NavPicker key={country} title={countryLabel(country, lang)} items={items} />)}
@@ -157,8 +157,8 @@ export function BottomBar({ onMenu }: { onMenu: () => void }) {
     <nav className="bottom-bar" aria-label={t("nav_menu")}>
       <NavLink to="/" end><i aria-hidden="true">⌂</i><span>{t("nav_home")}</span></NavLink>
       <NavLink to={L.wells(cur)} className={on(manager ? "/book/wells" : "/wells")}><i aria-hidden="true">💧</i><span>{t("nav_wells")}</span></NavLink>
-      {manager
-        ? <NavLink to={L.sac(cur)} className={on("/book/sac")}><i aria-hidden="true">🐑</i><span>{t("nav_sacrifices")}</span></NavLink>
+      {can(...EDITORS)
+        ? <NavLink to={L.sac(cur)} className={on(manager ? "/book/sac" : "/sacrifices")}><i aria-hidden="true">🐑</i><span>{t("nav_sacrifices")}</span></NavLink>
         : <NavLink to="/projects"><i aria-hidden="true">▤</i><span>{t("nav_projects")}</span></NavLink>}
       {can(...EDITORS)
         ? <NavLink to="/plaque"><i aria-hidden="true">🖼</i><span>{t("plaque")}</span></NavLink>

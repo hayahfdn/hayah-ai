@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.deps import MANAGERS, client_ip, require_roles
+from app.deps import FINANCE_VIEWERS, MANAGERS, PROJECT_CREATORS, client_ip, require_roles
 from app.models import Contractor, FinanceAccount, Sacrifice, Transaction, User
 from app.schemas import (
     AccountIn, AccountOut, ContractorOut, DirectDeliveryIn, ProjectOut, NumberChange, RenumberPlan, SacrificeBulkCreate, SacrificeCreate, SacrificeOut,
@@ -17,6 +17,22 @@ from app.services.audit import audit
 router = APIRouter(prefix="/api/finance", tags=["finance"])
 sacrifices = APIRouter(prefix="/api/sacrifices", tags=["sacrifices"])
 MGR = Depends(require_roles(MANAGERS))
+# Employees (موظف) work with sacrifices too: every operational detail and the selling price.
+# Cost and profit stay with managers: stripped from every answer, refused on every write.
+SAC = Depends(require_roles(PROJECT_CREATORS))
+STAFF_LOCKED_SAC = {"cost", "delivery_date"}  # a delivery date means delivered: a manager confirms it
+
+
+def _sac(s: Sacrifice, user: User) -> SacrificeOut:
+    o = SacrificeOut.model_validate(s)
+    return o if user.role in FINANCE_VIEWERS else o.model_copy(update={"cost": None})
+
+
+def _guard_sac_write(data: dict, user: User) -> None:
+    if user.role in FINANCE_VIEWERS:
+        return
+    if bad := sorted(STAFF_LOCKED_SAC & set(data)):
+        raise HTTPException(403, f"Only managers can change: {', '.join(bad)}")
 
 
 # ---------- workbook tabs ----------
@@ -140,30 +156,31 @@ def deliver(well_id: int, body: DirectDeliveryIn, request: Request, db: Session 
 
 # ---------- sacrifices ----------
 @sacrifices.get("", response_model=list[SacrificeOut])
-def list_sac(month: str | None = None, contractor_id: int | None = None, db: Session = Depends(get_db), _: User = MGR):
-    return fin.list_sacrifices(db, month=month, contractor_id=contractor_id)
+def list_sac(month: str | None = None, contractor_id: int | None = None, db: Session = Depends(get_db), user: User = SAC):
+    return [_sac(s, user) for s in fin.list_sacrifices(db, month=month, contractor_id=contractor_id)]
 
 
 @sacrifices.get("/next-number")
-def next_no(db: Session = Depends(get_db), _: User = MGR):
+def next_no(db: Session = Depends(get_db), _: User = SAC):
     hi = db.scalar(select(func.max(Sacrifice.sacrifice_no)).where(Sacrifice.is_sample.is_(False)))
     return {"highest_existing": hi, "suggested_next": (hi or 0) + 1}
 
 
 @sacrifices.post("/bulk", response_model=list[SacrificeOut], status_code=201)
-def create_many(body: SacrificeBulkCreate, db: Session = Depends(get_db), user: User = MGR):
+def create_many(body: SacrificeBulkCreate, db: Session = Depends(get_db), user: User = SAC):
     """One order with several sacrifices: each one gets its own next number, all linked to the order."""
     data = body.model_dump(exclude_none=True)
+    _guard_sac_write(data, user)
     qty = data.pop("quantity", 1)
     if data.get("shopify_order"):
         data["shopify_order"] = rn.order_label(rn.order_key(data["shopify_order"])) or data["shopify_order"]
     out = [fin.create_sacrifice(db, dict(data), actor=user) for _ in range(qty)]
     db.commit()
-    return out
+    return [_sac(s, user) for s in out]
 
 
 @sacrifices.get("/orders/{order}")
-def order_detail(order: str, db: Session = Depends(get_db), _: User = MGR):
+def order_detail(order: str, db: Session = Depends(get_db), _: User = SAC):
     """The original order and every sacrifice (and well) that belongs to it."""
     return rn.order_view(db, order)
 
@@ -206,23 +223,25 @@ def change_number(no: int, body: NumberChange, request: Request, db: Session = D
 
 
 @sacrifices.post("", response_model=SacrificeOut, status_code=201)
-def create_sac(body: SacrificeCreate, db: Session = Depends(get_db), user: User = MGR):
+def create_sac(body: SacrificeCreate, db: Session = Depends(get_db), user: User = SAC):
     data = body.model_dump(exclude_none=True)
+    _guard_sac_write(data, user)
     s = fin.create_sacrifice(db, data, actor=user)
     db.commit()
-    return s
+    return _sac(s, user)
 
 
 @sacrifices.patch("/{no}", response_model=SacrificeOut)
-def update_sac(no: int, body: SacrificeUpdate, db: Session = Depends(get_db), user: User = MGR):
+def update_sac(no: int, body: SacrificeUpdate, db: Session = Depends(get_db), user: User = SAC):
     s = db.scalar(select(Sacrifice).where(Sacrifice.sacrifice_no == no))
     if not s:
         raise HTTPException(404, f"No sacrifice number {no}")
     changes = body.model_dump(exclude_unset=True)
     ev = changes.pop("expected_version", None)
+    _guard_sac_write(changes, user)
     if changes.get("currency", "x") is None:
         changes.pop("currency")
     fin.update_sacrifice(db, s, changes, actor=user, expected_version=ev)
     db.commit()
     db.refresh(s)
-    return s
+    return _sac(s, user)

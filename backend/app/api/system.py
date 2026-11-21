@@ -37,7 +37,7 @@ def nav(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
                  "contractors": [], "partners": [], "banks": []}
     if user.role != Role.contractor:
         cons = db.scalars(select(Contractor).where(Contractor.is_active.is_(True)).order_by(Contractor.code))
-        out["contractors"] = [{"id": c.id, "code": c.code, "name": c.name, "country": c.country or "", "color": c.color}
+        out["contractors"] = [{"id": c.id, "code": c.code, "name": c.name, "country": c.country or "", "color": c.color, "kind": c.kind}
                               for c in cons]
     if manager:
         accs = list(db.scalars(select(FinanceAccount).where(FinanceAccount.is_active.is_(True))

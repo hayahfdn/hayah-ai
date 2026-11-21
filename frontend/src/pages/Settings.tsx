@@ -208,6 +208,10 @@ function TeamOwners() {
         : <select value={s.owner?.id ?? ""} onChange={(e) => save({ owners: { [s.key]: e.target.value ? Number(e.target.value) : null } })}>
           <option value="">{s.kind === "manager" ? t("tk_manager") : t("tk_unassigned")}</option>
           {d.people.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>}
+      {s.kind === "person" && <select className="tk-helper" title={t("tk_helper_help")} value={s.helpers?.[0]?.id ?? ""}
+        onChange={(e) => save({ helpers: { [s.key]: e.target.value ? [Number(e.target.value)] : [] } })}>
+        <option value="">{t("tk_no_helper")}</option>
+        {d.people.filter((p: any) => p.id !== s.owner?.id).map((p: any) => <option key={p.id} value={p.id}>{t("tk_with")} {p.name}</option>)}</select>}
     </label>)}</div>
     <label className="tk-inline" title={t("tk_start_help")} style={{ marginTop: 10 }}>{t("tk_start")} <input type="date" defaultValue={d.settings.start_date} onChange={(e) => e.target.value && save({ start_date: e.target.value })} /></label>
   </div>;

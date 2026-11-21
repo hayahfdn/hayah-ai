@@ -144,6 +144,7 @@ class Contractor(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str | None] = mapped_column(Text)
     color: Mapped[str | None] = mapped_column(String(7))  # row colour in the sheets, e.g. #E3F0FB
+    kind: Mapped[str] = mapped_column(String(12), default="both", server_default="both")  # wells | sacrifices | both
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 

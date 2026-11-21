@@ -2,7 +2,7 @@
 import OpenIcon from "../OpenIcon";
 import { useCallback, useMemo, useState } from "react";
 import type { CellValueChangedEvent, ColDef } from "ag-grid-community";
-import { api, Contractor, dataChanged, Sacrifice } from "../api";
+import { api, Contractor, dataChanged, forSacrifices, Sacrifice } from "../api";
 import { useI18n } from "../i18n";
 import { ErrorBox, Field, Modal, toast, useApi } from "../ui";
 import { dateCol, HayahGrid, moneyCol, n, newestFirst, sum, useDataReload, useMoney } from "./grid";
@@ -48,7 +48,7 @@ export default function SacrificesGrid({ month, contractorId, height, title }: {
           : <Link className="plaque-chip new" to={`/plaque/sacrifice/${p.data.sacrifice_no}`} onDoubleClick={(e) => e.stopPropagation()}>＋ {t("plaque")}</Link>) },
       col("order_date", { ...dateCol, sort: "desc", sortIndex: 0 }), col("donor_name", { width: 170, cellClass: "strong" }), col("delivery_date", dateCol),
       col("contractor_id", { headerName: t("contractor"), width: 105, cellEditor: "agSelectCellEditor",
-        cellEditorParams: { values: [null, ...(contractors.data || []).map((c) => c.id)] },
+        cellEditorParams: { values: [null, ...(contractors.data || []).filter(forSacrifices).map((c) => c.id)] },
         valueFormatter: (p) => (p.node?.isRowPinned() ? "" : p.value ? codeById[p.value] || String(p.value) : "—"),
         filterValueGetter: (p) => (p.data?.contractor_id ? codeById[p.data.contractor_id] : "") }),
       col("animal_type", { width: 110, cellEditor: "agSelectCellEditor", cellEditorParams: { values: ["", ...(lists.data?.animal_types || [])] } }),

@@ -105,6 +105,31 @@ def save_owners(db: Session, new: dict[str, int | None], actor: User) -> dict:
     return out
 
 
+def helpers(db: Session) -> dict[str, list[int]]:
+    """People who share a stage with its owner and may do the same steps (e.g. هيا with غازي)."""
+    raw = get_setting(db, "team_helpers") or {}
+    return {s: [int(x) for x in (raw.get(s) or []) if x] for s in STAGES if s not in SYSTEM_STAGES}
+
+
+def save_helpers(db: Session, new: dict[str, list[int]], actor: User) -> dict:
+    before = helpers(db)
+    out = dict(before)
+    for stage, ids in new.items():
+        if stage not in out:
+            raise HTTPException(422, f"Unknown stage: {stage}")
+        clean: list[int] = []
+        for uid in ids or []:
+            u = db.get(User, uid)
+            if not u or not u.is_active or u.role not in (Role.super_admin, Role.operations_manager, Role.staff):
+                raise HTTPException(422, "Choose an active employee or manager")
+            if uid not in clean:
+                clean.append(uid)
+        out[stage] = clean
+    set_setting(db, "team_helpers", out, actor.id)
+    audit(db, "team.helpers", "setting", "team_helpers", actor=actor, before=before, after=out)
+    return out
+
+
 def _users(db: Session) -> dict[int, User]:
     return {u.id: u for u in db.scalars(select(User).where(User.role.in_([Role.super_admin, Role.operations_manager, Role.staff])))}
 
@@ -115,7 +140,8 @@ def people(db: Session) -> list[dict]:
 
 
 def my_stages(db: Session, user: User) -> list[str]:
-    return [s for s, uid in owners(db).items() if uid == user.id]
+    hp = helpers(db)
+    return [s for s, uid in owners(db).items() if uid == user.id or user.id in hp.get(s, [])]
 
 
 # ---------------------------------------------------------------- reading one order
@@ -188,7 +214,7 @@ def _load(db: Session, projects: list[Project]) -> list[dict]:
     last = dict(db.execute(select(ProjectEvent.project_id, func.max(ProjectEvent.created_at))
                            .where(ProjectEvent.project_id.in_(ids)).group_by(ProjectEvent.project_id)).all())
     assigned = {(a.project_id, a.stage): a for a in db.scalars(select(TeamAssignment).where(TeamAssignment.project_id.in_(ids)))}
-    own, users = owners(db), _users(db)
+    own, hp, users = owners(db), helpers(db), _users(db)
     out = []
     for p in projects:
         pl = plaques.get(p.id)
@@ -223,6 +249,7 @@ def _load(db: Session, projects: list[Project]) -> list[dict]:
             "waiting_customer": stage == "approval" and bool(pl and pl.status == S.awaiting_customer),
             "owner": {"id": owner.id, "name": owner.full_name} if owner else None,
             "owner_kind": "system" if stage in SYSTEM_STAGES else "manager" if stage in MANAGER_STAGES and not owner else "person",
+            "helpers": [] if a or not stage else [{"id": h, "name": users[h].full_name} for h in hp.get(stage, []) if h in users],
             "reassigned": bool(a), "since": since.isoformat() if since else None, "days": days,
             "late": days is not None and days > LATE_DAYS, "steps": steps,
         })
@@ -236,19 +263,23 @@ def _active_query(db: Session):
         Project.construction_status != ConstructionStatus.cancelled,
         Project.delivery_status != DeliveryStatus.delivered,
         or_(Project.order_date >= start, Project.order_date.is_(None) & (Project.created_at >= start)),
-    ).order_by(Project.order_date.asc().nullslast(), Project.well_id.asc()))
+    ).order_by(Project.well_id.desc()))  # newest first (Hayah 2026-11-21)
 
 
 def all_cards(db: Session) -> list[dict]:
     return [c for c in _load(db, list(db.scalars(_active_query(db)))) if c["stage"]]
 
 
+def _is_mine(c: dict, user: User) -> bool:
+    return bool((c["owner"] and c["owner"]["id"] == user.id) or any(h["id"] == user.id for h in c.get("helpers", []))
+                or (user.role in MANAGERS and c["owner_kind"] in ("manager", "system") and not c["owner"]))
+
+
 def tasks(db: Session, user: User, view: str = "mine", limit: int = 500) -> list[dict]:
     """view: mine (orders whose current stage is mine), all, or one stage key."""
     cards = all_cards(db)
     if view == "mine":
-        cards = [c for c in cards if (c["owner"] and c["owner"]["id"] == user.id)
-                 or (user.role in MANAGERS and c["owner_kind"] in ("manager", "system") and not c["owner"])]
+        cards = [c for c in cards if _is_mine(c, user)]
     elif view in STAGES:
         cards = [c for c in cards if c["stage"] == view]
     return cards[:limit]
@@ -259,8 +290,7 @@ def counts(db: Session, user: User) -> dict:
     out: dict = {s: 0 for s in STAGES}
     for c in cards:
         out[c["stage"]] += 1
-    mine = [c for c in cards if (c["owner"] and c["owner"]["id"] == user.id)
-            or (user.role in MANAGERS and c["owner_kind"] in ("manager", "system") and not c["owner"])]
+    mine = [c for c in cards if _is_mine(c, user)]
     out["mine"] = len(mine)
     out["late"] = sum(c["late"] for c in cards)
     out["mine_late"] = sum(c["late"] for c in mine)
@@ -280,7 +310,7 @@ def check_can_act(db: Session, p: Project, stage: str, actor: User) -> None:
         raise HTTPException(403, "هذه المرحلة للإدارة فقط")
     a = db.scalar(select(TeamAssignment).where(TeamAssignment.project_id == p.id, TeamAssignment.stage == stage))
     owner_id = a.user_id if a else owners(db).get(stage)
-    if owner_id != actor.id:
+    if owner_id != actor.id and (a or actor.id not in helpers(db).get(stage, [])):
         who = db.get(User, owner_id).full_name if owner_id and db.get(User, owner_id) else "غير محدد"
         raise HTTPException(403, f"هذه المهمة («{STAGE_AR[stage]}») مسؤولية {who}. تستطيع المديرة نقلها إليك.")
 

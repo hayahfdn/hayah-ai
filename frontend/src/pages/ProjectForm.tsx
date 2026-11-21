@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, Contractor, Project } from "../api";
+import { api, Contractor, forWells, Project } from "../api";
 import { useI18n } from "../i18n";
 import { ErrorBox, Field, useApi } from "../ui";
 import { PhoneField } from "../PhoneField";
@@ -72,7 +72,7 @@ export default function ProjectForm({ project, onSaved, onCancel, prefill }: { p
             onChange={(e) => setF({ ...f, sales_source: e.target.value, source_group: e.target.value })}>
             <option value="">—</option>{(lists.data?.sales_sources || []).map((s) => <option key={s} value={s}>{s}</option>)}</select></Field>
         <Field label={t("contractor")}><select value={f.contractor_id ?? ""} onChange={set("contractor_id")}><option value="">—</option>
-          {(contractors.data || []).map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select></Field>
+          {(contractors.data || []).filter((c) => forWells(c) || c.id === f.contractor_id).map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select></Field>
         {text("sale_amount", { type: "number", min: 0, step: "0.01", className: "num" })}{text("currency", { maxLength: 3 })}
         {sel("payment_status", PAYMENT)}{sel("construction_status", CONSTRUCTION)}
         {text("final_video_link", { type: "url", dir: "ltr", placeholder: "https://" })}{sel("video_status", VIDEO)}{date("next_maintenance_date")}

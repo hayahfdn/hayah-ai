@@ -64,8 +64,7 @@ export default function WellCards({ rows, quick, colorById, contractors, showSal
                 <span>{fmtDate(p.order_date)}</span>
                 {showSale && p.sale_amount != null && <span className="num strong">{money(p.sale_amount)}</span>}
               </div>
-              <div className="badges"><Status v={p.construction_status} /> <Status v={p.delivery_status} />
-                {p.payment_status !== "paid" && <Status v={p.payment_status} />}</div>
+              <div className="badges"><Status v={p.construction_status} /> <Status v={p.delivery_status} /></div>
               <footer onClick={(e) => e.stopPropagation()}>
                 {isContractor && <select value={p.construction_status} onChange={(e) => setStatus(p, e.target.value)} aria-label={t("construction_status")}>
                   {["new_order", "scheduled", "in_progress", "completed", "on_hold"].map((s) => <option key={s} value={s}>{st(s)}</option>)}</select>}

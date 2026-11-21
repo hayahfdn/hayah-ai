@@ -31,7 +31,9 @@ export const teamAr: Record<string, string> = {
   tk_do_confirmed: "تأكيد التسليم", tk_note_confirmed: "كيف تأكّد التسليم؟ مثلاً: العميل ردّ بالشكر",
   tk_close_mgr: "تغلقه المديرة", tk_delivery_date: "تاريخ التسليم", tk_do_close: "إغلاق المشروع",
   tk_moved_to: "انتقل إلى", tk_all_done: "اكتمل المشروع وأُغلق",
-  tk_owners: "المسؤول عن كل مرحلة", tk_owners_help: "لكل مرحلة مسؤول واحد. يرى مهامها في «مهامي» ولا يغلقها غيره، والمديرة تستطيع التدخل أو نقل مهمة طلب معيّن من لوحة الإدارة.",
+  tk_owners: "المسؤول عن كل مرحلة", tk_owners_help: "لكل مرحلة مسؤول، ويمكن أن يشاركه شخص آخر في نفس المهام (مثلاً هيا مع غازي). يرى كلاهما مهامها في «مهامي» ولا يغلقها غيرهما، والمديرة تستطيع التدخل أو نقل مهمة طلب معيّن من لوحة الإدارة.",
+  con_kind: "يعمل في", kind_wells: "الآبار", kind_sacrifices: "الذبائح", kind_both: "الآبار والذبائح",
+  tk_no_helper: "بدون مشارك", tk_with: "ومعه:", tk_helper_help: "شخص يشارك المسؤول في مهام هذه المرحلة نفسها",
   tk_start: "الطلبات من تاريخ", tk_start_help: "الطلبات الأقدم (السجل القديم) لا تظهر في المهام.",
 };
 export const teamEn: Record<string, string> = {
@@ -66,6 +68,8 @@ export const teamEn: Record<string, string> = {
   tk_do_confirmed: "Confirm delivery", tk_note_confirmed: "How was delivery confirmed?",
   tk_close_mgr: "The manager closes it", tk_delivery_date: "Delivery date", tk_do_close: "Close the project",
   tk_moved_to: "Moved to", tk_all_done: "Project completed and closed",
-  tk_owners: "Responsible for each stage", tk_owners_help: "Each stage has one responsible person. The manager can step in or move one order's task from the board.",
+  tk_owners: "Responsible for each stage", tk_owners_help: "Each stage has a responsible person, and another person can share the same tasks. The manager can step in or move one order's task from the board.",
+  con_kind: "Works on", kind_wells: "Wells", kind_sacrifices: "Sacrifices", kind_both: "Wells and sacrifices",
+  tk_no_helper: "No one else", tk_with: "with:", tk_helper_help: "Someone who shares this stage's tasks with the responsible person",
   tk_start: "Orders from", tk_start_help: "Older orders (history) are not listed.",
 };

@@ -54,6 +54,8 @@ def update(cid: int, body: ContractorUpdate, db: Session = Depends(get_db), user
         raise HTTPException(404, "Contractor not found")
     before = snapshot(c)
     for k, v in body.model_dump(exclude_unset=True).items():
+        if k == "kind" and v is None:
+            continue
         setattr(c, k, v.upper() if k == "color" and v else v)
     audit(db, "contractor.update", "contractor", c.code, actor=user, before=before, after=snapshot(c))
     queue_sheet_sync(db)

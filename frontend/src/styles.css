@@ -975,3 +975,34 @@ a.btn { text-decoration: none; }
   .tk-inline select { flex: 1; }
   .tk-confirm input { min-width: 0; flex: 1 1 100%; }
 }
+/* team workflow v2 */
+.tk-views { display: flex; gap: 6px; margin: 4px 0 10px; flex-wrap: wrap; }
+.tk-views button { gap: 8px; }
+.tk-views button.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+.tk-views .count { padding: 0 8px; border-radius: 999px; background: var(--surface-2); color: var(--ink); font-size: 12.5px; }
+.tk-views .count.red { background: var(--bad); color: #fff; }
+.tk-stages8 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.tk-st { display: flex; align-items: center; gap: 8px; text-align: start; padding: 8px 10px; min-height: 54px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+.tk-st.on { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
+.tk-st.mine .tk-stage-no { background: var(--brand); color: #fff; }
+.tk-st-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tk-st-txt b { font-size: 13.5px; }
+.tk-st-txt small { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tk-st .count { min-width: 24px; text-align: center; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); font-weight: 700; }
+.tk-st .count.on { background: var(--brand-soft); color: var(--brand); }
+.tk-stage-no.sm { width: 22px; height: 22px; font-size: 12px; display: inline-grid; }
+.tk-who { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.tk-card.late { border-color: var(--bad); }
+.tk-note { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.tk-note input { flex: 1 1 260px; min-width: 0; }
+.tk-board tr.late td { background: var(--bad-soft); }
+.tk-board td.bad { color: var(--bad); font-weight: 700; }
+.tk-board select.tk-moved { border-color: var(--warn); }
+.tk-board-open > td { background: var(--surface-2); }
+.tk-owners-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
+.tk-owner-row { display: grid; grid-template-columns: auto 1fr 1.1fr; align-items: center; gap: 8px; }
+@media (max-width: 760px) {
+  .tk-stages8 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tk-owners-grid { grid-template-columns: 1fr; }
+  .tk-who { margin-inline-start: 0; }
+}

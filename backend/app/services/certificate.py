@@ -133,6 +133,17 @@ def save(db: Session, p: Project, design: dict, actor: User) -> None:
     add_event(db, p, SAVED, source="dashboard", actor=actor, summary="حفظ الشهادة الوقفية", payload={"design": design})
 
 
+def auto_prepare(db: Session, p: Project, actor: User | None) -> bool:
+    """The system prepares the certificate when the final video is ready for delivery (Hayah, 21 Nov 2026):
+    saved with the order's own data (names, type, month, number, country) in the order's file, unless one
+    was already saved. Returns True when it was prepared now."""
+    if _last(db, p, SAVED):
+        return False
+    add_event(db, p, SAVED, source="system", actor=actor, actor_label=None if actor else "system",
+              summary="تجهيز الشهادة الوقفية تلقائياً من بيانات الطلب", payload={"design": {}, "auto": True})
+    return True
+
+
 def log_sent(db: Session, p: Project, actor: User, *, with_video: bool, method: str) -> None:
     what = "الشهادة الوقفية والفيديو" if with_video else "الشهادة الوقفية"
     add_event(db, p, SENT, source="dashboard", actor=actor, summary=f"إرسال {what} للعميل على واتساب",

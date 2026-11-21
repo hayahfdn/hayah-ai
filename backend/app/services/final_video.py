@@ -107,6 +107,9 @@ def set_status(db: Session, rec, to: V, actor: User, note: str | None = None) ->
     db.flush()
     _log(db, fv, rec, "final_video_status", actor, f"{LABELS_AR[before]} → {LABELS_AR[to]}" + (f" · {note}" if note else ""),
          {"from": before.value, "to": to.value})
+    if to == V.ready_for_delivery and isinstance(rec, Project):
+        from app.services import certificate
+        certificate.auto_prepare(db, rec, actor)
     return fv
 
 

@@ -129,8 +129,6 @@ class User(Base):
     ui_zoom: Mapped[int | None] = mapped_column(SmallInteger)  # interface zoom in %, per person (80-150)
     phone: Mapped[str | None] = mapped_column(String(40))  # used to match WhatsApp senders
     contractor_id: Mapped[int | None] = mapped_column(ForeignKey("contractors.id"))
-    # Which part of the order workflow this person owns: intake | customer | delivery (app/services/team_flow.py)
-    team_stage: Mapped[str | None] = mapped_column(String(12))
     token_version: Mapped[int] = mapped_column(Integer, default=0)  # bump to revoke sessions
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -776,4 +774,17 @@ class TeamStep(Base):
     done_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     done_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     done_by: Mapped[str | None] = mapped_column(String(200))
+    note: Mapped[str | None] = mapped_column(Text)
+
+
+class TeamAssignment(Base):
+    """The manager moved one stage of one order to another person (instead of the stage's usual owner)."""
+    __tablename__ = "team_assignments"
+    __table_args__ = (UniqueConstraint("project_id", "stage", name="uq_team_assignments_project_stage"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    stage: Mapped[str] = mapped_column(String(20))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    assigned_by: Mapped[str | None] = mapped_column(String(200))
+    assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     note: Mapped[str | None] = mapped_column(Text)

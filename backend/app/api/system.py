@@ -58,8 +58,7 @@ def ops_counts(db: Session = Depends(get_db), user: User = Depends(get_current_u
     new_orders = db.scalar(select(func.count()).select_from(Project).where(
         Project.merged_into_id.is_(None), Project.is_sample.is_(False), Project.construction_status == ConstructionStatus.new_order))
     from app.services import team_flow, wa_inbox
-    team = team_flow.counts(db)
-    team["mine"] = team.get(user.team_stage, 0) if user.team_stage else 0
+    team = team_flow.counts(db, user)
     return {"team": team, "plaques": plaque_flow.counts(db, for_manager=user.role in MANAGERS), "videos": final_video.counts(db), "orders": {"new": new_orders or 0},
             "whatsapp": {**wa_inbox.counts(db), "enabled": wa_inbox.enabled(db)}}
 

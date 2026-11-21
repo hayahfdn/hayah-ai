@@ -1001,6 +1001,7 @@ a.btn { text-decoration: none; }
 .tk-board-open > td { background: var(--surface-2); }
 .tk-owners-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
 .tk-owner-row { display: grid; grid-template-columns: auto 1fr 1.1fr; align-items: center; gap: 8px; }
+.tk-owner-row .tk-helper { grid-column: 3; font-size: 13px; }
 @media (max-width: 760px) {
   .tk-stages8 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tk-owners-grid { grid-template-columns: 1fr; }

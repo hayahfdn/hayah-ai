@@ -21,11 +21,11 @@ export default function Contractors() {
       <div className="topbar"><h1>{t("nav_contractors")}</h1>{can(...MANAGERS) && <button className="primary" onClick={() => setEditing("new")}>+ {t("new_contractor")}</button>}</div>
       <ErrorBox error={list.error} />
       <div className="table-wrap"><table>
-        <thead><tr><th>{t("color")}</th><th>{t("code")}</th><th>{t("name")}</th><th>{t("country")}</th><th>{t("phone")}</th><th>{t("active")}</th>
+        <thead><tr><th>{t("color")}</th><th>{t("code")}</th><th>{t("name")}</th><th>{t("con_kind")}</th><th>{t("country")}</th><th>{t("phone")}</th><th>{t("active")}</th>
           <th>{t("projects")}</th><th>{t("in_progress")}</th><th>{t("completed")}</th><th>{t("delivered")}</th><th>{t("avg_build_days")}</th><th></th></tr></thead>
         <tbody>{list.data?.map((c) => { const p = byId[c.id] || {}; return (
           <tr key={c.id} style={{ background: c.color || undefined }}><td><span className="swatch lg" style={{ background: c.color || "#fff" }} title={c.color || ""} /></td>
-            <td className="row-head"><b>{c.code}</b></td><td className="strong">{c.name}</td><td>{countryLabel(c.country || "", lang) || "—"}</td><td dir="ltr">{c.phone || "—"}</td>
+            <td className="row-head"><b>{c.code}</b></td><td className="strong">{c.name}</td><td>{t("kind_" + (c.kind || "both"))}</td><td>{countryLabel(c.country || "", lang) || "—"}</td><td dir="ltr">{c.phone || "—"}</td>
             <td>{c.is_active ? "✓" : "—"}</td><td className="num">{num(p.projects)}</td><td className="num">{num(p.in_progress)}</td>
             <td className="num">{num(p.completed)}</td><td className="num">{num(p.delivered)}</td><td className="num">{p.avg_build_days ?? "—"}</td>
             <td>{can(...MANAGERS) && <button className="sm" onClick={() => setEditing(c)}>{t("edit")}</button>}</td></tr>); })}</tbody>
@@ -53,6 +53,8 @@ function ContractorForm({ c, onClose, onSaved }: { c: Contractor | null; onClose
       <Field label={t("country")}><input list="con-countries" value={f.country || ""} onChange={set("country")} />
         <datalist id="con-countries">{Object.keys(COUNTRY_AR).map((c) => <option key={c} value={c}>{COUNTRY_AR[c]}</option>)}</datalist></Field>
       <Field label={t("phone")}><input dir="ltr" value={f.phone || ""} onChange={set("phone")} /></Field>
+      <Field label={t("con_kind")}><select value={f.kind || "both"} onChange={set("kind")}>
+        {["wells", "sacrifices", "both"].map((k) => <option key={k} value={k}>{t("kind_" + k)}</option>)}</select></Field>
       <Field label={t("active")}><input type="checkbox" checked={!!f.is_active} onChange={set("is_active")} style={{ minHeight: 0, width: "auto" }} /></Field>
     </div>
     <div style={{ marginTop: 12 }}>

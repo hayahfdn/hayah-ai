@@ -83,6 +83,7 @@ class ContractorIn(BaseModel):
     is_active: bool = True
     notes: str | None = Field(default=None, max_length=5000)
     color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    kind: str = Field(default="both", pattern=r"^(wells|sacrifices|both)$")
 
 
 class ContractorUpdate(BaseModel):
@@ -92,6 +93,7 @@ class ContractorUpdate(BaseModel):
     is_active: bool | None = None
     notes: str | None = Field(default=None, max_length=5000)
     color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    kind: str | None = Field(default=None, pattern=r"^(wells|sacrifices|both)$")
 
 
 class ContractorOut(ORM):
@@ -103,6 +105,7 @@ class ContractorOut(ORM):
     is_active: bool
     notes: str | None
     color: str | None = None
+    kind: str = "both"
 
 
 # ---------- projects ----------

@@ -68,8 +68,11 @@ def queue_sheet_sync(db: Session) -> None:
 
 
 def _check_contractor(db: Session, contractor_id: int | None):
-    if contractor_id is not None and not db.get(Contractor, contractor_id):
+    c = db.get(Contractor, contractor_id) if contractor_id is not None else None
+    if contractor_id is not None and not c:
         raise HTTPException(422, "Unknown contractor")
+    if c and c.kind == "sacrifices":
+        raise HTTPException(422, "هذا مقاول ذبائح، ويُختار من صفحة الذبائح فقط")
 
 
 def _enforce_dates(p: Project):

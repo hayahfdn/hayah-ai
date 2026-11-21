@@ -6,7 +6,7 @@
 //   4 غازي  إرسال اللوحة ← قائمة المتطلبات ← وصول الفيديو 8 المديرة تسجيل تاريخ التسليم وإغلاق المشروع
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, dataChanged } from "../api";
+import { api, dataChanged, forWells } from "../api";
 import { MANAGERS, useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { countryLabel, useNav } from "../nav";
@@ -23,10 +23,10 @@ export type TaskCard = {
   contractor_name: string | null; contractor_phone: string | null; well_type: string | null; construction_status: string;
   plaque_id: number | null; plaque_status: string | null; plaque_missing: string[]; video_status: string;
   stage: string | null; stage_label: string | null; next_step: string | null; waiting_customer: boolean;
-  owner: Person | null; owner_kind: "person" | "system" | "manager"; reassigned: boolean; since: string | null; days: number | null; late: boolean;
+  owner: Person | null; helpers?: Person[]; owner_kind: "person" | "system" | "manager"; reassigned: boolean; since: string | null; days: number | null; late: boolean;
   steps: Record<string, Step>;
 };
-type StageInfo = { key: string; label: string; steps: string[]; owner: Person | null; kind: string };
+type StageInfo = { key: string; label: string; steps: string[]; owner: Person | null; helpers?: Person[]; kind: string };
 type TasksOut = { view: string; items: TaskCard[]; my_stages: string[]; counts: Record<string, number>; stages: StageInfo[];
   people: (Person & { role: string })[]; late_days: number; settings: { start_date: string } };
 
@@ -89,11 +89,11 @@ function Board({ items, people, stageNo, onChange }: { items: TaskCard[]; people
   const assign = (c: TaskCard, v: string) => api<TaskCard>(`/api/team/order/${c.well_id}/assign`, { body: { stage: c.stage, user_id: v ? Number(v) : null } })
     .then(onChange).catch((e) => toast(e.message));
   return <div className="table-wrap tk-board"><table>
-    <thead><tr><th>{t("tk_order_no")}</th><th>{t("name")}</th><th>{t("tk_stage")}</th><th>{t("tk_owner")}</th><th>{t("tk_next")}</th><th>{t("tk_waiting")}</th><th></th></tr></thead>
+    <thead><tr><th>{t("name")}</th><th>{t("tk_order_no")}</th><th>{t("tk_stage")}</th><th>{t("tk_owner")}</th><th>{t("tk_next")}</th><th>{t("tk_waiting")}</th><th></th></tr></thead>
     <tbody>{items.map((c) => <Fragment key={c.well_id}>
       <tr className={c.late ? "late" : ""} data-well={c.well_id}>
+        <td className="strong">{c.customer_name || c.dedication || "—"}</td>
         <td><Link to={`/projects/${c.well_id}`} className="well-no mono">{c.well_id}</Link></td>
-        <td>{c.customer_name || c.dedication || "—"}</td>
         <td><span className="tk-stage-no sm">{stageNo(c.stage)}</span> {c.stage_label}</td>
         <td>{c.owner_kind === "system" ? <span className="muted">{t("tk_system")}</span>
           : <select value={c.owner?.id ?? ""} onChange={(e) => assign(c, e.target.value)} aria-label={t("tk_owner")} className={c.reassigned ? "tk-moved" : ""}>
@@ -131,10 +131,10 @@ function TaskCardView({ c, no, stage, onChange }: { c: TaskCard; no: number; sta
   return (
     <div className={`card tk-card${c.late ? " late" : ""}`} data-well={c.well_id}>
       <div className="tk-head">
-        <Link to={`/projects/${c.well_id}`} className="well-no mono">{c.well_id}</Link>
         <span className="tk-name">{c.customer_name || c.dedication || "—"}</span>
+        <Link to={`/projects/${c.well_id}`} className="well-no mono">{c.well_id}</Link>
         <span className="muted">{[c.well_type, c.country ? countryLabel(c.country, lang) : null, c.contractor_code, fmtDate(c.order_date)].filter(Boolean).join(" · ")}</span>
-        <span className="tk-who"><span className="tk-stage-no sm">{no}</span> {c.stage_label} · {c.owner_kind === "system" ? t("tk_system") : c.owner?.name || t("tk_manager")}
+        <span className="tk-who"><span className="tk-stage-no sm">{no}</span> {c.stage_label} · {c.owner_kind === "system" ? t("tk_system") : [c.owner?.name || t("tk_manager"), ...(c.helpers || []).map((h) => h.name)].join(lang === "ar" ? " و" : " & ")}
           {c.days !== null && <span className={c.late ? "badge bad" : "badge"}>{c.days === 0 ? t("tk_today") : `${c.days} ${t("tk_days")}`}</span>}</span>
       </div>
       <Steps c={c} stage={st} />
@@ -178,8 +178,8 @@ function IntakeAction({ c, onChange }: { c: TaskCard; onChange: (c: TaskCard) =>
   const nav = useNav();
   const { busy, tick, reload } = useTick(c, onChange);
   const [country, setCountry] = useState(c.country || "");
-  const countries = useMemo(() => Array.from(new Set((nav?.contractors || []).map((x) => x.country).filter(Boolean))), [nav]);
-  const cons = (nav?.contractors || []).filter((x) => !country || x.country === country);
+  const countries = useMemo(() => Array.from(new Set((nav?.contractors || []).filter(forWells).map((x) => x.country).filter(Boolean))), [nav]);
+  const cons = (nav?.contractors || []).filter(forWells).filter((x) => !country || x.country === country);
   const patch = (body: any) => api(`/api/projects/${c.well_id}`, { method: "PATCH", body }).then(reload).catch((e) => toast(e.message));
   if (!c.steps.received.done) return <button className="primary tk-go" disabled={busy} onClick={() => tick("received")}><I.Check size={16} /> {t("tk_do_received")}</button>;
   return <div className="tk-row">

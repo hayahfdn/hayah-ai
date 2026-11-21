@@ -120,3 +120,38 @@ def test_phone_check_roles_money_and_start_date(client, seeded, mocks):
     assert r.status_code == 409 and "رقم هاتف" in r.json()["detail"]
     assert client.put("/api/team/settings", headers=admin, json={"start_date": "2030-01-01"}).status_code == 200
     assert client.get("/api/team/counts", headers=g).json()["intake"] == 0
+
+
+def test_helper_shares_a_stage_and_tasks_are_newest_first(client, seeded, mocks):
+    admin, g, s, d = _team(client)
+    hy, h = _staff(client, admin, "haya@hayah.local", "هيا")
+    r = client.put("/api/team/settings", headers=admin, json={"helpers": {"intake": [hy], "contractor": [hy]}})
+    assert r.status_code == 200, r.text
+    assert [x["name"] for x in next(st for st in r.json()["stages"] if st["key"] == "intake")["helpers"]] == ["هيا"]
+    assert client.put("/api/team/settings", headers=g, json={"helpers": {"intake": []}}).status_code == 403
+    for no in (7401, 7402):
+        assert client.post("/api/projects", headers=g, json={"well_id": no, "customer_name": "عميل"}).status_code == 201
+    mine = client.get("/api/team/tasks?view=mine", headers=h).json()
+    assert set(mine["my_stages"]) == {"intake", "contractor"}
+    nos = [x["well_id"] for x in mine["items"]]
+    assert nos.index(7402) < nos.index(7401)  # newest on top
+    c = _card(client, h, 7401)
+    assert c["owner"]["name"] == "غازي" and [x["name"] for x in c["helpers"]] == ["هيا"]
+    assert _tick(client, h, 7401, "received").status_code == 200   # Haya does Ghazi's step
+    assert _tick(client, d, 7402, "received").status_code == 403   # Ghaida still cannot
+    # a manager moving one order to Ghazi alone takes it out of Haya's hands
+    ghazi_id = _card(client, admin, 7402)["owner"]["id"]
+    assert client.post("/api/team/order/7402/assign", headers=admin, json={"stage": "intake", "user_id": ghazi_id}).status_code == 200
+    assert _tick(client, h, 7402, "received").status_code == 403
+
+
+def test_contractor_kind_wells_or_sacrifices(client, seeded, mocks):
+    admin = login(client, "admin@hayah.local")
+    r = client.post("/api/contractors", headers=admin, json={"code": "SAC9", "name": "Sac nine", "kind": "sacrifices"})
+    assert r.status_code == 201 and r.json()["kind"] == "sacrifices"
+    assert client.post("/api/projects", headers=admin, json={"well_id": 7501, "contractor_id": r.json()["id"]}).status_code == 422
+    assert client.patch(f"/api/contractors/{r.json()['id']}", headers=admin, json={"kind": "both"}).json()["kind"] == "both"
+    assert client.post("/api/projects", headers=admin, json={"well_id": 7501, "contractor_id": r.json()["id"]}).status_code == 201
+    nav = client.get("/api/nav", headers=admin)
+    if nav.status_code == 200:
+        assert all("kind" in c for c in nav.json()["contractors"])

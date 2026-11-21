@@ -4,7 +4,7 @@ import OpenIcon from "../OpenIcon";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { CellValueChangedEvent, ColDef, GridApi } from "ag-grid-community";
 import { useNavigate } from "react-router-dom";
-import { api, Contractor, dataChanged, download, Project } from "../api";
+import { api, Contractor, dataChanged, download, forWells, Project } from "../api";
 import { MANAGERS, useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { ErrorBox, Modal, toast, useApi } from "../ui";
@@ -16,7 +16,6 @@ import PlaqueBadge from "../plaque/PlaqueBadge";
 import WellCards from "./WellCards";
 
 const CONSTRUCTION = ["new_order", "scheduled", "in_progress", "completed", "on_hold", "cancelled"];
-const PAYMENT = ["unpaid", "partial", "paid", "refunded"];
 const VIDEO = ["none", "raw_received", "processing", "in_review", "completed"];
 // Team members add orders and selling prices; costs and delivery approval stay with managers.
 const STAFF_LOCKED = new Set(["cost", "delivery_date"]);
@@ -72,18 +71,20 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
     const showSale = !isContractor;  // selling price: everyone on the team
     const showMoney = manager;        // cost and profit: managers only
     const c: (ColDef<Project> | false)[] = [
+      // Hayah 2026-11-21: the customer's name comes first, then the number.
+      col("customer_name", { width: 180, cellClass: "strong", pinned: lang === "ar" ? "right" : "left" }),
       col("well_id", { editable: false, pinned: lang === "ar" ? "right" : "left", width: 96, filter: "agNumberColumnFilter",
         cellClass: "well-no cell-link", valueFormatter: (p) => (p.node?.isRowPinned() ? t("total_row") : String(p.value ?? "")),
         cellRenderer: (p: any) => (p.node.isRowPinned() || !p.data ? p.valueFormatted : <span className="no-cell">{p.value}<OpenIcon no={p.value} /></span>),
         cellClassRules: { "id-done": (p) => p.data?.delivery_status === "delivered", "id-wait": (p) => p.data?.delivery_status === "pending" } }),
-      { colId: "plaque", headerName: t("plaque"), pinned: lang === "ar" ? "right" : "left", width: 118, editable: false, sortable: false,
+      { colId: "plaque", headerName: t("plaque"), width: 118, editable: false, sortable: false,
         filter: false, cellClass: "plaque-cell",
         cellRenderer: (p: any) => (p.node.isRowPinned() || !p.data ? null : <PlaqueBadge p={p.data} compact />) },
-      col("order_date", dateCol), col("customer_name", { width: 180, cellClass: "strong" }),
+      col("order_date", dateCol),
       col("customer_phone", { width: 145, cellStyle: { direction: "ltr", textAlign: "end" } }),
       col("well_type", { width: 100, ...pick(lists.data?.well_types) }),
       col("contractor_id", { headerName: t("contractor"), width: 105, cellEditor: "agSelectCellEditor",
-        cellEditorParams: { values: [null, ...(contractors.data || []).map((c) => c.id)] },
+        cellEditorParams: { values: [null, ...(contractors.data || []).filter(forWells).map((c) => c.id)] },
         valueFormatter: (p) => (p.node?.isRowPinned() ? "" : p.value ? codeById[p.value] || String(p.value) : "—"),
         filterValueGetter: (p) => (p.data?.contractor_id ? codeById[p.data.contractor_id] : "") }),
       showSale && moneyCol<Project>("sale_amount", t("sale_amount"), manager || staff, money),
@@ -91,7 +92,7 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
       showMoney && { colId: "profit", headerName: t("profit"), editable: false, width: 105, cellClass: "num locked",
         valueGetter: (p) => (p.data?.sale_amount == null && p.data?.cost == null ? null : n(p.data?.sale_amount) - n(p.data?.cost)),
         valueFormatter: (p) => money(p.value), cellClassRules: { "neg": (p) => n(p.value) < 0 } },
-      col("payment_status", { ...status(PAYMENT), width: 110 }), col("payment_method", { width: 125 }),
+      col("payment_method", { width: 125 }),
       col("extras", { headerName: t("addons"), width: 150, tooltipValueGetter: (p) => p.value || null }), col("shopify_order", { width: 105 }), col("sales_source", { width: 120, valueGetter: (p) => p.data?.source_group ?? p.data?.sales_source,
         tooltipValueGetter: (p) => (p.data?.sales_source && p.data.sales_source !== p.data.source_group ? `${t("src_original")}: ${p.data.sales_source}` : null),
         cellEditor: "agSelectCellEditor", cellEditorParams: { values: ["", ...(lists.data?.sales_sources || [])] } }),

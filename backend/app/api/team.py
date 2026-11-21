@@ -18,11 +18,12 @@ VIEW = "^(mine|all|" + "|".join(tf.STAGES) + ")$"
 
 
 def _meta(db: Session, user: User) -> dict:
-    own = tf.owners(db)
+    own, hp = tf.owners(db), tf.helpers(db)
     names = {p["id"]: p["name"] for p in tf.people(db)}
     return {"my_stages": tf.my_stages(db, user), "counts": tf.counts(db, user), "settings": tf.settings(db),
             "stages": [{"key": s, "label": tf.STAGE_AR[s], "steps": tf.STEPS[s],
                         "owner": {"id": own[s], "name": names.get(own[s])} if own.get(s) else None,
+                        "helpers": [{"id": h, "name": names[h]} for h in hp.get(s, []) if h in names],
                         "kind": "system" if s in tf.SYSTEM_STAGES else "manager" if s in tf.MANAGER_STAGES else "person"}
                        for s in tf.STAGES],
             "step_labels": tf.STEP_AR, "people": tf.people(db), "late_days": tf.LATE_DAYS}
@@ -101,6 +102,7 @@ def assign(well_id: int, body: AssignIn, db: Session = Depends(get_db), user: Us
 class SettingsIn(BaseModel):
     start_date: date | None = None
     owners: dict[str, int | None] | None = None
+    helpers: dict[str, list[int]] | None = None
 
 
 @router.put("/settings")
@@ -109,5 +111,7 @@ def put_settings(body: SettingsIn, db: Session = Depends(get_db), user: User = D
         tf.save_settings(db, body.start_date, user)
     if body.owners is not None:
         tf.save_owners(db, body.owners, user)
+    if body.helpers is not None:
+        tf.save_helpers(db, body.helpers, user)
     db.commit()
     return _meta(db, user)

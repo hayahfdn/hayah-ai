@@ -41,7 +41,7 @@ export async function download(path: string, filename: string) {
 
 export type Role = "super_admin" | "operations_manager" | "staff" | "contractor" | "maintenance" | "viewer";
 export interface User { id: number; email: string; full_name: string; role: Role; is_active: boolean; preferred_lang: "ar" | "en"; phone: string | null; contractor_id: number | null; last_login_at: string | null; ui_zoom?: number | null; }
-export interface Contractor { id: number; code: string; name: string; country: string | null; phone: string | null; is_active: boolean; notes: string | null; color?: string | null; }
+export interface Contractor { id: number; code: string; name: string; country: string | null; phone: string | null; is_active: boolean; notes: string | null; color?: string | null; kind?: "wells" | "sacrifices" | "both"; }
 export interface Project {
   id: number; well_id: number; order_date: string | null; customer_name: string | null; customer_phone: string | null;
   customer_phone_e164?: string | null; customer_phone_country?: string | null; customer_phone_status?: string | null;
@@ -55,7 +55,7 @@ export interface Project {
   notes: string | null; merged_into_id: number | null; is_sample: boolean; version: number; updated_at: string; created_at: string;
   plaque_status?: "draft" | "approved" | null; plaque_media_id?: number | null; plaque_approved_at?: string | null; plaque_approved_by?: string | null;
 }
-export interface NavContractor { id: number; code: string; name: string; country: string; color: string | null; }
+export interface NavContractor { id: number; code: string; name: string; country: string; color: string | null; kind?: string; }
 export interface NavData {
   current: string; wells: string[]; sacrifices: string[]; contractors: NavContractor[];
   partners: { code: string; name: string }[]; banks: { code: string; name: string }[];
@@ -83,3 +83,7 @@ export interface Tx {
 export const TX_KINDS = ["income", "contractor_payment", "ad_spend", "operating_expense", "partner_took", "partner_spent", "partner_withdrawal", "loan", "transfer", "other"];
 /** Tell every open sheet to reload (after a prompt edit, a new row, etc.). */
 export const dataChanged = () => window.dispatchEvent(new Event("hayah:data-changed"));
+
+/** Wells pages offer wells (and both) contractors; the sacrifices page offers sacrifices (and both) contractors. */
+export const forWells = <T extends { kind?: string | null }>(c: T) => c.kind !== "sacrifices";
+export const forSacrifices = <T extends { kind?: string | null }>(c: T) => c.kind !== "wells";

@@ -13,6 +13,7 @@ import { countryLabel, useNav } from "../nav";
 import { Empty, ErrorBox, toast } from "../ui";
 import { PlaqueRow, PlaqueWhatsApp, waLink } from "../plaque/flow";
 import * as I from "../icons";
+import { PhoneWithWa } from "../WaPhone";
 
 type Step = { done: boolean; label: string; by: string | null; at: string | null; note: string | null };
 type Person = { id: number; name: string };
@@ -277,7 +278,7 @@ function ReviewAction({ c, onChange }: { c: TaskCard; onChange: (c: TaskCard) =>
   if (c.next_step === "checked") return <div className="tk-check">
     <div className="tk-facts">
       <span>{t("tk_order_no")}: <b className="mono">{c.well_id}</b>{c.shopify_order ? <> · Shopify <b className="mono">{c.shopify_order}</b></> : null}</span>
-      <span>{t("phone")}: <bdi dir="ltr" className="mono">{c.customer_phone_e164 || c.customer_phone || "—"}</bdi>{" "}
+      <span>{t("phone")}: <PhoneWithWa phone={c.customer_phone} e164={c.customer_phone_e164} status={c.customer_phone_status} />{" "}
         {c.phone_ok ? <span className="badge ok">✓ {t("ph_valid")}</span> : <span className="badge bad">{t(c.customer_phone_status ? "ph_" + c.customer_phone_status : "tk_no_phone")}</span>}</span>
     </div>
     <div className="tk-row">

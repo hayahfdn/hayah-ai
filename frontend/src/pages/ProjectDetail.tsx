@@ -12,6 +12,7 @@ import { MediaTable } from "./MediaLibrary";
 import PlaqueBadge from "../plaque/PlaqueBadge";
 import * as I from "../icons";
 import DeliveryTrio from "./DeliveryTrio";
+import { WaPhoneIcon } from "../WaPhone";
 
 export default function ProjectDetail() {
   const { wellId } = useParams();
@@ -31,7 +32,7 @@ export default function ProjectDetail() {
   const d = p.data;
   // only filled-in details are shown; the empty ones are listed in one short line instead of empty boxes
   const rows: [string, I.IconC, any][] = [
-    ["customer_phone", I.Phone, d.customer_phone && <span dir="ltr">{d.customer_phone_e164 || d.customer_phone}
+    ["customer_phone", I.Phone, d.customer_phone && <span dir="ltr" className="phone-wa">{d.customer_phone_e164 || d.customer_phone}<WaPhoneIcon e164={d.customer_phone_e164} status={d.customer_phone_status} />
       {d.customer_phone_e164 && d.customer_phone_e164 !== d.customer_phone && <span className="muted"> ({t("ph_original")}: {d.customer_phone})</span>}
       {d.customer_phone_status && d.customer_phone_status !== "valid" && <span className="badge warn" dir="auto"> {t(d.customer_phone_status === "invalid" ? "ph_invalid" : "ph_needs_country")}</span>}</span>],
     ["sales_source", I.TrendingUp, d.source_group || d.sales_source ? <>{d.source_group || d.sales_source}{d.sales_source && d.sales_source !== d.source_group && <span className="muted"> ({t("src_original")}: {d.sales_source})</span>}</> : null],

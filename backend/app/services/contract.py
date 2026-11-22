@@ -14,7 +14,7 @@ finance figure are never part of it, so employees can prepare contracts (Hayah's
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -25,13 +25,14 @@ from app.services.settings_store import get_setting, set_setting
 
 SAVED = "contract.saved"
 SETTING = "contract"
-DEFAULT_SETTINGS = {"hayah_phone": "+447350295849",  # Hayah, 22 Nov 2026
-                    "delivery_days": 90, "invoice_prefix": "HF"}
+DEFAULT_SETTINGS = {"hayah_phone": "+447350295849", "invoice_prefix": "HF"}  # phone: Hayah, 22 Nov 2026
+# The expected delivery date is left empty and typed by hand for each contract (Hayah, 22 Nov 2026):
+# it depends on the project type, so the system never guesses it.
 
 
 def settings(db: Session) -> dict:
     s = {**DEFAULT_SETTINGS, **get_setting(db, SETTING)}
-    s["delivery_days"] = int(s.get("delivery_days") or 90)
+    s.pop("delivery_days", None)
     return s
 
 
@@ -62,32 +63,22 @@ def next_invoice(db: Session, prefix: str, today: date | None = None) -> str:
     return f"{prefix or 'HF'}-{(today or date.today()).year}-{c.value:04d}"
 
 
-def _expected(order: date | None, delivery: date | None, days: int) -> tuple[date, bool]:
-    """Delivery date when the order has one; otherwise order date (or today) + the days in Settings."""
-    if delivery:
-        return delivery, False
-    return (order or date.today()) + timedelta(days=days), True
-
-
 def facts(db: Session, kind: str, rec: Project | Sacrifice) -> dict:
-    days = settings(db)["delivery_days"]
     if kind == "well":
         p: Project = rec  # type: ignore[assignment]
-        exp, guessed = _expected(p.order_date, p.delivery_date, days)
         return {
             "number": p.well_id, "well_type": p.well_type, "extras": p.extras, "owner": p.customer_name,
             "dedication": p.dedication, "amount": jsonable(p.sale_amount), "currency": p.currency or "USD",
             "country": (p.contractor.country if p.contractor else None) or p.country,
-            "order_date": jsonable(p.order_date), "expected_delivery": exp.isoformat(), "delivery_guessed": guessed,
+            "order_date": jsonable(p.order_date),
             "owner_phone": p.customer_phone_e164 or p.customer_phone,
         }
     s: Sacrifice = rec  # type: ignore[assignment]
-    exp, guessed = _expected(s.order_date, s.delivery_date, days)
     return {
         "number": s.sacrifice_no, "animal_type": s.animal_type, "intention": s.intention, "extras": s.extras,
         "owner": s.donor_name, "dedication": s.dedication, "amount": jsonable(s.sale_price), "currency": s.currency or "USD",
         "country": s.contractor.country if s.contractor else None,
-        "order_date": jsonable(s.order_date), "expected_delivery": exp.isoformat(), "delivery_guessed": guessed,
+        "order_date": jsonable(s.order_date),
         "owner_phone": s.customer_phone_e164 or s.customer_phone,
     }
 

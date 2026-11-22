@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/contracts", tags=["contracts"])
 EDITORS = Depends(require_roles(PROJECT_CREATORS))
 # Only text and a few layout choices are kept from the editor (never images, never cost).
 KEYS = {"title", "subtitle", "project_no", "project_type", "owner", "owner_phone", "specs", "amount", "currency",
-        "amount_words", "expected_delivery", "contract_date", "terms", "hayah_phone", "site", "names_font",
+        "amount_words", "expected_delivery", "delivery_note", "contract_date", "terms", "hayah_phone", "site", "names_font",
         "names_size", "show_stamp", "show_terms", "accent"}
 
 
@@ -33,7 +33,6 @@ def _rec(db: Session, kind: str, number: int):
 
 class SettingsIn(BaseModel):
     hayah_phone: str = Field(default="", max_length=40)
-    delivery_days: int = Field(default=90, ge=1, le=720)
     invoice_prefix: str = Field(default="HF", min_length=1, max_length=8, pattern=r"^[A-Za-z0-9]+$")
 
 

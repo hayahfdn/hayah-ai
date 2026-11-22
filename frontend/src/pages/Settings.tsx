@@ -260,11 +260,11 @@ function Audit() {
   </table></div>;
 }
 
-/** «صيغة عقد» settings (managers): HAYAH's phone on every contract, the default delivery period
- *  (order date + days, when the order has no delivery date) and the invoice number prefix. */
+/** «صيغة عقد» settings (managers): HAYAH's phone on every contract
+ *  and the invoice number prefix. The expected delivery date is typed on each contract. */
 function ContractSettings() {
   const { t } = useI18n();
-  const [v, setV] = useState<{ hayah_phone: string; delivery_days: number; invoice_prefix: string } | null>(null);
+  const [v, setV] = useState<{ hayah_phone: string; invoice_prefix: string } | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => { api<any>("/api/contracts/settings").then(setV).catch((e) => toast(e.message)); }, []);
   if (!v) return <p className="muted">{t("loading")}</p>;
@@ -278,7 +278,6 @@ function ContractSettings() {
     <p className="muted">{t("ct_settings_help")}</p>
     <div className="form-grid">
       <Field label={t("ct_f_phone")}><input dir="ltr" value={v.hayah_phone} placeholder="+962 …" onChange={(e) => setV({ ...v, hayah_phone: e.target.value })} /></Field>
-      <Field label={t("ct_days")}><input type="number" min={1} max={720} value={v.delivery_days} onChange={(e) => setV({ ...v, delivery_days: Number(e.target.value) || 90 })} /></Field>
       <Field label={t("ct_prefix")}><input dir="ltr" value={v.invoice_prefix} maxLength={8} onChange={(e) => setV({ ...v, invoice_prefix: e.target.value.replace(/[^A-Za-z0-9]/g, "") })} /></Field>
     </div>
     <p className="muted" style={{ fontSize: 13 }}>{t("ct_prefix_help")} <b dir="ltr">{(v.invoice_prefix || "HF")}-{new Date().getFullYear()}-0001</b></p>

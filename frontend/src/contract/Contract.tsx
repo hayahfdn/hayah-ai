@@ -34,7 +34,7 @@ function Preview({ d, invoice }: { d: ContractDesign; invoice: string | null }) 
 
 const FIELDS: [keyof ContractDesign, string, "text" | "area" | "ltr"][] = [
   ["project_no", "ct_f_no", "ltr"], ["project_type", "ct_f_type", "text"], ["owner", "ct_f_owner", "text"],
-  ["contract_date", "ct_f_date", "text"], ["expected_delivery", "ct_f_delivery", "text"],
+  ["contract_date", "ct_f_date", "text"], ["expected_delivery", "ct_f_delivery", "text"], ["delivery_note", "ct_f_delivery_note", "area"],
   ["amount", "ct_f_amount", "ltr"], ["currency", "ct_f_currency", "ltr"], ["amount_words", "ct_f_words", "text"],
   ["specs", "ct_f_specs", "area"], ["hayah_phone", "ct_f_phone", "ltr"], ["site", "ct_f_site", "ltr"],
   ["title", "ct_f_title", "text"], ["subtitle", "ct_f_subtitle", "text"], ["terms", "ct_f_terms", "area"],
@@ -158,12 +158,12 @@ export default function ContractPage() {
         </div>
         <p className="muted" style={{ marginTop: 6 }}>{t("ct_help")}</p>
         {!d.hayah_phone && <p className="missing">⚠ {t("ct_no_phone")} {can(...MANAGERS) && <Link to="/settings#contract">{t("ct_to_settings")}</Link>}</p>}
-        {data.facts.delivery_guessed && !data.design?.expected_delivery && <p className="missing">⚠ {t("ct_delivery_guess")}</p>}
+        {!d.expected_delivery.trim() && <p className="missing">⚠ {t("ct_delivery_empty")}</p>}
         {!data.facts.amount && <p className="missing">⚠ {t("ct_no_amount")}</p>}
         <div className="cert-form">
           {FIELDS.map(([k, label, type]) => (
             <Field key={k} label={t(label)}>{type === "area"
-              ? <textarea dir="rtl" rows={k === "terms" ? 5 : 4} value={String(d[k] ?? "")} onChange={(e) => set(k, e.target.value)} />
+              ? <textarea dir="rtl" rows={k === "terms" ? 5 : k === "delivery_note" ? 2 : 4} value={String(d[k] ?? "")} onChange={(e) => set(k, e.target.value)} />
               : <input dir={type === "ltr" ? "ltr" : "rtl"} value={String(d[k] ?? "")} onChange={(e) => set(k, e.target.value)} />}</Field>))}
           <Field label={t("ct_f_font")}>
             <select value={d.names_font} onChange={(e) => set("names_font", e.target.value)} style={{ fontFamily: `'${d.names_font}'` }}>

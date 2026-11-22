@@ -9,7 +9,7 @@ export const KW = 1240, KH = 1754;
 
 export interface ContractFacts {
   number: number; owner: string | null; dedication: string | null; amount: string | null; currency: string;
-  country: string | null; order_date: string | null; expected_delivery: string; delivery_guessed: boolean; owner_phone: string | null;
+  country: string | null; order_date: string | null; owner_phone: string | null;
   extras: string | null; well_type?: string | null; animal_type?: string | null; intention?: string | null;
 }
 export interface ContractData {
@@ -18,7 +18,7 @@ export interface ContractData {
 }
 export interface ContractDesign {
   title: string; subtitle: string; project_no: string; project_type: string; owner: string; owner_phone: string;
-  specs: string; amount: string; currency: string; amount_words: string; contract_date: string; expected_delivery: string;
+  specs: string; amount: string; currency: string; amount_words: string; contract_date: string; expected_delivery: string; delivery_note: string;
   terms: string; hayah_phone: string; site: string; names_font: string; names_size: number; show_stamp: boolean; show_terms: boolean;
 }
 
@@ -39,6 +39,9 @@ const TERMS = [
   "التاريخ المتوقع للتسليم تقديري، وقد يتأخر لظروف خارجة عن الإرادة (الطقس، تصاريح الجهات الرسمية، طبيعة الأرض)، مع إبلاغ صاحب المشروع بذلك.",
   "تُعد هذه الوثيقة إثباتاً رسمياً لاستلام المبلغ المذكور أعلاه.",
 ].join("\n");
+
+// Hayah's wording (22 Nov 2026), printed under the expected delivery date.
+export const DELIVERY_NOTE = "قد تزيد مدة التنفيذ حسب الظروف الجوية والأوضاع السياسية في مناطق التنفيذ وهذا التاريخ تقديري بناءاً على مشاريعنا السابقة.";
 
 export function defaultContract(c: ContractData): ContractDesign {
   const f = c.facts;
@@ -67,7 +70,7 @@ export function defaultContract(c: ContractData): ContractDesign {
     title: "عقد تنفيذ مشروع خيري", subtitle: "وفاتورة استلام مبلغ", project_no: String(f.number), project_type: type,
     owner: (f.owner || "").trim() || "فاعل خير", owner_phone: f.owner_phone || "", specs: specs.join("\n"),
     amount: money(f.amount), currency: f.currency || "USD", amount_words: "",
-    contract_date: dateAr(c.issued_at || new Date().toISOString().slice(0, 10)), expected_delivery: dateAr(f.expected_delivery),
+    contract_date: dateAr(c.issued_at || new Date().toISOString().slice(0, 10)), expected_delivery: "", delivery_note: DELIVERY_NOTE,
     terms: TERMS, hayah_phone: c.hayah_phone || "", site: "HayahFoundation.com", names_font: "Cairo", names_size: 100,
     show_stamp: true, show_terms: true,
   };
@@ -163,7 +166,17 @@ export function drawContract(ctx: Ctx, d: ContractDesign, meta: { invoice: strin
   y += 124;
   cell(R - half, half, "تاريخ العقد", d.contract_date);
   cell(L, half, "التاريخ المتوقع للتسليم", d.expected_delivery);
-  y += 180;
+  y += 108;
+  if (d.delivery_note?.trim()) {
+    // the note under the expected delivery date, across the page, small and muted
+    ctx.textAlign = "center"; ctx.fillStyle = MUTED;
+    const note = `* ${d.delivery_note.trim()}`;
+    font(ctx, 600, 21);
+    const nl = wrap(ctx, note, W - 40).slice(0, 3);
+    nl.forEach((l, i) => ctx.fillText(l, KW / 2, y + 34 + i * 32));
+    y += 32 * (nl.length - 1);
+  }
+  y += 92;
 
   // section heading
   const heading = (s: string) => {

@@ -16,7 +16,7 @@ def test_well_contract_invoice_and_settings(client, seeded, mocks, db):
     f = c["facts"]
     assert f["number"] == 1401 and f["owner"] == "أبو محمد" and f["well_type"] == "عميق" and f["extras"] == "خزان, سيراميك"
     assert f["amount"] == "850.00" and f["currency"] == "USD"
-    assert f["expected_delivery"] == "2027-01-30" and f["delivery_guessed"] is True
+    assert "expected_delivery" not in f  # typed by hand on each contract (Hayah's rule)
     assert c["invoice_no"] is None and c["hayah_phone"] == "+447350295849"
     assert "400" not in str(c) and "cost" not in str(c) and "profit" not in str(c)
 
@@ -29,10 +29,10 @@ def test_well_contract_invoice_and_settings(client, seeded, mocks, db):
 
     # only managers set the phone and period; everyone who prepares contracts reads them
     assert client.put("/api/contracts/settings", headers=staff, json={"hayah_phone": "+1"}).status_code == 403
-    ok = client.put("/api/contracts/settings", headers=mgr, json={"hayah_phone": "+962 7 9000 0000", "delivery_days": 60, "invoice_prefix": "HF"})
+    ok = client.put("/api/contracts/settings", headers=mgr, json={"hayah_phone": "+962 7 9000 0000", "invoice_prefix": "HF"})
     assert ok.status_code == 200, ok.text
     c = client.get("/api/contracts/well/1401", headers=staff).json()
-    assert c["hayah_phone"] == "+962 7 9000 0000" and c["facts"]["expected_delivery"] == "2026-12-31"
+    assert c["hayah_phone"] == "+962 7 9000 0000"
 
     # a second well gets the next number
     client.post("/api/projects", headers=staff, json={"well_id": 1402, "well_type": "يدوي"})
@@ -42,7 +42,6 @@ def test_well_contract_invoice_and_settings(client, seeded, mocks, db):
     p.delivery_date = date(2026, 12, 10)
     db.commit()
     c2 = client.get("/api/contracts/well/1402", headers=staff).json()
-    assert c2["facts"]["expected_delivery"] == "2026-12-10" and c2["facts"]["delivery_guessed"] is False
     assert client.put("/api/contracts/well/1402", headers=staff, json={"design": {}}).json()["invoice_no"].endswith("-0002")
 
 

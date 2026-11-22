@@ -2,13 +2,15 @@
 // HAYAH's own certificate (logo, title, project type, donor names in gold, opening month and year,
 // well number and country boxes, closing prayer, stamp, website). Drawn on a canvas, rule-based.
 import { ensureFont, cssFamily } from "../plaque/fonts";
-import { flagArabic, flagFor, iconFor, IconKey, loadImage } from "../plaque/render";
+import { drawSimplePump, flagArabic, flagFor, iconFor, IconKey, loadImage } from "../plaque/render";
+import { weightFor } from "../plaque/fonts";
 
 export const CW = 1080, CH = 1640;
 
 export interface CertDesign {
   title: string; intro: string; project_type: string; sadaqa_line: string;
   names: string; names_size: number;           // percent of the default size
+  names_font?: string;                         // font of the names (Cairo when not chosen)
   opened_prefix: string; month: string; year: string;
   number_label: string; number: string; country_label: string; country: string;
   dua: string; site: string; icon: IconKey | "pump" | "none"; show_stamp: boolean;
@@ -32,6 +34,7 @@ const f = (w: number, px: number, fam = FONT) => `${w} ${px}px ${cssFamily(fam)}
 export interface CertAssets { logo: HTMLImageElement | null; stamp: HTMLImageElement | null; icon: HTMLImageElement | null }
 export async function loadCertAssets(d: CertDesign): Promise<CertAssets> {
   await Promise.all([[400], [600], [700], [800], [900]].map(([w]) => ensureFont(FONT, w)));
+  if (d.names_font && d.names_font !== FONT) await ensureFont(d.names_font, weightFor(d.names_font, true));
   const [logo, stamp, icon] = await Promise.all([loadImage("/hayah-logo.png"), loadImage("/certificate-stamp.png"),
     d.icon === "none" || d.icon === "pump" ? null : loadImage(`/wells/${d.icon}.png`)]);
   return { logo, stamp, icon };
@@ -62,16 +65,7 @@ function star(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) 
   ctx.beginPath(); ctx.arc(cx, cy, r * 0.32, 0, Math.PI * 2); ctx.stroke();
 }
 /** A simple blue hand pump, like the one on HAYAH's certificate. */
-function pump(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
-  ctx.save(); ctx.translate(cx, cy); ctx.fillStyle = BLUE; ctx.strokeStyle = BLUE; ctx.lineCap = "round";
-  rounded(ctx, -14, -38, 28, 92, 6); ctx.fill();                       // body
-  ctx.fillRect(-24, 50, 48, 10);                                        // base
-  ctx.beginPath(); ctx.arc(0, -42, 13, 0, Math.PI * 2); ctx.fill();      // cap
-  ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(-12, -20); ctx.lineTo(-34, -16); ctx.lineTo(-38, -4); ctx.stroke(); // spout
-  ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(10, -42); ctx.quadraticCurveTo(34, -40, 36, -10); ctx.quadraticCurveTo(38, 14, 26, 24); ctx.stroke(); // handle
-  ctx.beginPath(); ctx.arc(26, 28, 6, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
-}
+const pump = (ctx: CanvasRenderingContext2D, cx: number, cy: number) => drawSimplePump(ctx, cx, cy, 1, BLUE);
 function pin(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number) {
   ctx.save(); ctx.translate(cx, cy); ctx.scale(s / 100, s / 100);
   ctx.fillStyle = BLUE; ctx.strokeStyle = BLUE; ctx.lineWidth = 6;
@@ -121,7 +115,12 @@ export function drawCertificate(ctx: CanvasRenderingContext2D, d: CertDesign, a:
   const k = (d.names_size || 100) / 100;
   const base = (lines.length <= 2 ? 86 : lines.length === 3 ? 66 : 54) * k;
   const lh = base * 1.22, top = 905 - (lines.length > 2 ? 20 : 0);
-  lines.forEach((l, i) => text(ctx, l, cx, top + i * lh, 800, base, GOLD, 880));
+  const nf = d.names_font || FONT, nw = nf === FONT ? 800 : weightFor(nf, true);
+  lines.forEach((l, i) => {
+    let px = base;
+    for (; px > 18; px -= 2) { ctx.font = f(nw, px, nf); if (ctx.measureText(l).width <= 880) break; }
+    ctx.font = f(nw, px, nf); ctx.fillStyle = GOLD; ctx.fillText(l, cx, top + i * lh);
+  });
   const lastY = top + Math.max(0, lines.length - 1) * lh + 22;
   ctx.fillStyle = GOLD; for (let x = 140; x <= CW - 140; x += 9) { ctx.beginPath(); ctx.arc(x, Math.min(lastY, 1040), 1.8, 0, Math.PI * 2); ctx.fill(); }
   // opening

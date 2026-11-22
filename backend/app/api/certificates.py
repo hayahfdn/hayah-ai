@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/certificates", tags=["certificates"])
 EDITORS = Depends(require_roles(PROJECT_CREATORS))
 # Only these keys are kept from the editor (text and a few layout choices; never images).
 KEYS = {"title", "intro", "project_type", "sadaqa_line", "names", "names_size", "opened_prefix", "month", "year",
-        "number_label", "number", "country_label", "country", "dua", "site", "icon", "show_stamp"}
+        "number_label", "number", "country_label", "country", "dua", "site", "icon", "show_stamp", "names_font"}
 
 
 def _well(db: Session, number: int) -> Project:

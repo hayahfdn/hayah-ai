@@ -1007,3 +1007,17 @@ a.btn { text-decoration: none; }
   .tk-owners-grid { grid-template-columns: 1fr; }
   .tk-who { margin-inline-start: 0; }
 }
+
+/* More flags on the plaque (22 Nov 2026) */
+.flags-more .flag-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.flag-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 8px; border: 1px solid var(--line, #d6e2ef); border-radius: 999px; font-size: 13px; background: var(--card, #fff); }
+.flag-chip img { width: 24px; height: 16px; object-fit: cover; border: 1px solid #ddd; border-radius: 2px; }
+.flag-chip .x { min-height: 0; padding: 0 6px; line-height: 20px; border-radius: 999px; font-size: 11px; }
+.flags-more select.add-flag { width: auto; min-width: 140px; }
+/* Simple pump tile in the icon picker */
+.icon-picks button svg { display: block; margin: 0 auto; height: 52px; }
+/* Contract */
+.contract-canvas { width: 100%; aspect-ratio: 1240 / 1754; display: block; border-radius: 6px; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+.contract-editor .pl-actbar { margin-top: 10px; }
+.ct-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.designer-tabs { flex-wrap: wrap; }

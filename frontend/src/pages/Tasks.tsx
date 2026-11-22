@@ -144,7 +144,7 @@ function TaskCardView({ c, no, stage, onChange }: { c: TaskCard; no: number; sta
         {c.stage === "approval" && <ApprovalAction c={c} onChange={onChange} />}
         {c.stage === "contractor" && <ContractorAction c={c} onChange={onChange} />}
         {c.stage === "review" && <ReviewAction c={c} onChange={onChange} />}
-        {c.stage === "certificate" && <div className="tk-row"><Link className="btn primary tk-go" to={`/certificate/${c.well_id}`}><I.Award size={16} /> {t("tk_open_cert")}</Link><span className="muted">{t("tk_cert_help")}</span></div>}
+        {c.stage === "certificate" && <div className="tk-row"><Link className="btn primary tk-go" to={`/plaque/certificate/${c.well_id}`}><I.Award size={16} /> {t("tk_open_cert")}</Link><span className="muted">{t("tk_cert_help")}</span></div>}
         {c.stage === "delivery" && <DeliveryAction c={c} onChange={onChange} />}
         {c.stage === "close" && <CloseAction c={c} onChange={onChange} />}
       </div>

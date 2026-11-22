@@ -17,9 +17,9 @@ export default function Settings() {
   const { t } = useI18n();
   const { can } = useAuth();
   const admin = can("super_admin");
-  const [tab, setTab] = useState("integrations");
+  const [tab, setTab] = useState(() => (window.location.hash === "#contract" ? "ct_settings" : "integrations"));
   const manager = can("super_admin", "operations_manager");
-  const tabs = ["integrations", "shopify_tab", ...(manager ? ["src_tab", "ren_tab", "wise_tab", "od_tab"] : []), "sync_conflicts", "ai_settings", "undo_tab", ...(admin ? ["was_tab", "users", "imp_tab"] : []), "jobs", "audit_log"];
+  const tabs = ["integrations", "shopify_tab", ...(manager ? ["ct_settings", "src_tab", "ren_tab", "wise_tab", "od_tab"] : []), "sync_conflicts", "ai_settings", "undo_tab", ...(admin ? ["was_tab", "users", "imp_tab"] : []), "jobs", "audit_log"];
   return (
     <>
       <div className="topbar"><h1>{t("nav_settings")}</h1></div>
@@ -31,6 +31,7 @@ export default function Settings() {
       {tab === "ren_tab" && <RenumberSacrifices />}
       {tab === "od_tab" && <OldDelivered />}
       {tab === "wise_tab" && <WiseSettings />}
+      {tab === "ct_settings" && <ContractSettings />}
       {tab === "sync_conflicts" && <Conflicts />}
       {tab === "ai_settings" && <AISettings admin={admin} />}
       {tab === "users" && <Users />}
@@ -257,4 +258,29 @@ function Audit() {
     <tbody>{data?.map((a) => <tr key={a.id}><td className="mono">{new Date(a.at).toLocaleString()}</td><td>{a.actor}</td><td>{a.action}</td>
       <td className="wrap mono" style={{ fontSize: 12 }}>{a.entity_type}:{a.entity_id} {a.after ? JSON.stringify(a.after).slice(0, 160) : ""}</td></tr>)}</tbody>
   </table></div>;
+}
+
+/** «صيغة عقد» settings (managers): HAYAH's phone on every contract
+ *  and the invoice number prefix. The expected delivery date is typed on each contract. */
+function ContractSettings() {
+  const { t } = useI18n();
+  const [v, setV] = useState<{ hayah_phone: string; invoice_prefix: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { api<any>("/api/contracts/settings").then(setV).catch((e) => toast(e.message)); }, []);
+  if (!v) return <p className="muted">{t("loading")}</p>;
+  const save = async () => {
+    setBusy(true);
+    try { setV(await api<any>("/api/contracts/settings", { method: "PUT", body: v })); toast(t("saved")); }
+    catch (e: any) { toast(e.message); } finally { setBusy(false); }
+  };
+  return <div className="card" id="contract">
+    <h2>📄 {t("ct_title")}</h2>
+    <p className="muted">{t("ct_settings_help")}</p>
+    <div className="form-grid">
+      <Field label={t("ct_f_phone")}><input dir="ltr" value={v.hayah_phone} placeholder="+962 …" onChange={(e) => setV({ ...v, hayah_phone: e.target.value })} /></Field>
+      <Field label={t("ct_prefix")}><input dir="ltr" value={v.invoice_prefix} maxLength={8} onChange={(e) => setV({ ...v, invoice_prefix: e.target.value.replace(/[^A-Za-z0-9]/g, "") })} /></Field>
+    </div>
+    <p className="muted" style={{ fontSize: 13 }}>{t("ct_prefix_help")} <b dir="ltr">{(v.invoice_prefix || "HF")}-{new Date().getFullYear()}-0001</b></p>
+    <div className="actions"><button className="primary" disabled={busy} onClick={save}>{t("save")}</button></div>
+  </div>;
 }

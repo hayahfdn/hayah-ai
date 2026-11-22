@@ -13,7 +13,7 @@ import { Modal, toast, useApi } from "../ui";
 import PlaquePreview from "../plaque/Preview";
 import { usePlaqueImage } from "../plaque/PlaqueBadge";
 import { isPhoneDevice, PlaqueRow, PlaqueStatusBadge, PlaqueWhatsApp, plaqueFile, plaqueWaWhy, waLink, waProblem, WaIcon } from "../plaque/flow";
-import { CertificatePreview, CertificateSend, certificatePngFor, saveBlob, useCertificate } from "../certificate/Certificate";
+import { CertificatePhotos, CertificatePreview, CertificateSend, certificatePngFor, saveBlob, useCertificate } from "../certificate/Certificate";
 import { FinalVideoSection, useFinalVideo, VideoBadge } from "./FinalVideos";
 
 type BtnProps = { icon: I.IconC; label: string; onClick?: () => void; to?: string; href?: string; download?: string;
@@ -120,11 +120,12 @@ function CertificateTile({ p }: { p: Project }) {
         : <span className="badge info">{t("tile_ready")}</span>}
       thumb={c.design ? <CertificatePreview d={c.design} className="cert-thumb" /> : <div className="dtile-empty">{c.error || "…"}</div>}
       buttons={<>
-        <TileBtn icon={I.Pencil} label={t("tile_edit")} to={`/certificate/${p.well_id}`} title={t("cert_edit")} />
+        <TileBtn icon={I.Pencil} label={t("tile_edit")} to={`/plaque/certificate/${p.well_id}`} title={t("cert_edit")} />
         {c.data && c.design ? <CertificateSend data={c.data} design={c.design} onSent={c.setData} tile />
           : <button type="button" className="tile-btn wa" disabled><WaIcon /><span>{t("tile_wa")}</span></button>}
         <TileBtn icon={I.Download} label={t("tile_download")} disabled={!c.design} title={t("cert_download")}
           onClick={async () => c.design && saveBlob(await certificatePngFor(c.design), `certificate-${p.well_id}.png`)} />
+        {c.design && <CertificatePhotos design={c.design} no={p.well_id} tile />}
       </>}
       foot={c.data?.defaults.date_guessed && !c.data?.design?.month ? <span className="tile-why" title={t("cert_date_guess")}>⚠ {t("tile_cert_date")}</span>
         : c.data && !c.data.video.media_id ? <span className="muted tile-note">{t("tile_cert_no_video")}</span> : null} />);

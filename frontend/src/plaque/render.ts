@@ -14,7 +14,7 @@ export const GRID = 1080;
 export type DuaKind = "living_m" | "living_f" | "living_group" | "dead_m" | "dead_f" | "dead_group" | "anon_m" | "anon_f"
   | "neutral" | "dead_neutral" | "aqiqa_boy" | "aqiqa_girl";
 export type Align = "center" | "right" | "left";
-export type IconKey = "hand_pump" | "hand_tank" | "one_tank_taps" | "two_tanks_taps" | "one_tank_wall" | "two_tanks_wall" | "solar";
+export type IconKey = "pump" | "hand_pump" | "hand_tank" | "one_tank_taps" | "two_tanks_taps" | "one_tank_wall" | "two_tanks_wall" | "solar";
 export type Occasion = "sadaqa" | "aqiqa_boy" | "aqiqa_girl" | "itam_sadaqa" | "itam_aqiqa";
 
 interface Common {
@@ -27,6 +27,8 @@ interface Common {
   dua: string;
   flag: string;          // flag code from FLAGS, "custom" or "" for none
   flag_custom?: string;  // data: URL when flag === "custom"
+  // More flags beside the first one (Hayah, 22 Nov 2026), codes from FLAGS; up to MAX_EXTRA_FLAGS.
+  flags_extra?: string[];
   footer_site: string;
   footer_org: string;
   name_color: string;
@@ -59,7 +61,7 @@ export interface WellDesign extends Common {
   template: "hayah_square";
   well_id: string;
   well_type: string;
-  icon: IconKey | "custom" | "none" | "well";  // "well" = older saves, same as hand_pump
+  icon: IconKey | "custom" | "none" | "well";  // "well" = older saves, same as hand_pump; "pump" = simple drawn pump
   icon_custom?: string;
   icon_side?: "left" | "right";
   bismillah: string;
@@ -133,6 +135,13 @@ export const FLAGS: Flag[] = [
   F("ml", "مالي", "Mali"), F("mw", "مالاوي", "Malawi"), F("ne", "النيجر", "Niger"), F("ng", "نيجيريا", "Nigeria"),
 ];
 export const MAIN_FLAG_COUNT = 5;
+export const MAX_EXTRA_FLAGS = 3;
+/** Every flag on the plaque, the first one then the extra ones (no duplicates, no empties). */
+export function allFlags(d: { flag: string; flags_extra?: string[] }): string[] {
+  const out: string[] = [];
+  for (const c of [d.flag, ...(d.flags_extra || [])]) if (c && !out.includes(c)) out.push(c);
+  return out;
+}
 export const ARAB_FLAG_END = 27;
 
 export function flagFor(country: string | null | undefined): string {
@@ -400,7 +409,8 @@ export function loadFonts(d?: Design): Promise<void> {
   return Promise.all(need.map(([f, w]) => ensureFont(f, w))).then(() => undefined);
 }
 
-export interface Assets { logo: HTMLImageElement | null; flag: HTMLImageElement | null; icon: HTMLImageElement | null; image?: HTMLImageElement | null; }
+export interface Assets { logo: HTMLImageElement | null; flag: HTMLImageElement | null; icon: HTMLImageElement | null; image?: HTMLImageElement | null;
+  more?: HTMLImageElement[] }  // the extra flags
 export interface LibraryImage { id: string; name: string; src: string; builtin: boolean }
 let libCache: Promise<LibraryImage[]> | null = null;
 /** The approved image library (built-in solar well + images people uploaded). Read once per page. */
@@ -418,17 +428,18 @@ export async function imageSrc(ref: string): Promise<string | null> {
 export async function loadAssets(d: Design): Promise<Assets> {
   await loadFonts(d);
   const flagSrc = d.flag === "custom" ? d.flag_custom : d.flag ? `/flags/${d.flag}.svg` : undefined;
+  const extra = (d.flags_extra || []).filter((c) => c && c !== d.flag && c !== "custom").slice(0, MAX_EXTRA_FLAGS);
   let iconSrc: string | undefined;
   if (d.template === "hayah_square") {
     const ic = d.icon === "well" ? "hand_pump" : d.icon;
-    iconSrc = ic === "custom" ? d.icon_custom : ic === "none" ? undefined : `/wells/${ic}.png`;
+    iconSrc = ic === "custom" ? d.icon_custom : ic === "none" || ic === "pump" ? undefined : `/wells/${ic}.png`;
   }
   const imgSrc = d.image?.ref ? await imageSrc(d.image.ref) : null;
-  const [logo, flag, icon, image] = await Promise.all([
+  const [logo, flag, icon, image, ...more] = await Promise.all([
     loadImage("/hayah-logo.png"), flagSrc ? loadImage(flagSrc) : null, iconSrc ? loadImage(iconSrc) : null,
-    imgSrc ? loadImage(imgSrc) : null,
+    imgSrc ? loadImage(imgSrc) : null, ...extra.map((c) => loadImage(`/flags/${c}.svg`)),
   ]);
-  return { logo, flag, icon, image };
+  return { logo, flag, icon, image, more: more.filter(Boolean) as HTMLImageElement[] };
 }
 
 // ---------------------------------------------------------------- drawing helpers
@@ -519,6 +530,29 @@ function drawFlag(ctx: Ctx, im: HTMLImageElement, x: number, y: number, w: numbe
   return f;
 }
 
+/** Several flags stacked one under another in the top corner, each shrinking with the count
+ * (Hayah's samples, 22 Nov 2026: 2 flags = half height each, 3 flags = a third). Flags keep their shape. */
+function drawFlagGroup(ctx: Ctx, ims: HTMLImageElement[], x: number, y: number, w: number, h: number, gap: number, align: "center" | "end") {
+  const n = ims.length, slot = (h - gap * (n - 1)) / n;
+  ims.forEach((im, i) => drawFlag(ctx, im, x, y + i * (slot + gap), w, slot, align));
+}
+
+/** A simple hand pump drawn with lines (the one on HAYAH's certificate), centred on cx, cy; s = scale. */
+export function drawSimplePump(ctx: Ctx, cx: number, cy: number, s = 1, color = "#3a7cc0") {
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s); ctx.fillStyle = color; ctx.strokeStyle = color; ctx.lineCap = "round";
+  const r = (x: number, y: number, w: number, h: number, rr: number) => {
+    ctx.beginPath(); ctx.moveTo(x + rr, y); ctx.arcTo(x + w, y, x + w, y + h, rr); ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr); ctx.arcTo(x, y, x + w, y, rr); ctx.closePath(); ctx.fill();
+  };
+  r(-14, -38, 28, 92, 6);                                                  // body
+  ctx.fillRect(-24, 50, 48, 10);                                           // base
+  ctx.beginPath(); ctx.arc(0, -42, 13, 0, Math.PI * 2); ctx.fill();        // cap
+  ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(-12, -20); ctx.lineTo(-34, -16); ctx.lineTo(-38, -4); ctx.stroke(); // spout
+  ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(10, -42); ctx.quadraticCurveTo(34, -40, 36, -10); ctx.quadraticCurveTo(38, 14, 26, 24); ctx.stroke(); // handle
+  ctx.beginPath(); ctx.arc(26, 28, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
 export function drawPlaque(ctx: Ctx, d: Design, a: Assets, scale: number) {
   ctx.save();
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
@@ -550,7 +584,9 @@ function drawWell(ctx: Ctx, d: WellDesign, a: Assets) {
 
   // Header: logo (left), flag (right), Bismillah and verse (centre)
   if (a.logo) drawContain(ctx, a.logo, 30, 16, 200, 225, "center");
-  if (a.flag) drawFlag(ctx, a.flag, 860, 70, 190, 136, "end");
+  const wf = [a.flag, ...(a.more || [])].filter(Boolean) as HTMLImageElement[];
+  if (wf.length === 1) drawFlag(ctx, wf[0], 860, 70, 190, 136, "end");
+  else if (wf.length > 1) drawFlagGroup(ctx, wf, 870, 16, 190, 228, 8, "end");
   const cx = 545, headW = 590;
   rtl(ctx); ctx.textAlign = "center";
   ctx.fillStyle = INK; fit(ctx, d.bismillah, 800, 46, "Cairo", headW); ctx.fillText(d.bismillah, cx, 112);
@@ -613,10 +649,12 @@ function drawWell(ctx: Ctx, d: WellDesign, a: Assets) {
 
   // Well icon (left or right) and the short prayer beside it
   const right = d.icon_side === "right";
+  const simple = d.icon === "pump";
   if (a.icon) drawContain(ctx, a.icon, right ? G - 22 - 300 : 22, 478, 300, 190, right ? "end" : "start");
+  else if (simple) drawSimplePump(ctx, right ? G - 22 - 95 : 22 + 95, 568, 1.55, INK);
   ctx.fillStyle = INK;
   const sdLines = typedLines(d.short_dua);
-  const sdX = G / 2 + (a.icon ? (right ? -40 : 30) : 0);
+  const sdX = G / 2 + (a.icon || simple ? (right ? -40 : 30) : 0);
   if (sdLines.length > 1) {  // typed on several lines: smaller, stacked around the same centre
     let sz = 66;
     for (; sz > 24; sz -= 2) { font(ctx, 900, sz, "Cairo"); if (sdLines.every((l) => ctx.measureText(l).width <= 520) && sdLines.length * sz * 1.2 <= 150) break; }
@@ -655,7 +693,9 @@ function drawSacrifice(ctx: Ctx, d: SacrificeDesign, a: Assets) {
 
   // Logo (left), flag and country name (right)
   if (a.logo) drawContain(ctx, a.logo, 45, 30, 200, 270, "center");
-  if (a.flag) drawFlag(ctx, a.flag, 785, 70, 210, 136, "center");
+  const sf = [a.flag, ...(a.more || [])].filter(Boolean) as HTMLImageElement[];
+  if (sf.length === 1) drawFlag(ctx, sf[0], 785, 70, 210, 136, "center");
+  else if (sf.length > 1) drawFlagGroup(ctx, sf, 785, 26, 210, 220, 8, "center");
   rtl(ctx); ctx.textAlign = "center";
   if (d.country_label) {
     ctx.fillStyle = "#1a6fe0"; fit(ctx, d.country_label, 900, 68, "Cairo", 230, 30);
@@ -776,7 +816,12 @@ export async function exportPdf(d: Design): Promise<Blob> {
   const [gw, gh] = GRIDS[d.template];
   const mmW = s.mm ?? 200, mmH = (mmW * gh) / gw;
   const pxW = s.mm ? s.widthPx : 2362, pxH = Math.round((pxW * gh) / gw);
-  const c = await renderCanvas(d, pxW, pxH);
+  return canvasPdf(await renderCanvas(d, pxW, pxH), mmW, mmH);
+}
+
+/** Any canvas as a one-page PDF of mmW × mmH (used by the plaques and the contract). */
+export async function canvasPdf(c: HTMLCanvasElement, mmW: number, mmH: number): Promise<Blob> {
+  const pxW = c.width, pxH = c.height;
   const jpg = new Uint8Array(await (await toBlob(c, "image/jpeg", 0.95)).arrayBuffer());
   const ptW = ((mmW / 25.4) * 72).toFixed(2), ptH = ((mmH / 25.4) * 72).toFixed(2);
   const enc = new TextEncoder();

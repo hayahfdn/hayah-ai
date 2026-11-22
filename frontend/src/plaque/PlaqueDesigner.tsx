@@ -10,8 +10,9 @@ import {
   ANIMALS, applyOccasion, ARAB_FLAG_END, defaultDesign, defaultSacrificeDesign, Design, drawPlaque, DuaKind, duaText,
   exportPdf, exportPng, fileToSmallDataUrl, flagArabic, FLAGS, GRIDS, IconKey, loadAssets, MAIN_FLAG_COUNT, Occasion,
   OCCASIONS, SACRIFICE_DUA_KINDS, SacrificeDesign, sizeLabel, SIZES, SizeKey, WELL_DUA_KINDS, WELL_ICONS, WELL_TYPES, WellDesign,
-  DUAS, Align, textStyle, Assets, imageBox, imageLibrary, LibraryImage,
+  DUAS, Align, textStyle, Assets, imageBox, imageLibrary, LibraryImage, allFlags, MAX_EXTRA_FLAGS,
 } from "./render";
+import DesignerTabs, { PumpGlyph } from "./DesignerTabs";
 import { FONTS } from "./fonts";
 import * as I from "../icons";
 import { MissingList, PlaqueActions, PlaqueRow, PlaqueStatusBadge, PlaqueWhatsApp } from "./flow";
@@ -144,8 +145,15 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
     const short = x.template === "sacrifice_portrait" && (x as SacrificeDesign).occasion !== "sadaqa" ? x.short_dua : dt.short;
     return { ...x, dua_kind: k, dua_sure: true, short_dua: short, dua: dt.long } as Design;
   });
-  const setFlag = (code: string) => setD((x) => x.template === "sacrifice_portrait"
-    ? { ...x, flag: code, country_label: code === "custom" ? x.country_label : flagArabic(code) } : { ...x, flag: code });
+  // The country name under the sacrifice flags follows the flags (all of them, joined with «و»).
+  const withLabel = (x: Design): Design => {
+    if (x.template !== "sacrifice_portrait" || x.flag === "custom") return x;
+    return { ...x, country_label: allFlags(x).map(flagArabic).filter(Boolean).join(" و ") };
+  };
+  const setFlag = (code: string) => setD((x) => withLabel({ ...x, flag: code, flags_extra: (x.flags_extra || []).filter((c) => c !== code) } as Design));
+  const addFlag = (code: string) => setD((x) => (code && !allFlags(x).includes(code)
+    ? withLabel({ ...x, flags_extra: [...(x.flags_extra || []), code].slice(0, MAX_EXTRA_FLAGS) } as Design) : x));
+  const dropFlag = (code: string) => setD((x) => withLabel({ ...x, flags_extra: (x.flags_extra || []).filter((c) => c !== code) } as Design));
   const upload = async (f: File | undefined, which: "flag" | "icon") => {
     if (!f) return;
     try {
@@ -221,16 +229,32 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
   const input = (k: string, v: string, dir: "rtl" | "ltr" = "rtl", list?: string) =>
     <input dir={dir} value={v} list={list} onChange={(e) => set(k, e.target.value)} />;
 
+  const flagOptions = (skip: string[]) => <>
+    <optgroup label={t("pl_flags_main")}>{FLAGS.slice(0, MAIN_FLAG_COUNT).filter((f) => !skip.includes(f.code)).map((f) => <option key={f.code} value={f.code}>{f.ar} · {f.en}</option>)}</optgroup>
+    <optgroup label={t("pl_flags_arab")}>{FLAGS.slice(MAIN_FLAG_COUNT, ARAB_FLAG_END).filter((f) => !skip.includes(f.code)).map((f) => <option key={f.code} value={f.code}>{f.ar} · {f.en}</option>)}</optgroup>
+    <optgroup label={t("pl_flags_other")}>{FLAGS.slice(ARAB_FLAG_END).filter((f) => !skip.includes(f.code)).map((f) => <option key={f.code} value={f.code}>{f.ar} · {f.en}</option>)}</optgroup>
+  </>;
+  const extra = (d.flags_extra || []).filter((c) => c && c !== d.flag);
   const flagSelect = (
-    <Field label={t("pl_flag")}>
-      <select value={d.flag} onChange={(e) => setFlag(e.target.value)}>
-        <option value="">{t("pl_none")}</option>
-        <optgroup label={t("pl_flags_main")}>{FLAGS.slice(0, MAIN_FLAG_COUNT).map((f) => <option key={f.code} value={f.code}>{f.ar} · {f.en}</option>)}</optgroup>
-        <optgroup label={t("pl_flags_arab")}>{FLAGS.slice(MAIN_FLAG_COUNT, ARAB_FLAG_END).map((f) => <option key={f.code} value={f.code}>{f.ar} · {f.en}</option>)}</optgroup>
-        <optgroup label={t("pl_flags_other")}>{FLAGS.slice(ARAB_FLAG_END).map((f) => <option key={f.code} value={f.code}>{f.ar} · {f.en}</option>)}</optgroup>
-        {d.flag_custom && <option value="custom">{t("pl_uploaded")}</option>}
-      </select>
-    </Field>
+    <>
+      <Field label={t("pl_flag")}>
+        <select value={d.flag} onChange={(e) => setFlag(e.target.value)}>
+          <option value="">{t("pl_none")}</option>
+          {flagOptions([])}
+          {d.flag_custom && <option value="custom">{t("pl_uploaded")}</option>}
+        </select>
+      </Field>
+      {d.flag && <div className="field flags-more"><label>{t("pl_flags_more")}</label>
+        <div className="flag-chips">
+          {extra.map((c) => <span key={c} className="flag-chip"><img src={`/flags/${c}.svg`} alt="" />{flagArabic(c)}
+            <button type="button" className="x" onClick={() => dropFlag(c)} aria-label={`${t("pl_flag_remove")} ${flagArabic(c)}`} title={t("pl_flag_remove")}>✕</button></span>)}
+          {extra.length < MAX_EXTRA_FLAGS && <select className="add-flag" value="" onChange={(e) => addFlag(e.target.value)} aria-label={t("pl_flag_add")}>
+            <option value="">＋ {t("pl_flag_add")}</option>
+            {flagOptions(allFlags(d))}
+          </select>}
+        </div>
+      </div>}
+    </>
   );
   const duaSelect = (kinds: DuaKind[]) => (
     <Field label={t("pl_dua_kind")}>
@@ -252,10 +276,7 @@ export default function PlaqueDesigner({ kind = "well" }: { kind?: Kind }) {
           <button>{t("pl_open")}</button>
         </form>
       </div>
-      <div className="tabs">
-        <button type="button" className={kind === "well" ? "on" : ""} onClick={() => nav("/plaque")}>{t("pl_tab_well")}</button>
-        <button type="button" className={kind === "sacrifice" ? "on" : ""} onClick={() => nav("/plaque/sacrifice")}>{t("pl_tab_sac")}</button>
-      </div>
+      <DesignerTabs on={kind} wellId={kind === "well" ? id : undefined} sacNo={kind === "sacrifice" ? id : undefined} />
       <ErrorBox error={error} />
       {!id && <p className="muted">{kind === "well" ? t("pl_no_well") : t("pl_no_sac")}</p>}
       {id && kind === "well" && record && <OrderBox p={record} />}
@@ -435,6 +456,8 @@ function WellIcons({ d, set, upload, L }: { d: WellDesign; set: (k: string, v: a
         <UploadBtn label={t("pl_icon_upload")} onFile={(f) => upload(f, "icon")} />
       </div>
       <div className="icon-picks compact">
+        <button type="button" className={icon === "pump" ? "on" : ""} onClick={() => set("icon", "pump")} title={t("pl_icon_simple")}>
+          <PumpGlyph /><span>{t("pl_icon_simple")}</span></button>
         {WELL_ICONS.map((w) => (
           <button type="button" key={w.key} className={icon === w.key ? "on" : ""} onClick={() => set("icon", w.key as IconKey)} title={L(w)}>
             <img src={`/wells/${w.key}.png`} alt="" /><span>{L(w)}</span>

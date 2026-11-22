@@ -12,6 +12,7 @@ const PromptBar = lazy(() => import("./book/PromptBar"));
 const HelpChat = lazy(() => import("./HelpChat"));
 const PlaqueDesigner = lazy(() => import("./plaque/PlaqueDesigner"));
 const CertificatePage = lazy(() => import("./certificate/Certificate"));
+const ContractPage = lazy(() => import("./contract/Contract"));
 const PlaqueLists = lazy(() => import("./pages/PlaqueLists"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const Inbox = lazy(() => import("./pages/Inbox"));
@@ -174,6 +175,10 @@ export default function App() {
             <Route path="/sacrifices/:month" element={<MonthSacrifices />} />
             <Route path="/contractor/:code" element={<ContractorWells />} />
             <Route path="/plaque" element={<Suspense fallback={null}><PlaqueDesigner key="well" /></Suspense>} />
+            <Route path="/plaque/certificate" element={<Suspense fallback={null}><CertificatePage key="c0" /></Suspense>} />
+            <Route path="/plaque/certificate/:wellId" element={<Suspense fallback={null}><CertificatePage key="c1" /></Suspense>} />
+            <Route path="/plaque/contract" element={<Suspense fallback={null}><ContractPage key="k0" /></Suspense>} />
+            <Route path="/plaque/contract/:kind/:no" element={<Suspense fallback={null}><ContractPage key="k1" /></Suspense>} />
             <Route path="/plaque/sacrifice" element={<Suspense fallback={null}><PlaqueDesigner kind="sacrifice" key="sac" /></Suspense>} />
             <Route path="/plaque/sacrifice/:no" element={<Suspense fallback={null}><PlaqueDesigner kind="sacrifice" key="sac" /></Suspense>} />
             <Route path="/plaque/:wellId" element={<Suspense fallback={null}><PlaqueDesigner key="well" /></Suspense>} />

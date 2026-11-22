@@ -3,13 +3,17 @@
 // Nothing is sent automatically: the person's own WhatsApp sends it (share sheet on a phone,
 // WhatsApp Web + downloaded files on a computer). No unofficial automation.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, Project } from "../api";
 import { EDITORS, useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { ErrorBox, Field, toast } from "../ui";
 import { isPhoneDevice, waLink, waProblem, WaIcon } from "../plaque/flow";
 import { WELL_ICONS } from "../plaque/render";
+import { FONTS } from "../plaque/fonts";
+import DesignerTabs from "../plaque/DesignerTabs";
+import { saveToPhotos } from "../plaque/photos";
+import * as I from "../icons";
 import { CertDefaults, CertDesign, CH, CW, certificatePng, defaultCert, drawCertificate, loadCertAssets } from "./render";
 
 export interface CertData {
@@ -130,6 +134,32 @@ export function CertificateSend({ data, design, onSent, compact, tile }: { data:
     </span>);
 }
 
+/** «حفظ في معرض الصور»: the certificate image straight into the phone's photos (download on a computer).
+ *  The PNG is made in advance, so the phone's share sheet opens straight from the tap. */
+export function CertificatePhotos({ design, no, className = "sm", tile }: { design: CertDesign; no: number | string; className?: string; tile?: boolean }) {
+  const { t } = useI18n();
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setFile(null);
+    const h = window.setTimeout(() => certificatePng(design, 2).then((b) => setFile(new File([b], `certificate-${no}.png`, { type: "image/png" }))).catch(() => {}), 500);
+    return () => window.clearTimeout(h);
+  }, [design, no]);
+  const go = async () => {
+    setBusy(true);
+    try {
+      const f = file || new File([await certificatePng(design, 2)], `certificate-${no}.png`, { type: "image/png" });
+      const r = await saveToPhotos(f);
+      if (r === "shared") toast(t("pl_photos_shared"));
+      else if (r === "downloaded") toast(t("pl_photos_downloaded"));
+      else if (r === "tap_again") { setFile(f); toast(t("cert_tap_again")); }
+    } catch (e: any) { toast(e.message); } finally { setBusy(false); }
+  };
+  if (tile) return <button type="button" className="tile-btn" onClick={go} disabled={busy} title={t("pl_save_photos")} aria-label={t("pl_save_photos")}>
+    <I.Images size={19} strokeWidth={2} aria-hidden="true" /><span>{busy ? "…" : t("tile_photos")}</span></button>;
+  return <button type="button" className={className} onClick={go} disabled={busy} title={t("pl_save_photos")}><I.Images size={16} aria-hidden="true" /> {busy ? t("pl_saving_photos") : t("pl_save_photos")}</button>;
+}
+
 /** The certificate on the project page: preview, edit, download, send. */
 export function CertificateCard({ p }: { p: Project }) {
   const { t, fmtDate } = useI18n();
@@ -148,8 +178,9 @@ export function CertificateCard({ p }: { p: Project }) {
           {!c.data.video.media_id && <p className="muted" style={{ fontSize: 13 }}>{t("cert_no_video")}</p>}
           <div className="actions" style={{ flexWrap: "wrap", justifyContent: "flex-start" }}>
             <CertificateSend data={c.data} design={c.design} onSent={c.setData} />
-            <Link className="btn sm" to={`/certificate/${p.well_id}`}>✏️ {t("cert_edit")}</Link>
+            <Link className="btn sm" to={`/plaque/certificate/${p.well_id}`}>✏️ {t("cert_edit")}</Link>
             <button className="sm" onClick={async () => saveBlob(await certificatePng(c.design!, 2), `certificate-${p.well_id}.png`)}>⬇ {t("cert_download")}</button>
+            <CertificatePhotos design={c.design} no={p.well_id} />
           </div>
         </div>
       </div>
@@ -169,11 +200,23 @@ export default function CertificatePage() {
   const { t, lang } = useI18n();
   const { can } = useAuth();
   const c = useCertificate(wellId);
+  const nav = useNavigate();
+  const [pick, setPick] = useState("");
   const [d, setD] = useState<CertDesign | null>(null);
   const [saving, setSaving] = useState(false);
   useEffect(() => { if (c.design) setD(c.design); }, [c.design]);
   if (!can(...EDITORS)) return <ErrorBox error="403" />;
-  if (c.error) return <ErrorBox error={c.error} />;
+  const opener = (
+    <form style={{ display: "flex", gap: 8 }} onSubmit={(e) => { e.preventDefault(); if (pick.trim()) nav(`/plaque/certificate/${pick.trim()}`); }}>
+      <input type="number" placeholder={t("pl_open_well")} value={pick} onChange={(e) => setPick(e.target.value)} style={{ width: 170 }} />
+      <button>{t("pl_open")}</button>
+    </form>);
+  if (!wellId) return <>
+    <div className="topbar"><div><span className="muted">{t("nav_plaque")}</span><h1>📜 {t("cert_title")}</h1></div>{opener}</div>
+    <DesignerTabs on="certificate" />
+    <p className="muted">{t("cert_pick")}</p>
+  </>;
+  if (c.error) return <><DesignerTabs on="certificate" wellId={wellId} /><ErrorBox error={c.error} /></>;
   if (!c.data || !d) return <p className="muted">{t("loading")}</p>;
   const set = (k: keyof CertDesign, v: any) => setD({ ...d, [k]: v });
   const save = async () => {
@@ -185,11 +228,14 @@ export default function CertificatePage() {
     <div className="topbar">
       <div><Link to={`/projects/${wellId}`} className="muted">‹ {t("well_id")} {wellId}</Link><h1>📜 {t("cert_title")} · <span className="mono">{wellId}</span></h1></div>
       <div className="actions" style={{ margin: 0, flexWrap: "wrap" }}>
+        {opener}
         <CertificateSend data={c.data} design={d} onSent={c.setData} />
         <button onClick={async () => saveBlob(await certificatePng(d, 2), `certificate-${wellId}.png`)}>⬇ {t("cert_download")}</button>
+        <CertificatePhotos design={d} no={wellId!} className="" />
         <button className="primary" disabled={saving} onClick={save}>💾 {t("save")}</button>
       </div>
     </div>
+    <DesignerTabs on="certificate" wellId={wellId} />
     <div className="cert-editor">
       <div className="card cert-preview-card"><CertificatePreview d={d} /></div>
       <div className="card">
@@ -200,6 +246,10 @@ export default function CertificatePage() {
             <Field key={k} label={t(label)}>{kind === "area"
               ? <textarea dir="rtl" rows={k === "names" ? 3 : 2} value={String(d[k] ?? "")} onChange={(e) => set(k, e.target.value)} />
               : <input dir={k === "site" ? "ltr" : "rtl"} value={String(d[k] ?? "")} onChange={(e) => set(k, e.target.value)} />}</Field>))}
+          <Field label={t("cert_f_names_font")}>
+            <select value={d.names_font || "Cairo"} onChange={(e) => set("names_font", e.target.value)} style={{ fontFamily: `'${d.names_font || "Cairo"}'` }}>
+              {FONTS.map((f) => <option key={f.family} value={f.family} style={{ fontFamily: `'${f.family}'` }}>{lang === "ar" ? `${f.ar} · ${f.en}` : `${f.en} · ${f.ar}`}</option>)}
+            </select></Field>
           <Field label={`${t("cert_f_names_size")} (${d.names_size}%)`}>
             <input type="range" min={60} max={130} step={5} value={d.names_size} onChange={(e) => set("names_size", Number(e.target.value))} /></Field>
           <Field label={t("cert_f_icon")}>

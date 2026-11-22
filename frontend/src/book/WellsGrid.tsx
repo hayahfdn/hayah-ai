@@ -14,6 +14,7 @@ import { dateCol, HayahGrid, moneyCol, n, sum, useDataReload, useMoney } from ".
 import { useIsMobile } from "../nav";
 import PlaqueBadge from "../plaque/PlaqueBadge";
 import WellCards from "./WellCards";
+import { WaPhoneIcon } from "../WaPhone";
 
 const CONSTRUCTION = ["new_order", "scheduled", "in_progress", "completed", "on_hold", "cancelled"];
 const VIDEO = ["none", "raw_received", "processing", "in_review", "completed"];
@@ -81,7 +82,10 @@ export default function WellsGrid({ month, contractorId, height, title }: { mont
         filter: false, cellClass: "plaque-cell",
         cellRenderer: (p: any) => (p.node.isRowPinned() || !p.data ? null : <PlaqueBadge p={p.data} compact />) },
       col("order_date", dateCol),
-      col("customer_phone", { width: 145, cellStyle: { direction: "ltr", textAlign: "end" } }),
+      col("customer_phone", { width: 175, cellStyle: { direction: "ltr", textAlign: "end" },
+        // the WhatsApp icon beside the number opens the customer's chat (double-click still edits the number)
+        cellRenderer: (p: any) => (p.node.isRowPinned() || !p.data || !p.value ? p.value ?? null
+          : <span className="phone-wa">{p.value}<WaPhoneIcon e164={p.data.customer_phone_e164} status={p.data.customer_phone_status} /></span>) }),
       col("well_type", { width: 100, ...pick(lists.data?.well_types) }),
       col("contractor_id", { headerName: t("contractor"), width: 105, cellEditor: "agSelectCellEditor",
         cellEditorParams: { values: [null, ...(contractors.data || []).filter(forWells).map((c) => c.id)] },

@@ -1,0 +1,8 @@
+.phone-wa { display: inline-flex; align-items: center; gap: 6px; }
+.wa-phone { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%;
+  background: #1faa53; color: #fff; text-decoration: none; flex: none; vertical-align: middle; }
+.wa-phone svg { width: 16px; height: 16px; }
+a.wa-phone:hover { background: #1a9449; color: #fff; }
+.wa-phone.off { background: #cfd8d3; cursor: not-allowed; }
+.ag-cell .wa-phone { width: 22px; height: 22px; }
+.ag-cell .wa-phone svg { width: 14px; height: 14px; }

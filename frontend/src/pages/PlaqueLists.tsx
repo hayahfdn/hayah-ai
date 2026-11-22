@@ -10,8 +10,9 @@ import { useI18n } from "../i18n";
 import { countryLabel } from "../nav";
 import { Empty, ErrorBox, Field, Modal, toast } from "../ui";
 import {
-  designerLink, MissingList, PlaqueActions, PlaqueWhatsApp, plaqueFile, PlaqueRow, PlaqueStatusBadge, PlaqueThumb, waLink,
+  designerLink, MissingList, PlaqueActions, PlaqueWhatsApp, plaqueFile, PlaqueRow, PlaqueStatusBadge, PlaqueThumb,
 } from "../plaque/flow";
+import { PhoneWithWa } from "../WaPhone";
 
 type Mode = "confirm" | "approved";
 
@@ -73,10 +74,8 @@ function Order({ p }: { p: PlaqueRow }) {
 
 function Phone({ p }: { p: PlaqueRow }) {
   const { t } = useI18n();
-  const wa = waLink(p.customer_phone_e164);
   if (!p.customer_phone) return <span className="muted">—</span>;
-  return <span><bdi dir="ltr" className="mono">{p.customer_phone_e164 || p.customer_phone}</bdi>
-    {wa && <> · <a href={wa} target="_blank" rel="noreferrer">{t("pla_whatsapp")}</a></>}
+  return <span><PhoneWithWa phone={p.customer_phone} e164={p.customer_phone_e164} status={p.customer_phone_status} />
     {p.customer_phone_status && p.customer_phone_status !== "valid" && <> <span className="badge warn">{t("ph_" + p.customer_phone_status)}</span></>}</span>;
 }
 

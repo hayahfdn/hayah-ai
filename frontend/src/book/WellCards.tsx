@@ -9,6 +9,7 @@ import { Modal, Status, toast } from "../ui";
 import ProjectForm from "../pages/ProjectForm";
 import PlaqueBadge from "../plaque/PlaqueBadge";
 import OpenIcon from "../OpenIcon";
+import { WaPhoneIcon } from "../WaPhone";
 import { sum, useMoney } from "./grid";
 import { splitAddons } from "../AddonPicker";
 
@@ -58,7 +59,8 @@ export default function WellCards({ rows, quick, colorById, contractors, showSal
                 <span className="grow" />
                 <PlaqueBadge p={p} compact />
               </header>
-              <div className="who">{p.customer_name || p.dedication || "—"}</div>
+              <div className="who phone-wa">{p.customer_name || p.dedication || "—"}
+                {!isContractor && p.customer_phone && <WaPhoneIcon e164={p.customer_phone_e164} status={p.customer_phone_status} />}</div>
               <div className="meta">
                 <span>{p.contractor_id ? nameById[p.contractor_id] || "—" : "—"}</span>
                 <span>{fmtDate(p.order_date)}</span>

@@ -25,7 +25,8 @@ from app.services.settings_store import get_setting, set_setting
 
 SAVED = "contract.saved"
 SETTING = "contract"
-DEFAULT_SETTINGS = {"hayah_phone": "", "delivery_days": 90, "invoice_prefix": "HF"}
+DEFAULT_SETTINGS = {"hayah_phone": "+447350295849",  # Hayah, 22 Nov 2026
+                    "delivery_days": 90, "invoice_prefix": "HF"}
 
 
 def settings(db: Session) -> dict:

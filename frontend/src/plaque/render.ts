@@ -530,21 +530,11 @@ function drawFlag(ctx: Ctx, im: HTMLImageElement, x: number, y: number, w: numbe
   return f;
 }
 
-/** Several flags in one box: the grid (columns × rows) that gives each flag the largest size, centred. */
-function drawFlagGroup(ctx: Ctx, ims: HTMLImageElement[], x: number, y: number, w: number, h: number, gap = 10) {
-  const n = ims.length, ar = 1.5;
-  let best = { cols: 1, rows: n, fw: 0 };
-  for (let cols = 1; cols <= n; cols++) {
-    const rows = Math.ceil(n / cols);
-    const fw = Math.min((w - gap * (cols - 1)) / cols, ((h - gap * (rows - 1)) / rows) * ar);
-    if (fw > best.fw) best = { cols, rows, fw };
-  }
-  const fh = best.fw / ar, totalH = best.rows * fh + (best.rows - 1) * gap;
-  ims.forEach((im, i) => {
-    const r = Math.floor(i / best.cols), inRow = Math.min(best.cols, n - r * best.cols), c = i % best.cols;
-    const rowW = inRow * best.fw + (inRow - 1) * gap;
-    drawFlag(ctx, im, x + (w - rowW) / 2 + c * (best.fw + gap), y + (h - totalH) / 2 + r * (fh + gap), best.fw, fh, "center");
-  });
+/** Several flags stacked one under another in the top corner, each shrinking with the count
+ * (Hayah's samples, 22 Nov 2026: 2 flags = half height each, 3 flags = a third). Flags keep their shape. */
+function drawFlagGroup(ctx: Ctx, ims: HTMLImageElement[], x: number, y: number, w: number, h: number, gap: number, align: "center" | "end") {
+  const n = ims.length, slot = (h - gap * (n - 1)) / n;
+  ims.forEach((im, i) => drawFlag(ctx, im, x, y + i * (slot + gap), w, slot, align));
 }
 
 /** A simple hand pump drawn with lines (the one on HAYAH's certificate), centred on cx, cy; s = scale. */
@@ -596,7 +586,7 @@ function drawWell(ctx: Ctx, d: WellDesign, a: Assets) {
   if (a.logo) drawContain(ctx, a.logo, 30, 16, 200, 225, "center");
   const wf = [a.flag, ...(a.more || [])].filter(Boolean) as HTMLImageElement[];
   if (wf.length === 1) drawFlag(ctx, wf[0], 860, 70, 190, 136, "end");
-  else if (wf.length > 1) drawFlagGroup(ctx, wf, 850, 26, 206, 214, 8);
+  else if (wf.length > 1) drawFlagGroup(ctx, wf, 870, 16, 190, 228, 8, "end");
   const cx = 545, headW = 590;
   rtl(ctx); ctx.textAlign = "center";
   ctx.fillStyle = INK; fit(ctx, d.bismillah, 800, 46, "Cairo", headW); ctx.fillText(d.bismillah, cx, 112);
@@ -705,7 +695,7 @@ function drawSacrifice(ctx: Ctx, d: SacrificeDesign, a: Assets) {
   if (a.logo) drawContain(ctx, a.logo, 45, 30, 200, 270, "center");
   const sf = [a.flag, ...(a.more || [])].filter(Boolean) as HTMLImageElement[];
   if (sf.length === 1) drawFlag(ctx, sf[0], 785, 70, 210, 136, "center");
-  else if (sf.length > 1) drawFlagGroup(ctx, sf, 775, 30, 230, 210, 8);
+  else if (sf.length > 1) drawFlagGroup(ctx, sf, 785, 26, 210, 220, 8, "center");
   rtl(ctx); ctx.textAlign = "center";
   if (d.country_label) {
     ctx.fillStyle = "#1a6fe0"; fit(ctx, d.country_label, 900, 68, "Cairo", 230, 30);

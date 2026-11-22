@@ -17,7 +17,7 @@ def test_well_contract_invoice_and_settings(client, seeded, mocks, db):
     assert f["number"] == 1401 and f["owner"] == "أبو محمد" and f["well_type"] == "عميق" and f["extras"] == "خزان, سيراميك"
     assert f["amount"] == "850.00" and f["currency"] == "USD"
     assert f["expected_delivery"] == "2027-01-30" and f["delivery_guessed"] is True
-    assert c["invoice_no"] is None and c["hayah_phone"] == ""
+    assert c["invoice_no"] is None and c["hayah_phone"] == "+447350295849"
     assert "400" not in str(c) and "cost" not in str(c) and "profit" not in str(c)
 
     s1 = client.put("/api/contracts/well/1401", headers=staff, json={"design": {"owner": "محمد", "evil": "x"}})

@@ -163,19 +163,21 @@ def remove_import(db: Session, import_audit_id: int, user: User, *, apply: bool)
     found = _created_by_import(db, w)
 
     projects = list(db.scalars(select(Project).where(Project.well_id.in_(found["wells"] or {-1}))))
-    pids = [p.id for p in projects]
-    # Wells that now also carry hand-added work (maintenance, photos, messages, merges) are kept.
-    linked = set()
-    for model, col in ((MaintenanceRecord, MaintenanceRecord.project_id), (MediaAsset, MediaAsset.project_id),
-                       (InboundMessage, InboundMessage.project_id), (ReviewCase, ReviewCase.project_id),
-                       (Project, Project.merged_into_id)):
-        linked |= set(db.scalars(select(col).where(col.in_(pids or [-1]))))
-    keep = [p for p in projects if p.id in linked]
-    drop = [p for p in projects if p.id not in linked]
     sacrifices = list(db.scalars(select(Sacrifice).where(Sacrifice.sacrifice_no.in_(found["sacrifices"] or {-1}))))
+    # Wells and sacrifices that now carry work added in the system (plaque, certificate, contract, video,
+    # tasks, maintenance, photos, messages, merges, hand edits...) are kept, so nothing is lost or left dangling.
+    from app.services.workbook_replace import attached_work
+    w_work, s_work = attached_work(db, projects, sacrifices)
+    keep = [p for p in projects if p.id in w_work]
+    drop = [p for p in projects if p.id not in w_work]
+    sac_kept = sorted(s.sacrifice_no for s in sacrifices if s.id in s_work)
+    sacrifices = [s for s in sacrifices if s.id not in s_work]
     txs = list(db.scalars(select(Transaction).where(Transaction.id.in_(found["transactions"] or {-1}))))
+    from app.models import WiseTransaction
+    wise = set(db.scalars(select(WiseTransaction.transaction_id).where(WiseTransaction.transaction_id.in_([t.id for t in txs] or [-1]))))
+    txs = [t for t in txs if t.id not in wise]  # a row matched to a Wise payment stays
     report = {"import": w.id, "file": w.entity_id, "wells": len(drop), "sacrifices": len(sacrifices),
-              "transactions": len(txs), "wells_kept": sorted(p.well_id for p in keep),
+              "transactions": len(txs), "wells_kept": sorted(p.well_id for p in keep), "sacrifices_kept": sac_kept,
               "well_ids": sorted(p.well_id for p in drop)}
     if not apply:
         return {**report, "applied": False}

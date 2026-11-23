@@ -49,7 +49,7 @@ def create_app() -> FastAPI:
 
     for r in (auth.router, auth.users, contractors.router, projects.router, operations.delivery, operations.maintenance,
               operations.media, operations.review, intake.router, system.router, final_videos.router, inbox.router, inbox.settings_router, finance.router, finance.sacrifices,
-              assistant.router, assistant.help_router, imports.router, undo.router, shopify.router, plaques.router, plaques.images, phones.router, bulk.router, wise.router, certificates.router, contracts.router, team.router):
+              assistant.router, assistant.help_router, imports.router, imports.backups, undo.router, shopify.router, plaques.router, plaques.images, phones.router, bulk.router, wise.router, certificates.router, contracts.router, team.router):
         app.include_router(r)
     return app
 

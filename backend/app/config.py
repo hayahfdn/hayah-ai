@@ -33,6 +33,8 @@ class Settings(BaseSettings):
 
     secrets_dir: str = "./secrets"
     mock_data_dir: str = "./data"
+    # Backups the app writes itself (before "replace with a new workbook"). Empty: <mock_data_dir>/backups.
+    backup_dir: str = ""
     google_credentials_file: str = "google-oauth-token.json"  # inside secrets_dir
     google_service_account_file: str = ""  # optional alternative, inside secrets_dir
     sheets_spreadsheet_id: str = ""

@@ -5,7 +5,7 @@ import { useI18n } from "../i18n";
 import { ErrorBox, Modal, toast, useApi } from "../ui";
 
 interface Imp { id: number; at: string; file: string; by: string; wells: number; sacrifices: number; transactions: number; removed: boolean }
-interface Plan { wells: number; sacrifices: number; transactions: number; wells_kept: number[]; well_ids: number[]; applied: boolean }
+interface Plan { wells: number; sacrifices: number; transactions: number; wells_kept: number[]; sacrifices_kept?: number[]; well_ids: number[]; applied: boolean }
 
 export default function PastImports() {
   const { t } = useI18n();
@@ -48,7 +48,8 @@ export default function PastImports() {
           <ul>
             <li>{plan.wells} {t("wells")}</li><li>{plan.sacrifices} {t("sacrifices")}</li><li>{plan.transactions} {t("imp_money_rows")}</li>
           </ul>
-          {plan.wells_kept.length > 0 && <p className="muted">{t("rm_kept")}: {plan.wells_kept.join(", ")}</p>}
+          {(plan.wells_kept.length > 0 || (plan.sacrifices_kept || []).length > 0) &&
+            <p className="muted">{t("rm_kept")}: {[...plan.wells_kept, ...(plan.sacrifices_kept || [])].join(", ")}</p>}
           <p className="muted">{t("rm_safe")}</p>
           <div className="actions">
             <button onClick={() => setSel(null)}>{t("cancel")}</button>

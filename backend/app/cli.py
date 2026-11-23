@@ -212,7 +212,10 @@ def main():
                 from app.services.workbook_import import import_full_workbook
                 from app.services.workbook_xlsx import read_workbook
                 data = read_workbook(args.path)
-                report = import_full_workbook(db, data, actor=actor) | {"problems": data["problems"]}
+                report = import_full_workbook(db, data, actor=actor)
+                from app.services.audit import audit
+                audit(db, "workbook.import", "workbook", Path(args.path).name[:80], actor=actor, after=report)
+                report |= {"problems": data["problems"]}
             else:
                 report = import_wells(db, json.loads(Path(args.path).read_text()), actor=actor)
             db.commit()

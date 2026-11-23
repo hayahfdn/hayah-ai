@@ -2,8 +2,10 @@ FROM python:3.13-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 # FFmpeg is needed from Phase 7 (video). Build with --build-arg INSTALL_FFMPEG=false to skip it.
 ARG INSTALL_FFMPEG=true
-RUN if [ "$INSTALL_FFMPEG" = "true" ]; then apt-get update && apt-get install -y --no-install-recommends ffmpeg \
-      && rm -rf /var/lib/apt/lists/*; fi \
+# postgresql-client: pg_dump, for the backup written before "replace with a new workbook" (app/services/backup.py).
+RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client \
+    && if [ "$INSTALL_FFMPEG" = "true" ]; then apt-get install -y --no-install-recommends ffmpeg; fi \
+    && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 1000 hayah
 WORKDIR /app
 COPY requirements.txt .

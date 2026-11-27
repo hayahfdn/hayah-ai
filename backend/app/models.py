@@ -509,6 +509,9 @@ class Suqya(Base):
     sale_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     currency: Mapped[str] = mapped_column(String(3), default="USD")
     notes: Mapped[str | None] = mapped_column(Text)
+    shopify_order: Mapped[str | None] = mapped_column(String(60), index=True)
+    sales_source: Mapped[str | None] = mapped_column(String(120))
+    dedication: Mapped[str | None] = mapped_column(Text)  # الإهداء as written on the Shopify order
     design: Mapped[dict | None] = mapped_column(JSONB)
     plaque_saved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     plaque_saved_by: Mapped[str | None] = mapped_column(String(200))
@@ -612,10 +615,11 @@ class ShopifyOrderItem(Base):
     line_item_id: Mapped[int] = mapped_column(BigInteger)
     unit: Mapped[int] = mapped_column(Integer, default=1)  # 1..quantity
     title: Mapped[str | None] = mapped_column(String(300))
-    kind: Mapped[str] = mapped_column(String(20))  # well | sacrifice | addon | other
+    kind: Mapped[str] = mapped_column(String(20))  # well | sacrifice | suqya | addon | other
     amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))  # selling price of this unit incl. its add-ons
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), index=True)
     sacrifice_id: Mapped[int | None] = mapped_column(ForeignKey("sacrifices.id"), index=True)
+    suqya_id: Mapped[int | None] = mapped_column(ForeignKey("suqya.id"), index=True)
     match: Mapped[str | None] = mapped_column(String(20))  # past orders: sure | likely | guess | created | none
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

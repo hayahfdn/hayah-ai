@@ -17,7 +17,7 @@ export interface SuqyaOrder {
   suqya_no: number; order_date: string | null; quantity: number; donor_name: string | null; dua: string | null;
   customer_name: string | null; customer_phone: string | null; customer_phone_country: string | null;
   customer_phone_e164: string | null; customer_phone_status: string | null; sale_price: number | null; currency: string;
-  notes: string | null; design: Partial<SuqyaDesign> | null; plaque_saved_at: string | null; plaque_saved_by: string | null;
+  notes: string | null; shopify_order?: string | null; sales_source?: string | null; dedication?: string | null; design: Partial<SuqyaDesign> | null; plaque_saved_at: string | null; plaque_saved_by: string | null;
   sent_at: string | null; sent_by: string | null; created_by: string | null; created_at: string; month_text: string;
 }
 

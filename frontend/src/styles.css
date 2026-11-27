@@ -1045,3 +1045,34 @@ tr.clickable { cursor: pointer; }
   .suqya-preview-card { position: static; max-width: 420px; margin: 0 auto; width: 100%; }
   .suqya-form { grid-template-columns: 1fr; }
 }
+
+/* «طلبات شوبيفاي» (27 Nov 2026): a list like Shopify's orders page */
+.so-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.so-head .tabs { margin: 0; border: 0; }
+.so-search { max-width: 320px; flex: 1 1 220px; }
+.so-table td { vertical-align: middle; }
+.so-table .nowrap { white-space: nowrap; }
+.so-table tr.so-open > td { background: var(--brand-soft); }
+.so-table tr.so-cancelled > td { opacity: .6; }
+.so-src { font-size: 12.5px; max-width: 220px; }
+.so-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #eceef2; color: #4b5563; white-space: nowrap; }
+.so-badge.ok { background: #e3f4e8; color: #1c7c3c; }
+.so-badge.warn { background: #fff3d6; color: #8a5a00; }
+.so-badge.bad { background: #fde4e1; color: #b42318; }
+.so-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.so-chip { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--surface-2); text-decoration: none; white-space: nowrap; }
+.so-chip.well { background: #e6f0fb; color: #1d5fa8; }
+.so-chip.sac { background: #f3ece2; color: #7a4f12; }
+.so-chip.suqya { background: #e2f6f8; color: #0e7285; }
+.so-detail > td { background: var(--surface-2); padding: 0 !important; }
+.so-detail-box { padding: 12px 16px; max-width: 760px; }
+.so-detail-box h3 { margin: 0 0 8px; font-size: 15px; }
+.so-line { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line, #e5e7eb); }
+.so-line-main { display: grid; gap: 4px; }
+.so-props { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; }
+.so-line-price { white-space: nowrap; text-align: end; }
+.so-total { border-bottom: 0; }
+.so-pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 10px; }
+@media (max-width: 820px) {
+  .so-table th:nth-child(5), .so-table td:nth-child(5), .so-table th:nth-child(8), .so-table td:nth-child(8) { display: none; }
+}

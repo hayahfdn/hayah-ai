@@ -88,7 +88,14 @@ function Opener() {
     </form>);
 }
 
-function ListAndNew() {
+/** «مشاريع السُقيا» in the side menu: the same list, outside the plaque designer. */
+export function SuqyaProjects() {
+  const { can } = useAuth();
+  if (!can(...EDITORS)) return <ErrorBox error="403" />;
+  return <ListAndNew standalone />;
+}
+
+function ListAndNew({ standalone }: { standalone?: boolean }) {
   const { t, fmtDate, money } = useI18n();
   const nav = useNavigate();
   const [data, setData] = useState<{ items: SuqyaOrder[]; next_no: number } | null>(null);
@@ -110,13 +117,13 @@ function ListAndNew() {
   };
   return <>
     <div className="topbar">
-      <div><span className="muted">{t("nav_plaque")}</span><h1>💧 {t("sq_title")}</h1></div>
+      <div><span className="muted">{standalone ? t("sq_projects_sub") : t("nav_plaque")}</span><h1>💧 {standalone ? t("nav_suqya") : t("sq_title")}</h1></div>
       <div className="actions" style={{ margin: 0, flexWrap: "wrap" }}>
         <Opener />
         <button className="primary" onClick={() => setShowNew((v) => !v)}><I.Plus size={16} aria-hidden="true" /> {t("sq_new")}</button>
       </div>
     </div>
-    <DesignerTabs on="suqya" />
+    {!standalone && <DesignerTabs on="suqya" />}
     <ErrorBox error={error} />
     {showNew && <div className="card" style={{ marginBottom: 14 }}>
       <h2 style={{ marginTop: 0 }}>＋ {t("sq_new")}</h2>
@@ -131,13 +138,14 @@ function ListAndNew() {
         <input placeholder={t("sq_search")} value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 240 }} /></div>
       {!data ? <p className="muted">{t("loading")}</p> : !data.items.length ? <p className="muted">{t("sq_empty")}</p> :
         <div className="table-wrap"><table className="table">
-          <thead><tr><th>{t("sq_no")}</th><th>{t("sq_date")}</th><th>{t("sq_name")}</th><th>{t("sq_qty")}</th><th>{t("sq_customer")}</th><th>{t("sq_price")}</th><th>{t("sq_plaque")}</th></tr></thead>
+          <thead><tr><th>{t("sq_no")}</th><th>{t("sq_date")}</th><th>{t("sq_name")}</th><th>{t("sq_qty")}</th><th>{t("sq_customer")}</th><th>{t("sq_price")}</th><th>{t("sq_shopify")}</th><th>{t("sq_plaque")}</th></tr></thead>
           <tbody>{data.items.map((o) => (
             <tr key={o.suqya_no} className="clickable" onClick={() => nav(`/plaque/suqya/${o.suqya_no}`)}>
               <td className="mono"><Link to={`/plaque/suqya/${o.suqya_no}`}>{o.suqya_no}</Link></td>
               <td>{fmtDate(o.order_date)}</td><td>{o.donor_name || "—"}{o.dua ? <span className="muted"> · {o.dua}</span> : null}</td>
               <td>{o.quantity}</td><td>{o.customer_name || o.customer_phone || "—"}</td>
               <td>{o.sale_price != null ? money(o.sale_price) : "—"}</td>
+              <td>{o.shopify_order ? <span className="mono">{o.shopify_order}</span> : "—"}{o.sales_source ? <div className="muted" style={{ fontSize: 12 }}>{o.sales_source}</div> : null}</td>
               <td>{o.sent_at ? <span className="badge ok">✓ {t("sq_sent")}</span> : o.plaque_saved_at ? <span className="badge">{t("sq_saved_badge")}</span> : <span className="muted">—</span>}</td>
             </tr>))}</tbody>
         </table></div>}

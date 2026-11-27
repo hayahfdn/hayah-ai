@@ -141,6 +141,13 @@ def orders(db: Session = Depends(get_db), _: User = Depends(require_roles(SALES_
     return svc.recent_orders(db)  # selling prices and record numbers only; no costs
 
 
+@router.get("/orders/list")
+def orders_list(q: str | None = None, status: str | None = None, page: int = 1,
+                db: Session = Depends(get_db), _: User = Depends(require_roles(SALES_VIEWERS))):
+    """«طلبات شوبيفاي»: selling prices only (the same people who see selling prices); no costs."""
+    return svc.orders_list(db, q=q, status=status, page=max(1, page))
+
+
 @router.get("/summary")
 def summary(start: date | None = None, end: date | None = None, db: Session = Depends(get_db),
             _: User = Depends(require_roles(SALES_VIEWERS))):

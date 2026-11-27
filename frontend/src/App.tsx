@@ -12,6 +12,8 @@ const PromptBar = lazy(() => import("./book/PromptBar"));
 const HelpChat = lazy(() => import("./HelpChat"));
 const PlaqueDesigner = lazy(() => import("./plaque/PlaqueDesigner"));
 const SuqyaPage = lazy(() => import("./suqya/Suqya"));
+const SuqyaProjects = lazy(() => import("./suqya/Suqya").then((m) => ({ default: m.SuqyaProjects })));
+const ShopifyOrders = lazy(() => import("./pages/ShopifyOrders"));
 const CertificatePage = lazy(() => import("./certificate/Certificate"));
 const ContractPage = lazy(() => import("./contract/Contract"));
 const PlaqueLists = lazy(() => import("./pages/PlaqueLists"));
@@ -180,6 +182,8 @@ export default function App() {
             <Route path="/plaque/certificate/:wellId" element={<Suspense fallback={null}><CertificatePage key="c1" /></Suspense>} />
             <Route path="/plaque/contract" element={<Suspense fallback={null}><ContractPage key="k0" /></Suspense>} />
             <Route path="/plaque/contract/:kind/:no" element={<Suspense fallback={null}><ContractPage key="k1" /></Suspense>} />
+            <Route path="/suqya" element={<Suspense fallback={null}><SuqyaProjects /></Suspense>} />
+            <Route path="/shopify-orders" element={<Suspense fallback={null}><ShopifyOrders /></Suspense>} />
             <Route path="/plaque/suqya" element={<Suspense fallback={null}><SuqyaPage key="sq0" /></Suspense>} />
             <Route path="/plaque/suqya/:no" element={<Suspense fallback={null}><SuqyaPage key="sq1" /></Suspense>} />
             <Route path="/plaque/sacrifice" element={<Suspense fallback={null}><PlaqueDesigner kind="sacrifice" key="sac" /></Suspense>} />

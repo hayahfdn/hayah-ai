@@ -51,7 +51,9 @@ STATE = "shopify_state"
 SECRET_CLIENT = "shopify_client_secret"
 SECRET_TOKEN = "shopify_access_token"
 SECRET_CC = "shopify_cc_token"
-TOPICS = ["ORDERS_CREATE", "ORDERS_PAID", "ORDERS_CANCELLED"]
+# orders/updated covers every later change (payment, edit, refund), so the list follows Shopify live.
+TOPICS = ["ORDERS_CREATE", "ORDERS_PAID", "ORDERS_UPDATED", "ORDERS_CANCELLED"]
+RECHECK_HOOKS_S = 6 * 3600  # the scheduled sync re-adds any missing webhook this often
 CENT = Decimal("0.01")
 
 DEFAULTS = {
@@ -182,8 +184,32 @@ def register_webhooks(db: Session, base_url: str) -> dict:
         else:
             created.append(topic)
     result = {"uri": uri, "active": sorted({t for t, u in have if u == uri} | set(created)), "errors": errors}
-    _state(db, webhooks=result)
+    _state(db, webhooks=result, webhooks_checked_at=time.time())
     return result
+
+
+def ensure_webhooks(db: Session) -> dict | None:
+    """Once the admin has connected the webhooks, keep them complete by themselves (a new topic such as
+    orders/updated, or one Shopify dropped after failed deliveries), so orders keep arriving instantly."""
+    st = get_setting(db, STATE)
+    hooks = st.get("webhooks") or {}
+    uri = hooks.get("uri")
+    if not uri or time.time() - (st.get("webhooks_checked_at") or 0) < RECHECK_HOOKS_S:
+        return None
+    return register_webhooks(db, uri[: -len("/api/shopify/webhook")])
+
+
+def live_status(db: Session) -> dict:
+    """Small and cheap: what pages poll to know whether something new arrived."""
+    st = get_setting(db, STATE)
+    hooks = st.get("webhooks") or {}
+    latest = db.execute(text("select max(updated_at), count(*) from shopify_orders")).one()
+    sq = db.execute(text("select max(updated_at), count(*) from suqya")).one()
+    active = set(hooks.get("active") or [])
+    return {"orders_version": f"{latest[0].isoformat() if latest[0] else ''}:{latest[1]}",
+            "suqya_version": f"{sq[0].isoformat() if sq[0] else ''}:{sq[1]}",
+            "last_webhook_at": st.get("last_webhook_at"), "last_sync_at": st.get("last_sync_at"),
+            "instant": {"ORDERS_CREATE", "ORDERS_UPDATED"} <= active, "enabled": bool(config(db).get("enabled"))}
 
 
 ORDERS_QUERY = """query($first: Int!, $after: String, $q: String) {
@@ -1006,4 +1032,10 @@ def _job_order(db: Session, payload: dict):
 def _job_sync(db: Session, payload: dict):
     if not (config(db).get("enabled") and is_configured(db)):
         return {"skipped": True}
+    try:
+        ensure_webhooks(db)
+        db.commit()
+    except Exception:  # the sync itself still runs
+        db.rollback()
+        log.exception("shopify: checking webhooks failed")
     return sync_now(db)

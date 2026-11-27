@@ -2,6 +2,7 @@
 // new one (the next number is filled in), and the plaque editor: live preview, every line editable,
 // Haram background or an uploaded one, PNG download, save to photos and one-tap WhatsApp to the customer.
 import { useEffect, useMemo, useRef, useState } from "react";
+import { LiveBadge, useShopifyLive } from "../shopifyLive";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import { EDITORS, MANAGERS, useAuth } from "../App";
@@ -108,6 +109,7 @@ function ListAndNew({ standalone }: { standalone?: boolean }) {
   const load = () => api<{ items: SuqyaOrder[]; next_no: number }>("/api/suqya", { query: { q } }).then((r) => { setData(r); setNo((n) => n || r.next_no); }).catch((e) => setError(e.message));
   useEffect(() => { const h = setTimeout(load, q ? 300 : 0); return () => clearTimeout(h); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [q]);
   useEffect(() => { if (data && !data.items.length && !q) setShowNew(true); }, [data, q]);
+  const live = useShopifyLive("suqya_version", load);
   const create = async () => {
     setBusy(true);
     try {
@@ -118,7 +120,8 @@ function ListAndNew({ standalone }: { standalone?: boolean }) {
   return <>
     <div className="topbar">
       <div><span className="muted">{standalone ? t("sq_projects_sub") : t("nav_plaque")}</span><h1>💧 {standalone ? t("nav_suqya") : t("sq_title")}</h1></div>
-      <div className="actions" style={{ margin: 0, flexWrap: "wrap" }}>
+      <div className="actions" style={{ margin: 0, flexWrap: "wrap", alignItems: "center" }}>
+        <LiveBadge live={live} />
         <Opener />
         <button className="primary" onClick={() => setShowNew((v) => !v)}><I.Plus size={16} aria-hidden="true" /> {t("sq_new")}</button>
       </div>

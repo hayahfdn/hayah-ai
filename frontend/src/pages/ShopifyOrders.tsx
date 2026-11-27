@@ -7,6 +7,7 @@ import { api } from "../api";
 import { EDITORS, useAuth } from "../App";
 import { useI18n } from "../i18n";
 import { ErrorBox } from "../ui";
+import { LiveBadge, useShopifyLive } from "../shopifyLive";
 import { WaPhoneIcon } from "../WaPhone";
 import * as I from "../icons";
 
@@ -31,11 +32,21 @@ export default function ShopifyOrders() {
   const [data, setData] = useState<Page | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<number | null>(null);
+  const [fresh, setFresh] = useState<Set<number>>(new Set());
+  const load = (mark = false) => api<Page>("/api/shopify/orders/list", { query: { q, status: filter === "all" ? "" : filter, page } })
+    .then((r) => {
+      setData((old) => {
+        if (mark && old) { const seen = new Set(old.orders.map((o) => o.id)); setFresh(new Set(r.orders.filter((o) => !seen.has(o.id)).map((o) => o.id))); }
+        return r;
+      });
+      setError(null);
+    }).catch((e) => setError(e.message));
   useEffect(() => {
-    const h = setTimeout(() => api<Page>("/api/shopify/orders/list", { query: { q, status: filter === "all" ? "" : filter, page } })
-      .then((r) => { setData(r); setError(null); }).catch((e) => setError(e.message)), q ? 300 : 0);
+    const h = setTimeout(() => load(), q ? 300 : 0);
     return () => clearTimeout(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, filter, page]);
+  const live = useShopifyLive("orders_version", () => load(true));
   if (!can(...EDITORS)) return <ErrorBox error="403" />;
   const region = (() => { try { return new Intl.DisplayNames([lang], { type: "region" }); } catch { return null; } })();
   const country = (cc: string | null) => (cc ? `${flag(cc)} ${region?.of(cc.toUpperCase()) || cc}` : "—");
@@ -57,6 +68,7 @@ export default function ShopifyOrders() {
   return <>
     <div className="topbar">
       <div><span className="muted">{t("so_sub")}</span><h1><I.ShoppingBag size={24} aria-hidden="true" style={{ verticalAlign: "-4px" }} /> {t("so_title")}</h1></div>
+      <LiveBadge live={live} />
     </div>
     <div className="card so-card">
       <div className="so-head">
@@ -72,7 +84,7 @@ export default function ShopifyOrders() {
           <thead><tr><th>{t("so_order")}</th><th>{t("so_date")}</th><th>{t("so_customer")}</th><th>{t("so_phone")}</th><th>{t("so_country")}</th>
             <th>{t("so_total")}</th><th>{t("so_payment")}</th><th>{t("so_items")}</th><th>{t("so_source")}</th><th>{t("so_made")}</th></tr></thead>
           <tbody>{data.orders.map((o) => <Fragment key={o.id}>
-            <tr className={`clickable${open === o.id ? " so-open" : ""}${o.cancelled ? " so-cancelled" : ""}`} onClick={() => setOpen(open === o.id ? null : o.id)}>
+            <tr className={`clickable${fresh.has(o.id) ? " so-fresh" : ""}${open === o.id ? " so-open" : ""}${o.cancelled ? " so-cancelled" : ""}`} onClick={() => setOpen(open === o.id ? null : o.id)}>
               <td><b className="mono">{o.name}</b></td><td className="nowrap">{when(o.created_at)}</td><td dir="auto">{o.customer_name || "—"}</td>
               <td className="nowrap" dir="ltr">{o.phone ? <>{o.phone} <WaPhoneIcon e164={digits(o.phone)} /></> : "—"}</td>
               <td className="nowrap">{country(o.country_code)}</td><td className="num nowrap">{money(o.total, o.currency)}</td><td>{pay(o)}</td>

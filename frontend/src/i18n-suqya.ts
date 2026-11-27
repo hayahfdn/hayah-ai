@@ -1,6 +1,7 @@
 // Labels for «سقيا الماء في الحرم» (Hayah, 27 Nov 2026): the order list and the plaque editor.
 export const suqyaEn: Record<string, string> = {
   sq_tab: "Haram water", nav_suqya: "Suqya projects", nav_shop_orders: "Shopify orders", sq_projects_sub: "Projects", sq_shopify: "Shopify order",
+  live_on: "Live", live_off: "Every 2 minutes", live_last: "last update", live_on_help: "New Shopify orders appear here within seconds, without refreshing.", live_off_help: "Instant notifications are not connected yet: an admin presses «Connect order notifications» in Settings > Shopify once. Until then new orders arrive within 2 minutes.", so_new_orders: "New order received",
   so_title: "Shopify orders", so_sub: "Every order from the store, as HAYAH received it", so_search: "Order no., name, phone or product…",
   so_all: "All", so_open: "Active", so_review: "Needs review", so_cancelled: "Cancelled", so_order: "Order", so_date: "Date", so_customer: "Customer",
   so_phone: "Phone", so_country: "Country", so_total: "Total", so_payment: "Payment", so_source: "Source", so_items: "Items", so_made: "Made in HAYAH",
@@ -22,6 +23,7 @@ export const suqyaEn: Record<string, string> = {
 };
 export const suqyaAr: Record<string, string> = {
   sq_tab: "سقيا الحرم", nav_suqya: "مشاريع السُقيا", nav_shop_orders: "طلبات شوبيفاي", sq_projects_sub: "المشاريع", sq_shopify: "طلب شوبيفاي",
+  live_on: "مباشر", live_off: "كل دقيقتين", live_last: "آخر تحديث", live_on_help: "تظهر طلبات شوبيفاي الجديدة هنا خلال ثوانٍ دون تحديث الصفحة.", live_off_help: "الإشعارات الفورية غير مربوطة بعد: يضغط المدير «ربط إشعارات الطلبات» في الإعدادات > شوبيفاي مرة واحدة. وحتى ذلك تصل الطلبات الجديدة خلال دقيقتين.", so_new_orders: "وصل طلب جديد",
   so_title: "طلبات شوبيفاي", so_sub: "كل طلبات المتجر كما وصلت إلى حياة", so_search: "رقم الطلب أو الاسم أو الهاتف أو المنتج…",
   so_all: "الكل", so_open: "النشطة", so_review: "تحتاج مراجعة", so_cancelled: "الملغاة", so_order: "الطلب", so_date: "التاريخ", so_customer: "العميل",
   so_phone: "الهاتف", so_country: "الدولة", so_total: "الإجمالي", so_payment: "الدفع", so_source: "مصدر الطلب", so_items: "المنتجات", so_made: "ما أُنشئ في حياة",

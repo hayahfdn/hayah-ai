@@ -17,6 +17,7 @@ from app.services.jobs import enqueue, handler, run_due_jobs
 log = logging.getLogger("hayah.worker")
 SYNC_EVERY_S = 15 * 60
 WISE_EVERY_S = 60 * 60
+SHOPIFY_EVERY_S = 2 * 60  # light catch-up for anything a webhook missed (only orders changed since last time)
 
 
 @handler("daily_health_check")
@@ -32,7 +33,7 @@ def daily_health(db, payload):
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    last_sync = last_wise = 0.0
+    last_sync = last_wise = last_shopify = 0.0
     while True:
         db = SessionLocal()
         try:
@@ -41,9 +42,12 @@ def main():
                 enqueue(db, "sheets_sync", {"trigger": "scheduled"}, coalesce=True)
                 today = datetime.now(timezone.utc).date().isoformat()
                 enqueue(db, "daily_health_check", {}, key=f"health:{today}")
-                enqueue(db, "shopify_sync", {"trigger": "scheduled"}, coalesce=True)
                 db.commit()
                 last_sync = now
+            if now - last_shopify > SHOPIFY_EVERY_S:
+                enqueue(db, "shopify_sync", {"trigger": "scheduled"}, coalesce=True)
+                db.commit()
+                last_shopify = now
             if now - last_wise > WISE_EVERY_S:  # hourly, read only
                 enqueue(db, "wise_sync", {"trigger": "scheduled"}, coalesce=True)
                 db.commit()

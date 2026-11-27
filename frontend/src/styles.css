@@ -1076,3 +1076,14 @@ tr.clickable { cursor: pointer; }
 @media (max-width: 820px) {
   .so-table th:nth-child(5), .so-table td:nth-child(5), .so-table th:nth-child(8), .so-table td:nth-child(8) { display: none; }
 }
+
+/* live Shopify badge and newly arrived rows (27 Nov 2026) */
+.live-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
+  background: #fff6e0; color: #8a5a00; border: 1px solid #f1d58a; white-space: nowrap; }
+.live-badge.on { background: #e8f8ee; color: #136b35; border-color: #a8e0bd; }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.live-badge.on .live-dot { animation: live-pulse 1.6s ease-in-out infinite; }
+@keyframes live-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+.table tr.so-fresh > td { animation: so-fresh 6s ease-out; }
+@keyframes so-fresh { 0%, 30% { background: #e8f8ee; } 100% { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .live-badge.on .live-dot, .table tr.so-fresh > td { animation: none; } }

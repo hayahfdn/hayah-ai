@@ -2,19 +2,19 @@
 import json
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
-from app.db import get_db
-from app.deps import ADMINS, MANAGERS, require_roles
+from app.db import SessionLocal, get_db
+from app.deps import ADMINS, MANAGERS, PROJECT_CREATORS, require_roles
 from app.integrations import shopify as api
 from app.models import Role, User, utcnow
 from app.services import secrets_store
 from app.services import shopify as svc
 from app.services import shopify_history as hist
 from app.services.audit import audit
-from app.services.jobs import enqueue
+from app.services.jobs import enqueue, run_due_jobs
 
 router = APIRouter(prefix="/api/shopify", tags=["shopify"])
 SALES_VIEWERS = {Role.super_admin, Role.operations_manager, Role.staff}  # selling price only; contractors never
@@ -107,8 +107,10 @@ def sync(full: bool = False, db: Session = Depends(get_db), user: User = Depends
 
 
 @router.post("/webhook")
-async def webhook(request: Request, db: Session = Depends(get_db)):
-    """Shopify calls this for order events. Verified with the app's client secret; work happens in the worker."""
+async def webhook(request: Request, background: BackgroundTasks, db: Session = Depends(get_db)):
+    """Shopify calls this for order events. Verified with the app's client secret. The order is queued, then
+    imported straight after the reply (so it shows in the system within a second); the worker retries it if
+    that fails."""
     body = await request.body()
     if len(body) > 5 * 1024 * 1024:
         raise HTTPException(413, "Payload too large")
@@ -133,7 +135,24 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
             key=f"shopify:{wid}" if wid else f"shopify:{topic}:{order.get('id')}:{order.get('updated_at')}")
     svc._state(db, last_webhook_at=utcnow().isoformat())
     db.commit()
+    background.add_task(_import_now)
     return {"queued": True}
+
+
+def _import_now() -> None:
+    db = SessionLocal()
+    try:
+        run_due_jobs(db, limit=10, kinds=["shopify_order"])
+    except Exception:  # noqa: BLE001 - the worker picks it up again
+        db.rollback()
+    finally:
+        db.close()
+
+
+@router.get("/live")
+def live(db: Session = Depends(get_db), _: User = Depends(require_roles(PROJECT_CREATORS))):
+    """Polled every few seconds by the orders and سقيا pages: changes only when an order arrives or changes."""
+    return svc.live_status(db)
 
 
 @router.get("/orders")

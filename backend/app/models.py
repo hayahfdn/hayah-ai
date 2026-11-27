@@ -490,6 +490,35 @@ class Sacrifice(Base):
         return normalize(value)
 
 
+class Suqya(Base):
+    """«سقيا الماء في الحرم»: water boxes handed to the guests of al-Haram for a donor (Hayah, 27 Nov 2026).
+    Numbered by HAYAH (Counter "suqya"). Selling price only; no cost here. The plaque design is kept on the row."""
+    __tablename__ = "suqya"
+    __table_args__ = (CheckConstraint("suqya_no > 0", name="ck_suqya_no_positive"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    suqya_no: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    order_date: Mapped[date | None] = mapped_column(Date, index=True)
+    quantity: Mapped[int] = mapped_column(Integer, default=100)
+    donor_name: Mapped[str | None] = mapped_column(String(300))  # the name on the plaque
+    dua: Mapped[str | None] = mapped_column(String(80))  # حفظه الله / رحمها الله ...
+    customer_name: Mapped[str | None] = mapped_column(String(200))
+    customer_phone: Mapped[str | None] = mapped_column(String(40))
+    customer_phone_e164: Mapped[str | None] = mapped_column(String(20), index=True)
+    customer_phone_country: Mapped[str | None] = mapped_column(String(2))
+    customer_phone_status: Mapped[str | None] = mapped_column(String(16))
+    sale_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    notes: Mapped[str | None] = mapped_column(Text)
+    design: Mapped[dict | None] = mapped_column(JSONB)
+    plaque_saved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    plaque_saved_by: Mapped[str | None] = mapped_column(String(200))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sent_by: Mapped[str | None] = mapped_column(String(200))
+    created_by: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class FinanceAccount(Base):
     """A money account: the Wise bank account, or a partner (Mohammed, Ghazi, Haya Cliq)."""
     __tablename__ = "finance_accounts"

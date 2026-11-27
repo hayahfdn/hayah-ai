@@ -1,10 +1,10 @@
-// The designer's four tabs (Hayah, 22 Nov 2026): well plaque, sacrifice plaque, endowment certificate
-// and the official contract. The open order follows you between tabs when it fits: a well opens its
+// The designer's tabs (Hayah, 22 Nov 2026): well plaque, sacrifice plaque, Haram water plaque (27 Nov),
+// endowment certificate and the official contract. The open order follows you between tabs when it fits: a well opens its
 // certificate and contract, a sacrifice opens its contract.
 import { useNavigate } from "react-router-dom";
 import { useI18n } from "../i18n";
 
-export type DesignerTab = "well" | "sacrifice" | "certificate" | "contract";
+export type DesignerTab = "well" | "sacrifice" | "suqya" | "certificate" | "contract";
 
 export default function DesignerTabs({ on, wellId, sacNo }: { on: DesignerTab; wellId?: string | number; sacNo?: string | number }) {
   const { t } = useI18n();
@@ -12,10 +12,11 @@ export default function DesignerTabs({ on, wellId, sacNo }: { on: DesignerTab; w
   const to: Record<DesignerTab, string> = {
     well: wellId ? `/plaque/${wellId}` : "/plaque",
     sacrifice: sacNo ? `/plaque/sacrifice/${sacNo}` : "/plaque/sacrifice",
+    suqya: "/plaque/suqya",
     certificate: wellId ? `/plaque/certificate/${wellId}` : "/plaque/certificate",
     contract: wellId ? `/plaque/contract/well/${wellId}` : sacNo ? `/plaque/contract/sacrifice/${sacNo}` : "/plaque/contract",
   };
-  const label: Record<DesignerTab, string> = { well: t("pl_tab_well"), sacrifice: t("pl_tab_sac"), certificate: t("cert_title"), contract: t("ct_tab") };
+  const label: Record<DesignerTab, string> = { well: t("pl_tab_well"), sacrifice: t("pl_tab_sac"), suqya: t("sq_tab"), certificate: t("cert_title"), contract: t("ct_tab") };
   return (
     <div className="tabs designer-tabs" role="tablist">
       {(Object.keys(to) as DesignerTab[]).map((k) => (

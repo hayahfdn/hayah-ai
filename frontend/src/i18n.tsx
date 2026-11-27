@@ -9,6 +9,7 @@ import { featAr, featEn } from "./i18n-feat";
 import { certAr, certEn } from "./i18n-cert";
 import { designAr, designEn } from "./i18n-design";
 import { teamAr, teamEn } from "./i18n-team";
+import { suqyaAr, suqyaEn } from "./i18n-suqya";
 
 export type Lang = "ar" | "en";
 
@@ -206,6 +207,8 @@ Object.assign(en, featEn);
 Object.assign(ar, featAr);
 Object.assign(en, certEn);
 Object.assign(ar, certAr);
+Object.assign(en, suqyaEn);
+Object.assign(ar, suqyaAr);
 Object.assign(en, designEn);
 Object.assign(ar, designAr);
 Object.assign(en, teamEn);

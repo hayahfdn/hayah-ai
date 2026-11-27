@@ -1021,3 +1021,27 @@ a.btn { text-decoration: none; }
 .contract-editor .pl-actbar { margin-top: 10px; }
 .ct-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .designer-tabs { flex-wrap: wrap; }
+
+/* «سقيا الماء في الحرم» plaque (27 Nov 2026) */
+.suqya-editor { display: grid; grid-template-columns: minmax(280px, 440px) 1fr; gap: 14px; align-items: start; }
+.suqya-preview-card { position: sticky; top: 12px; padding: 10px; }
+.suqya-canvas { width: 100%; aspect-ratio: 1055 / 1491; display: block; border-radius: 6px; }
+.suqya-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin-bottom: 10px; }
+.suqya-form .span2 { grid-column: 1 / -1; }
+.suqya-form textarea { min-height: 0; }
+.suqya-form label.check { display: flex; align-items: center; gap: 8px; }
+.suqya-form .chips { margin-top: 0; }
+.suqya-form .chip.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+.suqya-form .chip-input { width: 130px; min-height: 28px; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; }
+.suqya-bgs { display: flex; flex-wrap: wrap; gap: 8px; }
+.suqya-bg { width: 92px; padding: 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11.5px; min-height: 0; }
+.suqya-bg img { width: 82px; height: 116px; object-fit: cover; border-radius: 4px; display: block; }
+.suqya-bg span { max-width: 82px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suqya-bg.on { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand); }
+.suqya-bg.add { justify-content: center; height: 146px; color: var(--muted); border-style: dashed; }
+tr.clickable { cursor: pointer; }
+@media (max-width: 820px) {
+  .suqya-editor { grid-template-columns: 1fr; }
+  .suqya-preview-card { position: static; max-width: 420px; margin: 0 auto; width: 100%; }
+  .suqya-form { grid-template-columns: 1fr; }
+}

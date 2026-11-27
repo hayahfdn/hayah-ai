@@ -1,0 +1,31 @@
+// Labels for «سقيا الماء في الحرم» (Hayah, 27 Nov 2026): the order list and the plaque editor.
+export const suqyaEn: Record<string, string> = {
+  sq_tab: "Haram water", sq_title: "Haram water (سقيا)", sq_plaque: "Haram water plaque", sq_new: "New سقيا", sq_create: "Create and open the plaque",
+  sq_create_help: "The next number is filled in; type another one to start from it (e.g. 104).", sq_created: "Created سقيا no.",
+  sq_list: "سقيا orders", sq_empty: "No سقيا yet. Add the first one above.", sq_search: "Search by number, name or phone…",
+  sq_open: "سقيا no.", sq_no: "سقيا number", sq_no_hint: "Next free number. The ones after it follow on.", sq_date: "Date", sq_qty: "Water boxes",
+  sq_price: "Selling price ($)", sq_name: "Name on the plaque", sq_name_hint: "Name only. A new line makes a second line.", sq_dua: "Prayer under the name",
+  sq_dua_custom: "Other…", sq_customer: "Customer", sq_notes: "Notes", sq_order: "Order", sq_saved: "سقيا saved", sq_saved_badge: "Plaque saved",
+  sq_not_saved: "Plaque not saved yet", sq_sent: "Sent", sq_bg: "Background and style", sq_bg_upload: "Upload background",
+  sq_bg_help: "Portrait pictures fit best (about 1055 × 1491). Uploaded backgrounds stay in the list for everyone.", sq_bg_added: "Background added",
+  sq_f_intro: "Line above the hadith", sq_f_hadith: "Hadith (red)", sq_f_qty_before: "Word before the quantity", sq_f_qty_after: "Words after the quantity",
+  sq_f_logo: "Show the HAYAH logo", sq_reset: "Back to the standard text", sq_send: "Send on WhatsApp",
+  sq_send_help: "Phone: one tap opens the share sheet with the plaque; choose WhatsApp and the customer. Computer: WhatsApp Web opens on the customer's chat and the plaque downloads to attach. Changes are saved first.",
+  sq_save_phone_first: "Save the new phone number first", sq_msg: "Assalamu alaikum\nHere is the plaque of Haram water project no.", sq_msg_end: "May Allah accept it from you",
+  sq_delete: "Delete this سقيا", sq_delete_q: "Delete this سقيا and its plaque? It stays in the change log.",
+};
+export const suqyaAr: Record<string, string> = {
+  sq_tab: "سقيا الحرم", sq_title: "سقيا الماء في الحرم", sq_plaque: "لوحة سقيا", sq_new: "سقيا جديدة", sq_create: "إنشاء وفتح اللوحة",
+  sq_create_help: "الرقم التالي مكتوب تلقائياً، ويمكنك كتابة رقم آخر للبدء منه (مثل 104).", sq_created: "تم إنشاء سقيا رقم",
+  sq_list: "طلبات السقيا", sq_empty: "لا توجد سقيا بعد. أضف أول واحدة من الأعلى.", sq_search: "ابحث بالرقم أو الاسم أو الهاتف…",
+  sq_open: "رقم السقيا", sq_no: "رقم السقيا", sq_no_hint: "أول رقم متاح، والأرقام التالية تكمل بعده.", sq_date: "التاريخ", sq_qty: "عدد عبوات المياه",
+  sq_price: "سعر البيع ($)", sq_name: "الاسم على اللوحة", sq_name_hint: "الاسم فقط. السطر الجديد يصبح سطراً ثانياً.", sq_dua: "الدعاء تحت الاسم",
+  sq_dua_custom: "دعاء آخر…", sq_customer: "العميل", sq_notes: "ملاحظات", sq_order: "الطلب", sq_saved: "تم حفظ السقيا", sq_saved_badge: "اللوحة محفوظة",
+  sq_not_saved: "اللوحة لم تُحفظ بعد", sq_sent: "أُرسلت", sq_bg: "الخلفية والشكل", sq_bg_upload: "رفع خلفية",
+  sq_bg_help: "الصور الطولية تناسب أكثر (حوالي 1055 × 1491). الخلفيات المرفوعة تبقى في القائمة للجميع.", sq_bg_added: "تمت إضافة الخلفية",
+  sq_f_intro: "السطر فوق الحديث", sq_f_hadith: "الحديث (بالأحمر)", sq_f_qty_before: "الكلمة قبل العدد", sq_f_qty_after: "الكلمات بعد العدد",
+  sq_f_logo: "إظهار شعار حياة", sq_reset: "الرجوع للنص الأساسي", sq_send: "إرسال واتساب",
+  sq_send_help: "الجوال: ضغطة واحدة تفتح المشاركة مع صورة اللوحة، اختر واتساب ثم العميل. الكمبيوتر: يفتح واتساب ويب على محادثة العميل وتنزل اللوحة لإرفاقها. تُحفظ التعديلات أولاً.",
+  sq_save_phone_first: "احفظ رقم الهاتف الجديد أولاً", sq_msg: "السلام عليكم ورحمة الله\nهذه لوحة سقيا الماء في الحرم رقم", sq_msg_end: "تقبل الله منكم وجعلها في ميزان حسناتكم",
+  sq_delete: "حذف هذه السقيا", sq_delete_q: "حذف هذه السقيا ولوحتها؟ تبقى في سجل التغييرات.",
+};

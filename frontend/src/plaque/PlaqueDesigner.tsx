@@ -487,8 +487,17 @@ function MultiLine({ value, onChange }: { value: string; onChange: (v: string) =
   </div>;
 }
 
+const ANIMAL_ICON: Record<string, string> = { "خروف": "🐑", "بقرة": "🐄", "عجل": "🐂", "ماعز": "🐐", "جمل": "🐪" };
+/** The same occasion with or without feeding (صدقة ⇄ صدقة مع الإطعام, عقيقة ⇄ عقيقة مع الإطعام). */
+export function withFeeding(occ: Occasion, on: boolean): Occasion {
+  if (on) return occ === "sadaqa" ? "itam_sadaqa" : occ.startsWith("aqiqa") ? "itam_aqiqa" : occ;
+  return occ === "itam_sadaqa" ? "sadaqa" : occ === "itam_aqiqa" ? "aqiqa_boy" : occ;
+}
+
 function SacrificeFields({ d, setD, set, input, flagSelect, duaSelect, upload, L }: FieldProps & { d: SacrificeDesign; setD: (fn: (x: Design) => Design) => void }) {
   const { t } = useI18n();
+  const feeding = d.occasion.startsWith("itam");
+  const setAnimal = (animal: string) => setD((x) => { const s = x as SacrificeDesign; return { ...s, animal, title: s.title.replace(s.animal || "\u0000", animal) }; });
   return <>
     <div className="tool-rows">
       <Field label={t("pl_occasion")}>
@@ -500,13 +509,16 @@ function SacrificeFields({ d, setD, set, input, flagSelect, duaSelect, upload, L
       <div className="field upload-field"><label>&nbsp;</label><UploadBtn label={t("pl_flag_upload")} onFile={(f) => upload(f, "flag")} /></div>
       <Field label={t("pl_country_label")}>{input("country_label", d.country_label)}</Field>
       <Field label={t("pl_sac_no")}>{input("sacrifice_no", d.sacrifice_no, "ltr")}</Field>
-      <Field label={t("pl_animal")}>
-        <input dir="rtl" list="pl-animals" value={d.animal} onChange={(e) => {
-          const animal = e.target.value;
-          setD((x) => { const s = x as SacrificeDesign; return { ...s, animal, title: s.title.replace(s.animal || "\u0000", animal) }; });
-        }} />
-      </Field>
       <Field label={t("pl_month")}>{input("month", d.month)}</Field>
+    </div>
+    {/* Hayah (27 Nov 2026): cow and feeding are one tap each, next to the sheep */}
+    <div className="tool-rows">
+      <div className="field wide"><label>{t("pl_animal")}</label>
+        <div className="chips">
+          {ANIMALS.map((w) => <button type="button" key={w} className={`chip${d.animal === w ? " on" : ""}`} onClick={() => setAnimal(w)}>{ANIMAL_ICON[w] || ""} {w}</button>)}
+          <input dir="rtl" className="chip-input" placeholder={t("pl_animal_other")} value={ANIMALS.includes(d.animal) ? "" : d.animal} onChange={(e) => setAnimal(e.target.value || "خروف")} />
+          <label className={`chip feed${feeding ? " on" : ""}`}><input type="checkbox" checked={feeding} onChange={(e) => setD((x) => applyOccasion(x as SacrificeDesign, withFeeding((x as SacrificeDesign).occasion, e.target.checked)))} /> 🍲 {t("pl_add_feeding")}</label>
+        </div></div>
     </div>
     <div className="tool-rows">
       <Field label={t("pl_title_line")}>{input("title", d.title)}</Field>
@@ -518,7 +530,6 @@ function SacrificeFields({ d, setD, set, input, flagSelect, duaSelect, upload, L
       <div className="field wide"><label>{t("pl_short_dua")}</label><MultiLine value={d.short_dua} onChange={(v) => set("short_dua", v)} />
         <span className="hint muted">{t("pl_short_dua_hint")}</span></div>
     </div>
-    <datalist id="pl-animals">{ANIMALS.map((w) => <option key={w} value={w} />)}</datalist>
     <p className="muted" style={{ marginBottom: 0 }}>{t("pl_occasion_hint")}</p>
   </>;
 }

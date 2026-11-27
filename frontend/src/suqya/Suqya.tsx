@@ -42,12 +42,12 @@ export function SuqyaPreview({ d, className }: { d: SuqyaDesign; className?: str
 }
 
 /** The order fields, shared by "new" and the editor. */
-function OrderFields({ f, set, no, setNo }: { f: OrderForm; set: (k: keyof OrderForm, v: any) => void; no?: number | ""; setNo?: (v: number | "") => void }) {
+function OrderFields({ f, set, no, setNo, noHint }: { f: OrderForm; set: (k: keyof OrderForm, v: any) => void; no?: number | ""; setNo?: (v: number | "") => void; noHint?: string }) {
   const { t } = useI18n();
   const custom = !!f.dua && !DUAS.includes(f.dua);
   return (
     <div className="suqya-form">
-      {setNo ? <Field label={t("sq_no")} hint={t("sq_no_hint")}><input type="number" min={1} value={no} onChange={(e) => setNo(e.target.value ? Number(e.target.value) : "")} /></Field>
+      {setNo ? <Field label={t("sq_no")} hint={noHint ?? t("sq_no_hint")}><input type="number" min={1} value={no} onChange={(e) => setNo(e.target.value ? Number(e.target.value) : "")} /></Field>
         : <Field label={t("sq_no")}><input value={no} disabled /></Field>}
       <Field label={t("sq_date")}><input type="date" value={f.order_date || ""} onChange={(e) => set("order_date", e.target.value || null)} /></Field>
       <Field label={t("sq_qty")}><input type="number" min={1} value={f.quantity || ""} onChange={(e) => set("quantity", Number(e.target.value) || 0)} /></Field>
@@ -179,27 +179,34 @@ function Editor({ no }: { no: string }) {
   const [bgs, setBgs] = useState<Bg[]>([]);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [more, setMore] = useState(false);
+  const [more, setMore] = useState(true);
+  const [num, setNum] = useState<number | "">(Number(no));
   const fileRef = useRef<HTMLInputElement>(null);
   const take = (r: SuqyaOrder) => { setO(r); setF(pickForm(r)); setDs(r.design || {}); setDirty(false); };
   useEffect(() => { api<SuqyaOrder>(`/api/suqya/${no}`).then(take).catch((e) => setError(e.message)); }, [no]);
   useEffect(() => { api<Bg[]>("/api/suqya/backgrounds").then(setBgs).catch(() => {}); }, []);
   const design = useMemo<SuqyaDesign | null>(() => {
     if (!o || !f) return null;
-    const d = designFor({ ...o, ...f, quantity: f.quantity || o.quantity, design: ds, month_text: monthText(f.order_date) });
+    const d = designFor({ ...o, ...f, suqya_no: Number(num) || o.suqya_no, quantity: f.quantity || o.quantity, design: ds, month_text: monthText(f.order_date) });
     const bg = bgs.find((b) => b.id === d.bg);
     return { ...d, month_text: ds.month_text ?? monthText(f.order_date), bg_src: bg?.src };
-  }, [o, f, ds, bgs]);
+  }, [o, f, ds, bgs, num]);
   if (error) return <><DesignerTabs on="suqya" /><ErrorBox error={error} /></>;
   if (!o || !f || !design) return <p className="muted">{t("loading")}</p>;
-  const setOrder = (k: keyof OrderForm, v: any) => { setF({ ...f, [k]: v }); setDirty(true); };
+  const setOrder = (k: keyof OrderForm, v: any) => {
+    setF({ ...f, [k]: v }); setDirty(true);
+    // a new date writes its month on the plaque again (a typed plaque date is replaced)
+    if (k === "order_date" && ds.month_text !== undefined) { const { month_text: _m, ...rest } = ds; setDs(rest); }
+  };
   const setD = (k: keyof SuqyaDesign, v: any) => { setDs({ ...ds, [k]: v }); setDirty(true); };
   const save = async (quiet = false) => {
     setSaving(true);
     try {
-      await api(`/api/suqya/${no}`, { method: "PATCH", body: f });
-      take(await api<SuqyaOrder>(`/api/suqya/${no}/design`, { method: "PUT", body: { design: designToSave(design) } }));
+      const to = Number(num) || Number(no);
+      await api(`/api/suqya/${no}`, { method: "PATCH", body: { ...f, suqya_no: to } });
+      take(await api<SuqyaOrder>(`/api/suqya/${to}/design`, { method: "PUT", body: { design: designToSave(design) } }));
       if (!quiet) toast(t("sq_saved"));
+      if (to !== Number(no)) nav(`/plaque/suqya/${to}`, { replace: true });
       return true;
     } catch (e: any) { toast(e.message); return false; } finally { setSaving(false); }
   };
@@ -238,7 +245,8 @@ function Editor({ no }: { no: string }) {
       <div>
         <div className="card">
           <h2 style={{ marginTop: 0 }}>{t("sq_order")}</h2>
-          <OrderFields f={f} set={setOrder} no={o.suqya_no} />
+          <OrderFields f={f} set={setOrder} no={num} setNo={(v) => { setNum(v); setDirty(true); }} noHint={t("sq_no_edit_hint")} />
+          <div className="suqya-form" style={{ marginTop: 8 }}>{txt("month_text", t("sq_month_plaque"))}</div>
         </div>
         <div className="card" style={{ marginTop: 14 }}>
           <h2 style={{ marginTop: 0 }}>{t("sq_bg")}</h2>
@@ -257,9 +265,9 @@ function Editor({ no }: { no: string }) {
             <Field label={`${t("cert_f_names_size")} (${design.name_size}%)`}>
               <input type="range" min={60} max={130} step={5} value={design.name_size} onChange={(e) => setD("name_size", Number(e.target.value))} /></Field>
           </div>
-          <button type="button" className="sm" onClick={() => setMore(!more)}>{more ? "▾" : "▸"} {t("pl_more")}</button>
+          <button type="button" className="sm" onClick={() => setMore(!more)}>{more ? "▾" : "▸"} {t("sq_texts")}</button>
           {more && <div className="suqya-form" style={{ marginTop: 10 }}>
-            {txt("intro", t("sq_f_intro"))}{txt("hadith", t("sq_f_hadith"))}{txt("number_label", t("pl_number_label"))}{txt("month_text", t("pl_month"))}
+            {txt("intro", t("sq_f_intro"))}{txt("hadith", t("sq_f_hadith"))}{txt("number_label", t("pl_number_label"))}
             {txt("qty_before", t("sq_f_qty_before"))}{txt("qty_after", t("sq_f_qty_after"))}{txt("sadaqa_label", t("pl_sadaqa_label"))}
             {txt("footer", t("pl_footer_org"))}{txt("site", t("pl_footer_site"), "ltr")}
             <label className="check"><input type="checkbox" checked={design.show_logo} onChange={(e) => setD("show_logo", e.target.checked)} /> {t("sq_f_logo")}</label>

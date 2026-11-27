@@ -1087,3 +1087,11 @@ tr.clickable { cursor: pointer; }
 .table tr.so-fresh > td { animation: so-fresh 6s ease-out; }
 @keyframes so-fresh { 0%, 30% { background: #e8f8ee; } 100% { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .live-badge.on .live-dot, .table tr.so-fresh > td { animation: none; } }
+
+/* sacrifice animal chips + feeding toggle (27 Nov 2026) */
+.tool-rows .chips { margin-top: 0; align-items: center; }
+.tool-rows .chip { cursor: pointer; font-size: 13.5px; min-height: 32px; border: 1px solid var(--border, #ddd); }
+.tool-rows .chip-input { width: 120px; min-height: 32px; padding: 3px 10px; border-radius: 999px; font-size: 13px; }
+.tool-rows .chip.feed { display: inline-flex; align-items: center; gap: 6px; }
+.tool-rows .chip.feed input { margin: 0; }
+.tool-rows .chip.on { background: var(--brand); color: #fff; border-color: var(--brand); }

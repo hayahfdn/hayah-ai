@@ -57,6 +57,22 @@ def create(db: Session, fields: dict, *, no: int | None = None, actor=None, acto
     return s
 
 
+def renumber(db: Session, s: Suqya, new_no: int) -> None:
+    """Give a سقيا another HAYAH number (Hayah, 27 Nov 2026: every plaque line is editable, the number too).
+    Links from Shopify items use the row id, so nothing else changes; the next new number follows the highest one."""
+    if new_no == s.suqya_no:
+        return
+    if db.scalar(select(Suqya.id).where(Suqya.suqya_no == new_no, Suqya.id != s.id)):
+        raise HTTPException(409, f"سقيا number {new_no} already exists")
+    c = db.scalar(select(Counter).where(Counter.name == "suqya").with_for_update())
+    if not c:
+        c = Counter(name="suqya", value=0)
+        db.add(c)
+    c.value = max(c.value or 0, new_no)
+    s.suqya_no = new_no
+    db.flush()
+
+
 def view(s: Suqya) -> dict:
     return {"suqya_no": s.suqya_no, "order_date": s.order_date.isoformat() if s.order_date else None, "quantity": s.quantity,
             "donor_name": s.donor_name, "dua": s.dua, "customer_name": s.customer_name, "customer_phone": s.customer_phone,

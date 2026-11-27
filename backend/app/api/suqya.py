@@ -151,10 +151,10 @@ def update(no: int, body: SuqyaIn, db: Session = Depends(get_db), user: User = E
     s = _get(db, no)
     before = _audit_view(s)
     if body.suqya_no and body.suqya_no != no:
-        raise HTTPException(422, "The سقيا number cannot be changed here")
+        svc.renumber(db, s, body.suqya_no)
     _apply(s, body, body.model_fields_set - {"suqya_no"})
     s.updated_at = utcnow()
-    audit(db, "suqya.update", "suqya", no, actor=user, before=before, after=_audit_view(s))
+    audit(db, "suqya.update", "suqya", s.suqya_no, actor=user, before=before, after=_audit_view(s))
     db.commit()
     return out(s)
 

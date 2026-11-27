@@ -51,3 +51,16 @@ def test_contractors_cannot_see(client, seeded):
     if c:
         h = login(client, c.email)
         assert client.get("/api/suqya", headers=h).status_code == 403
+
+
+def test_suqya_number_can_be_changed_and_next_numbers_follow(client, seeded):
+    staff = login(client, "staff@hayah.local")
+    a = client.post("/api/suqya", headers=staff, json={"suqya_no": 300, "donor_name": "أ"}).json()
+    client.post("/api/suqya", headers=staff, json={"donor_name": "ب"})  # 301
+    assert client.patch("/api/suqya/300", headers=staff, json={"suqya_no": 301}).status_code == 409
+    r = client.patch("/api/suqya/300", headers=staff, json={"suqya_no": 350, "donor_name": "أحمد", "quantity": 500, "order_date": "2026-12-02"})
+    assert r.status_code == 200, r.text
+    assert r.json()["suqya_no"] == 350 and r.json()["month_text"] == "ديسمبر 2026" and r.json()["quantity"] == 500
+    assert client.get("/api/suqya/300", headers=staff).status_code == 404
+    assert client.get("/api/suqya", headers=staff).json()["next_no"] == 351
+    assert a["suqya_no"] == 300

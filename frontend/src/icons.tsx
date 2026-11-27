@@ -7,7 +7,7 @@ export {
   Table2, FolderKanban, HardHat, Truck, Wrench, Images, Search, Bell, Settings, ChartColumn, ClipboardCheck, Hash, GitMerge,
   Pencil, Download, Upload, Phone, CalendarDays, MapPin, Package, ScrollText, Menu, House, ChevronDown, LogOut, Languages,
   KeyRound, Inbox, BadgeCheck, CircleDollarSign, TrendingUp, Clock, TriangleAlert, Sparkles, Globe, Eye, Share2, RotateCcw,
-  Plus, HandCoins, Award, CirclePlay, Check, ListTodo,
+  Plus, HandCoins, Award, CirclePlay, Check, ListTodo, GlassWater, ShoppingBag, ChevronLeft, ChevronRight,
 } from "lucide-react";
 
 export function Sheep({ size = 24, strokeWidth = 2, ...rest }: SVGProps<SVGSVGElement> & { size?: number | string; strokeWidth?: number | string }) {

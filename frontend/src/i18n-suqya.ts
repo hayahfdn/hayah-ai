@@ -1,6 +1,12 @@
 // Labels for «سقيا الماء في الحرم» (Hayah, 27 Nov 2026): the order list and the plaque editor.
 export const suqyaEn: Record<string, string> = {
-  sq_tab: "Haram water", sq_title: "Haram water (سقيا)", sq_plaque: "Haram water plaque", sq_new: "New سقيا", sq_create: "Create and open the plaque",
+  sq_tab: "Haram water", nav_suqya: "Suqya projects", nav_shop_orders: "Shopify orders", sq_projects_sub: "Projects", sq_shopify: "Shopify order",
+  so_title: "Shopify orders", so_sub: "Every order from the store, as HAYAH received it", so_search: "Order no., name, phone or product…",
+  so_all: "All", so_open: "Active", so_review: "Needs review", so_cancelled: "Cancelled", so_order: "Order", so_date: "Date", so_customer: "Customer",
+  so_phone: "Phone", so_country: "Country", so_total: "Total", so_payment: "Payment", so_source: "Source", so_items: "Items", so_made: "Made in HAYAH",
+  so_details: "Order details", so_note: "Order note", so_none: "No orders yet. They appear here once the Shopify connection is on.",
+  so_paid: "Paid", so_pending: "Pending", so_refunded: "Refunded", so_cancelled_b: "Cancelled", so_prev: "Previous", so_next: "Next",
+  so_well: "Well", so_sac: "Sacrifice", so_suqya: "Suqya", so_of: "of", so_in_shopify: "Open in Shopify", sq_title: "Haram water (سقيا)", sq_plaque: "Haram water plaque", sq_new: "New سقيا", sq_create: "Create and open the plaque",
   sq_create_help: "The next number is filled in; type another one to start from it (e.g. 104).", sq_created: "Created سقيا no.",
   sq_list: "سقيا orders", sq_empty: "No سقيا yet. Add the first one above.", sq_search: "Search by number, name or phone…",
   sq_open: "سقيا no.", sq_no: "سقيا number", sq_no_hint: "Next free number. The ones after it follow on.", sq_date: "Date", sq_qty: "Water boxes",
@@ -15,7 +21,13 @@ export const suqyaEn: Record<string, string> = {
   sq_delete: "Delete this سقيا", sq_delete_q: "Delete this سقيا and its plaque? It stays in the change log.",
 };
 export const suqyaAr: Record<string, string> = {
-  sq_tab: "سقيا الحرم", sq_title: "سقيا الماء في الحرم", sq_plaque: "لوحة سقيا", sq_new: "سقيا جديدة", sq_create: "إنشاء وفتح اللوحة",
+  sq_tab: "سقيا الحرم", nav_suqya: "مشاريع السُقيا", nav_shop_orders: "طلبات شوبيفاي", sq_projects_sub: "المشاريع", sq_shopify: "طلب شوبيفاي",
+  so_title: "طلبات شوبيفاي", so_sub: "كل طلبات المتجر كما وصلت إلى حياة", so_search: "رقم الطلب أو الاسم أو الهاتف أو المنتج…",
+  so_all: "الكل", so_open: "النشطة", so_review: "تحتاج مراجعة", so_cancelled: "الملغاة", so_order: "الطلب", so_date: "التاريخ", so_customer: "العميل",
+  so_phone: "الهاتف", so_country: "الدولة", so_total: "الإجمالي", so_payment: "الدفع", so_source: "مصدر الطلب", so_items: "المنتجات", so_made: "ما أُنشئ في حياة",
+  so_details: "تفاصيل الطلب", so_note: "ملاحظة الطلب", so_none: "لا توجد طلبات بعد. تظهر هنا بعد تشغيل ربط شوبيفاي.",
+  so_paid: "مدفوع", so_pending: "بانتظار الدفع", so_refunded: "مسترد", so_cancelled_b: "ملغي", so_prev: "السابق", so_next: "التالي",
+  so_well: "بئر", so_sac: "ذبيحة", so_suqya: "سقيا", so_of: "من", so_in_shopify: "فتح في شوبيفاي", sq_title: "سقيا الماء في الحرم", sq_plaque: "لوحة سقيا", sq_new: "سقيا جديدة", sq_create: "إنشاء وفتح اللوحة",
   sq_create_help: "الرقم التالي مكتوب تلقائياً، ويمكنك كتابة رقم آخر للبدء منه (مثل 104).", sq_created: "تم إنشاء سقيا رقم",
   sq_list: "طلبات السقيا", sq_empty: "لا توجد سقيا بعد. أضف أول واحدة من الأعلى.", sq_search: "ابحث بالرقم أو الاسم أو الهاتف…",
   sq_open: "رقم السقيا", sq_no: "رقم السقيا", sq_no_hint: "أول رقم متاح، والأرقام التالية تكمل بعده.", sq_date: "التاريخ", sq_qty: "عدد عبوات المياه",

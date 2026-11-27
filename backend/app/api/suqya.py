@@ -13,13 +13,14 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import MANAGERS, PROJECT_CREATORS, require_roles
-from app.models import Counter, Suqya, User, utcnow
+from app.models import Suqya, User, utcnow
 from app.services import phones
+from app.services import suqya as svc
 from app.services.audit import audit
 from app.services.settings_store import get_setting, set_setting
 
@@ -50,14 +51,13 @@ def out(s: Suqya) -> dict:
         "sale_price": float(s.sale_price) if s.sale_price is not None else None, "currency": s.currency, "notes": s.notes,
         "design": s.design, "plaque_saved_at": s.plaque_saved_at, "plaque_saved_by": s.plaque_saved_by,
         "sent_at": s.sent_at, "sent_by": s.sent_by, "created_by": s.created_by, "created_at": s.created_at,
-        "month_text": month_text(s.order_date),
+        "month_text": month_text(s.order_date), "shopify_order": s.shopify_order, "sales_source": s.sales_source,
+        "dedication": s.dedication,
     }
 
 
 def _next_no(db: Session) -> int:
-    c = db.get(Counter, "suqya")
-    top = db.scalar(select(func.max(Suqya.suqya_no))) or 0
-    return max(c.value if c else 0, top) + 1
+    return svc.next_no(db)
 
 
 def _get(db: Session, no: int) -> Suqya:
@@ -98,7 +98,8 @@ def list_suqya(q: str | None = None, db: Session = Depends(get_db), _: User = ED
     stmt = select(Suqya).order_by(Suqya.suqya_no.desc()).limit(300)
     if q and q.strip():
         t = f"%{q.strip()}%"
-        cond = Suqya.donor_name.ilike(t) | Suqya.customer_name.ilike(t) | Suqya.customer_phone.ilike(t)
+        cond = (Suqya.donor_name.ilike(t) | Suqya.customer_name.ilike(t) | Suqya.customer_phone.ilike(t)
+                | Suqya.shopify_order.ilike(t))
         if q.strip().isdigit():
             cond = cond | (Suqya.suqya_no == int(q.strip()))
         stmt = stmt.where(cond)
@@ -107,28 +108,14 @@ def list_suqya(q: str | None = None, db: Session = Depends(get_db), _: User = ED
 
 @router.post("", status_code=201)
 def create(body: SuqyaIn, db: Session = Depends(get_db), user: User = EDITORS):
-    c = db.scalar(select(Counter).where(Counter.name == "suqya").with_for_update())
-    if not c:
-        c = Counter(name="suqya", value=0)
-        db.add(c)
-        db.flush()
-    no = body.suqya_no or _next_no(db)
-    if db.scalar(select(Suqya.id).where(Suqya.suqya_no == no)):
-        raise HTTPException(409, f"سقيا number {no} already exists")
-    c.value = max(c.value, no)
-    s = Suqya(suqya_no=no, quantity=100, created_by=user.full_name, order_date=date.today())
-    _apply(s, body, body.model_fields_set - {"suqya_no"})
-    db.add(s)
-    db.flush()
-    audit(db, "suqya.create", "suqya", no, actor=user, after=_audit_view(s))
+    fields = {k: getattr(body, k) for k in body.model_fields_set - {"suqya_no"} if k in FIELDS}
+    s = svc.create(db, fields, no=body.suqya_no, actor=user)
     db.commit()
     return out(s)
 
 
 def _audit_view(s: Suqya) -> dict:
-    d = out(s)
-    return {k: (str(v) if v is not None and not isinstance(v, (str, int, float, bool, dict, list)) else v)
-            for k, v in d.items() if k not in ("design", "month_text")}
+    return svc.view(s)
 
 
 @router.get("/backgrounds")

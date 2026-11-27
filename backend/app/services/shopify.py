@@ -3,6 +3,9 @@
 Each paid Shopify order becomes HAYAH records automatically:
 - a well product (title has "بئر" / "well")      -> one well per unit, with the next Well ID
 - a sacrifice product (خروف / ماعز / بقرة ...)    -> one sacrifice per unit, with the next number
+- a water (سقيا) product, e.g. "100 عبوة"          -> one سقيا project per unit, with the next سقيا number;
+                                                     bought as an add-on of a well/sacrifice it is still its own
+                                                     سقيا (its price moves to the سقيا), details from that project
 - an add-on (has the "للمشروع" property, e.g. extra water tank, feeding)
                                                   -> added to the extras and selling price of
                                                      the well/sacrifice it was bought for
@@ -27,15 +30,16 @@ from decimal import ROUND_HALF_UP, Decimal
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select, text
+from sqlalchemy import Text, func, select, text
 from sqlalchemy.orm import Session
 
 from app.integrations import shopify as api
-from app.models import PaymentStatus, Project, Sacrifice, ShopifyOrder, ShopifyOrderItem, utcnow
+from app.models import PaymentStatus, Project, Sacrifice, ShopifyOrder, ShopifyOrderItem, Suqya, utcnow
 from app.services import addons
 from app.services import finance as fin
 from app.services import projects as psvc
 from app.services import secrets_store
+from app.services import suqya as suqya_svc
 from app.services.audit import audit
 from app.services.jobs import handler
 from app.services.settings_store import get_setting, set_setting
@@ -65,6 +69,8 @@ DEFAULTS = {
     "intention_keys": ["الغرض", "نوع الطلب", "Purpose", "Intention"],
     "country_keys": ["الدولة المطلوبة", "الدولة", "Country"],
     "addon_keys": ["للمشروع", "For project"],
+    # Water for the guests of al-Haram (Hayah, 27 Nov 2026): its own project type, even when bought as an add-on.
+    "suqya_keywords": ["سقيا", "سقي الماء", "ضيوف الرحمن", "عبوة مياه", "عبوات مياه", "suqya", "water bottles"],
     # Older orders have add-ons without the "للمشروع" property: these words in the title mark one.
     "addon_keywords": ["إضافة", "اضافة", "سيراميك", "خزان", "دلو", "إطعام", "اطعام",
                        "ceramic", "tank", "bucket", "feeding", "add-on"],
@@ -236,6 +242,7 @@ def sync_now(db: Session, *, full: bool = False, max_pages: int = 20) -> dict:
                 continue
             counts["created_wells"] += r.get("created_wells", 0)
             counts["created_sacrifices"] += r.get("created_sacrifices", 0)
+            counts["created_suqya"] = counts.get("created_suqya", 0) + r.get("created_suqya", 0)
         if not page["pageInfo"]["hasNextPage"]:
             break
         after = page["pageInfo"]["endCursor"]
@@ -243,6 +250,9 @@ def sync_now(db: Session, *, full: bool = False, max_pages: int = 20) -> dict:
         split = split_imported_addons(db)
         if split:
             counts["addons_split"] = split
+        water = import_missing_suqya(db)
+        if water:
+            counts["suqya_created"] = water
         fixed = repair_phone_countries(db)
         if fixed:
             counts["phones_completed"] = fixed
@@ -347,7 +357,14 @@ def _prop(props: dict, keys: list[str]) -> str | None:
     return None
 
 
+def is_suqya(line: dict, cfg: dict) -> bool:
+    title = f"{line['title']} {line.get('variant_title') or ''}".lower()
+    return any(k.lower() in title for k in cfg.get("suqya_keywords") or DEFAULTS["suqya_keywords"])
+
+
 def classify(line: dict, cfg: dict) -> str:
+    if is_suqya(line, cfg):
+        return "suqya"
     if _prop(line["props"], cfg["addon_keys"]):
         return "addon"
     if any(k.lower() in line["title"].lower() for k in cfg["addon_keywords"]):
@@ -472,7 +489,7 @@ def import_order(db: Session, o: dict, *, source: str = "webhook") -> dict:
     row.updated_at = utcnow()
     db.flush()
 
-    result = {"status": row.status, "created_wells": 0, "created_sacrifices": 0}
+    result = {"status": row.status, "created_wells": 0, "created_sacrifices": 0, "created_suqya": 0}
     if o["cancelled"] or refunded:
         if not row.cancelled:
             _mark_cancelled(db, row, o)
@@ -510,7 +527,7 @@ def import_order(db: Session, o: dict, *, source: str = "webhook") -> dict:
     made = []
     for x in units:
         made.append(_create_unit(db, row, o, x, cfg, paid))
-        result["created_wells" if x["kind"] == "well" else "created_sacrifices"] += 1
+        result[{"well": "created_wells", "suqya": "created_suqya"}.get(x["kind"], "created_sacrifices")] += 1
 
     if not units:
         row.status = "nothing_to_import"
@@ -538,8 +555,18 @@ def _plan(db: Session, row: ShopifyOrder, o: dict, cfg: dict) -> tuple[list[dict
         (addons if kind == "addon" else others if kind == "other" else mains).append((kind, li))
     units = []
     for kind, li in mains:
+        if kind == "suqya":
+            continue
         for u in range(1, li["quantity"] + 1):
             units.append({"kind": kind, "line": li, "unit": u, "amount": _net(li), "extras": []})
+    for kind, li in mains:  # water: own سقيا per unit; as an add-on, who it is for comes from that project
+        if kind != "suqya":
+            continue
+        target = (_prop(li["props"], cfg["addon_keys"]) or "").strip()
+        parents = ([x for x in units if x["line"]["title"].strip() == target] or units) if target else []
+        for u in range(1, li["quantity"] + 1):
+            units.append({"kind": "suqya", "line": li, "unit": u, "amount": _net(li), "extras": [],
+                          "parent": parents[(u - 1) % len(parents)] if parents else None, "rule": {}})
     problems = []
     have = {(i.line_item_id, i.unit) for i in db.scalars(select(ShopifyOrderItem).where(ShopifyOrderItem.order_id == row.id))}
     own = [] if _order_number(o["name"]) < int(cfg.get("standalone_from_order") or 0) else \
@@ -625,6 +652,18 @@ def _create_unit(db: Session, row: ShopifyOrder, o: dict, x: dict, cfg: dict, pa
     day, src = order_day(o, cfg["timezone"]), sales_source(o)
     item = item or ShopifyOrderItem(order_id=row.id, line_item_id=li["id"], unit=x["unit"])
     item.title, item.kind, item.amount, item.match = li["title"][:300], x["kind"], x["amount"], match
+    if x["kind"] == "suqya":
+        s = suqya_svc.create(db, {
+            "order_date": day, "quantity": suqya_svc.boxes_in(f"{li.get('variant_title') or ''} {li['title']}"),
+            "donor_name": ((f["dedication"] or f["donor"] or "") if not x.get("parent") else (f["dedication"] or f["donor"] or ""))[:300] or None,
+            "customer_name": (f["donor"] or o.get("customer_name") or "")[:200] or None,
+            "customer_phone": f["phone"], "_phone_hints": [o.get("phone")], "_phone_fallback_country": o.get("country_code"),
+            "sale_price": x["amount"], "currency": o["currency"][:3], "shopify_order": o["name"][:60], "sales_source": src,
+            "dedication": f["dedication"], "notes": notes}, actor_label="Shopify")
+        item.suqya_id = s.id
+        db.add(item)
+        db.flush()
+        return f"سقيا {s.suqya_no}"
     if x["kind"] == "well":
         data = {"well_id": _next_well_id(db, cfg), "order_date": day, "customer_name": (f["donor"] or "")[:200] or None,
                 "customer_phone": f["phone"], "_phone_hints": [o.get("phone")], "_phone_fallback_country": o.get("country_code"), "country": f["country"], "well_type": well_type(f["title"]), "sales_source": src,
@@ -707,6 +746,71 @@ def split_imported_addons(db: Session) -> list[str]:
     return done
 
 
+def import_missing_suqya(db: Session) -> list[str]:
+    """Orders seen before سقيا became its own project type (27 Nov 2026): make the سقيا projects they are missing.
+    A water line recorded as "other" is linked to its new سقيا; one folded into a well/sacrifice as an add-on
+    moves its price from that project to the سقيا and leaves its extras. Cancelled orders are never touched.
+    Safe to run any number of times (each line unit is created once)."""
+    cfg = config(db)
+    done = []
+    rows = db.scalars(select(ShopifyOrder).where(ShopifyOrder.cancelled.is_(False), ShopifyOrder.raw.is_not(None))
+                      .order_by(ShopifyOrder.created_at_shop))
+    for row in list(rows):
+        raw = row.raw or {}
+        if not any(is_suqya({"title": li.get("title") or "", "variant_title": li.get("variant_title")}, cfg)
+                   for li in raw.get("lines") or []):
+            continue
+        if (row.financial_status or "") in {"refunded", "voided"} or row.status in {"cancelled", "waiting_payment", "new"}:
+            continue
+        o = _from_raw_order(raw)
+        items = list(db.scalars(select(ShopifyOrderItem).where(ShopifyOrderItem.order_id == row.id)))
+        before = len(done)
+        for li in o["lines"]:
+            if not is_suqya(li, cfg):
+                continue
+            mine = [i for i in items if i.line_item_id == li["id"]]
+            if any(i.suqya_id for i in mine):
+                continue
+            target = (_prop(li["props"], cfg["addon_keys"]) or "").strip()
+            parent = None
+            for i in mine:
+                if i.kind == "addon":  # folded into a project: take its price back from that project
+                    net = i.amount or Decimal(0)
+                    owners = [x for x in items if x.kind in ("well", "sacrifice") and (x.project_id or x.sacrifice_id)]
+                    owner = next((x for x in owners if (x.title or "").strip() == target), owners[0] if owners else None)
+                    if owner is not None:
+                        rec = db.get(Project, owner.project_id) if owner.project_id else db.get(Sacrifice, owner.sacrifice_id)
+                        kept = [e for e in addons.split(rec.extras) if not e.startswith(li["title"])]
+                        if owner.project_id:
+                            psvc.update_project(db, rec, {"sale_amount": (rec.sale_amount or Decimal(0)) - net,
+                                                          "extras": addons.join(kept)}, actor=None, source="shopify")
+                        else:
+                            fin.update_sacrifice(db, rec, {"sale_price": (rec.sale_price or Decimal(0)) - net,
+                                                           "extras": addons.join(kept)}, actor=None, source="shopify")
+                        owner.amount = (owner.amount or Decimal(0)) - net
+                        p_line = next((p for p in o["lines"] if p["id"] == owner.line_item_id), None)
+                        if p_line is not None:
+                            parent = {"kind": owner.kind, "line": p_line, "unit": owner.unit, "amount": owner.amount, "extras": []}
+                db.delete(i)
+            db.flush()
+            if parent is None and target:
+                p_line = next((p for p in o["lines"] if p["title"].strip() == target), None)
+                if p_line is not None:
+                    parent = {"kind": "well", "line": p_line, "unit": 1, "amount": Decimal(0), "extras": []}
+            for u in range(1, li["quantity"] + 1):
+                x = {"kind": "suqya", "line": li, "unit": u, "amount": _net(li), "extras": [], "parent": parent, "rule": {}}
+                done.append(f"{row.name}: " + _create_unit(db, row, o, x, cfg, paid=True))
+        if len(done) > before:
+            if row.status in {"nothing_to_import", "needs_review"}:
+                others = [i for i in db.scalars(select(ShopifyOrderItem).where(ShopifyOrderItem.order_id == row.id))
+                          if i.kind == "other"]
+                row.status = "needs_review" if others else "imported"
+            row.message = "; ".join(filter(None, [row.message if row.status != "imported" else None,
+                                                  "Created " + ", ".join(d.split(": ", 1)[1] for d in done[before:])]))
+            audit(db, "shopify.suqya_backfill", "shopify_order", row.name, actor_label="Shopify", after={"done": done[before:]})
+    return done
+
+
 def repair_phone_countries(db: Session) -> int:
     """Local customer numbers saved without a country ("needs_country") get the customer's own
     country from their Shopify order (billing address country code), so WhatsApp links work.
@@ -746,6 +850,11 @@ def _linked(db: Session, row: ShopifyOrder):
     return ps, ss
 
 
+def _linked_suqya(db: Session, row: ShopifyOrder) -> list[Suqya]:
+    ids = db.scalars(select(ShopifyOrderItem.suqya_id).where(ShopifyOrderItem.order_id == row.id, ShopifyOrderItem.suqya_id.is_not(None)))
+    return [db.get(Suqya, i) for i in ids]
+
+
 def _mark_paid(db: Session, row: ShopifyOrder) -> None:
     ps, _ = _linked(db, row)
     for p in ps:
@@ -762,8 +871,11 @@ def _mark_cancelled(db: Session, row: ShopifyOrder, o: dict) -> None:
                                     "notes": ((p.notes or "") + "\n" + note).strip()}, actor=None, source="shopify")
     for s in ss:
         fin.update_sacrifice(db, s, {"notes": ((s.notes or "") + "\n" + note).strip()}, actor=None, source="shopify")
+    qs = _linked_suqya(db, row)
+    for q in qs:
+        q.notes = ((q.notes or "") + "\n" + note).strip()
     row.status = "cancelled"
-    row.message = note if (ps or ss) else f"Cancelled/refunded in Shopify ({o['financial_status'] or 'cancelled'})"
+    row.message = note if (ps or ss or qs) else f"Cancelled/refunded in Shopify ({o['financial_status'] or 'cancelled'})"
     audit(db, "shopify.order_cancelled", "shopify_order", o["name"], actor_label="Shopify", after={"message": row.message})
 
 
@@ -818,6 +930,67 @@ def recent_orders(db: Session, limit: int = 100) -> list[dict]:
                     "customer_name": r.customer_name, "status": r.status, "message": r.message, "source": r.source,
                     "well_ids": [w for k, w, _ in items if w], "sacrifice_nos": [s for k, _, s in items if s]})
     return out
+
+
+def orders_list(db: Session, *, q: str | None = None, status: str | None = None, page: int = 1, per_page: int = 50) -> dict:
+    """«طلبات شوبيفاي» (Hayah, 27 Nov 2026): every order HAYAH has seen, like Shopify's own orders list.
+    Only what Hayah keeps: order number, items, customer name, phone, country, selling price and source.
+    No address, email or payment details are stored, so none can be shown."""
+    stmt = select(ShopifyOrder)
+    if status == "cancelled":
+        stmt = stmt.where(ShopifyOrder.cancelled.is_(True))
+    elif status == "open":
+        stmt = stmt.where(ShopifyOrder.cancelled.is_(False))
+    elif status == "review":
+        stmt = stmt.where(ShopifyOrder.status.in_(["needs_review", "not_in_workbook", "check", "waiting_payment"]))
+    if q and q.strip():
+        t = q.strip()
+        like = f"%{t}%"
+        stmt = stmt.where(ShopifyOrder.name.ilike(f"%{t.lstrip('#')}%") | ShopifyOrder.customer_name.ilike(like)
+                          | func.cast(ShopifyOrder.raw, Text).ilike(like))
+    total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    rows = list(db.scalars(stmt.order_by(ShopifyOrder.created_at_shop.desc().nulls_last(), ShopifyOrder.id.desc())
+                           .offset((page - 1) * per_page).limit(per_page)))
+    cfg = config(db)
+    ids = [r.id for r in rows]
+    links: dict[int, dict] = {i: {"wells": [], "sacrifices": [], "suqya": []} for i in ids}
+    if ids:
+        for oid, line_id, unit, w, sno, qno in db.execute(
+                select(ShopifyOrderItem.order_id, ShopifyOrderItem.line_item_id, ShopifyOrderItem.unit, Project.well_id,
+                       Sacrifice.sacrifice_no, Suqya.suqya_no)
+                .outerjoin(Project, Project.id == ShopifyOrderItem.project_id)
+                .outerjoin(Sacrifice, Sacrifice.id == ShopifyOrderItem.sacrifice_id)
+                .outerjoin(Suqya, Suqya.id == ShopifyOrderItem.suqya_id)
+                .where(ShopifyOrderItem.order_id.in_(ids))).all():
+            for key, v in (("wells", w), ("sacrifices", sno), ("suqya", qno)):
+                if v:
+                    links[oid][key].append({"no": v, "line": line_id, "unit": unit})
+    mapped = {k.lower() for k in cfg["phone_keys"]}
+    out = []
+    for r in rows:
+        raw = r.raw or {}
+        lines = raw.get("lines") or []
+        phone = raw.get("phone")
+        for li in lines:
+            phone = phone or _prop(li.get("props") or {}, cfg["phone_keys"])
+        try:
+            src = sales_source({"attrs": raw.get("attrs") or {}, "referrer": raw.get("referrer")}) if raw else None
+        except Exception:  # an old copy without these fields
+            src = None
+        items = []
+        for li in lines:
+            kind = classify({"title": li.get("title") or "", "variant_title": li.get("variant_title"),
+                             "props": li.get("props") or {}}, cfg)
+            items.append({"id": li.get("id"), "title": li.get("title"), "variant": li.get("variant_title"),
+                          "quantity": li.get("quantity"), "price": float(Decimal(str(li.get("unit_price") or 0))),
+                          "discount": float(Decimal(str(li.get("discount") or 0))), "kind": kind,
+                          "props": {k: v for k, v in (li.get("props") or {}).items() if not k.startswith("_") and k.lower() not in mapped}})
+        out.append({"id": r.id, "name": r.name, "created_at": r.created_at_shop, "financial_status": r.financial_status,
+                    "cancelled": r.cancelled, "total": float(r.total or 0), "currency": r.currency,
+                    "customer_name": r.customer_name, "phone": phone, "country_code": raw.get("country_code"),
+                    "source": src, "status": r.status, "message": r.message, "note": raw.get("note"),
+                    "items": items, "links": links[r.id]})
+    return {"orders": out, "total": total, "page": page, "per_page": per_page}
 
 
 # ---------------- background jobs ----------------

@@ -173,6 +173,7 @@ def run(db: Session, *, start: date | None = None, user: User | None = None, ord
             result["not_paid"] += 1
             continue
         units, problems = sh._plan(db, row, o, cfg)
+        units = [x for x in units if x["kind"] != "suqya"]  # سقيا is never in the workbook: made by import_missing_suqya
         row.message = "; ".join(problems) or None
         existing = {(i.line_item_id, i.unit): i for i in db.scalars(
             select(ShopifyOrderItem).where(ShopifyOrderItem.order_id == row.id))}
@@ -383,7 +384,7 @@ def add_missing(db: Session, *, order_name: str | None, user: User) -> dict:
     made = []
     for row in db.scalars(q.order_by(ShopifyOrder.created_at_shop)):
         o = _from_raw(row.raw or {})
-        units, _ = sh._plan(db, row, o, cfg)
+        units = [x for x in sh._plan(db, row, o, cfg)[0] if x["kind"] != "suqya"]
         items = {(i.line_item_id, i.unit): i for i in db.scalars(select(ShopifyOrderItem).where(ShopifyOrderItem.order_id == row.id))}
         for x in units:
             it = items.get((x["line"]["id"], x["unit"]))

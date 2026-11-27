@@ -117,6 +117,8 @@ export function SideNav({ counts }: { counts: Record<string, number> }) {
       {link("/", "nav_dashboard", I.LayoutDashboard)}
       {nav && <NavPicker title={t("nav_wells")} icon={I.Droplets} items={months(nav.wells, L.wells)} defaultKey={cur} />}
       {nav && can(...EDITORS) && <NavPicker title={t("nav_sacrifices")} icon={I.Sheep} items={months(nav.sacrifices, L.sac)} defaultKey={cur} />}
+      {can(...EDITORS) && link("/suqya", "nav_suqya", I.GlassWater)}
+      {can(...EDITORS) && link("/shopify-orders", "nav_shop_orders", I.ShoppingBag)}
       {manager && <>
         <div className="nav-sec">{t("nav_sec_book")}</div>
         {link("/book", "tab_summary", I.ChartColumn)}

@@ -26,6 +26,10 @@ def test_numbers_design_and_sent(client, seeded):
 
     d = client.put("/api/suqya/104/design", headers=staff, json={"design": {"name": "خيرة", "bg": "haram", "evil": "x"}})
     assert d.status_code == 200 and d.json()["design"] == {"name": "خيرة", "bg": "haram"} and d.json()["plaque_saved_by"]
+    # the whole wording and the prayer sizes are kept with the plaque (28 Nov 2026)
+    tpl = "سقيا رقم {رقم}\n{الاسم}\n{الدعاء}\nجزاكم الله خيراً"
+    d = client.put("/api/suqya/104/design", headers=staff, json={"design": {"template": tpl, "dua_size": 140, "extra_size": 80}})
+    assert d.status_code == 200 and d.json()["design"] == {"template": tpl, "dua_size": 140, "extra_size": 80}
     s = client.post("/api/suqya/104/sent", headers=staff, json={"method": "share"})
     assert s.status_code == 200 and s.json()["sent_at"]
 

@@ -29,7 +29,8 @@ EDITORS = Depends(require_roles(PROJECT_CREATORS))
 MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
 # Only these keys are kept from the plaque editor (text and a few layout choices; images by id only).
 DESIGN_KEYS = {"intro", "hadith", "number_label", "month_text", "qty_before", "qty_after", "sadaqa_label", "name",
-               "name_size", "name_font", "dua", "site", "footer", "bg", "show_logo"}
+               "name_size", "name_font", "dua", "site", "footer", "bg", "show_logo",
+               "template", "dua_size", "extra_size"}
 BUILTIN_BG = [{"id": "haram", "name": "الحرم المكي · Haram", "src": "/suqya/haram-bg.jpg", "builtin": True}]
 _DATA_URL = re.compile(r"^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$")
 MAX_IMAGE_BYTES = 4_000_000

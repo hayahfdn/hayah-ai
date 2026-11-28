@@ -1,6 +1,9 @@
 // Labels for «سقيا الماء في الحرم» (Hayah, 27 Nov 2026): the order list and the plaque editor.
 export const suqyaEn: Record<string, string> = {
-  sq_no_edit_hint: "Change it to give this سقيا another number (it must be free).", sq_texts: "Plaque text (every line)", sq_month_plaque: "Date on the plaque",
+  sq_dua_size: "Prayer size («حفظه الله»)", sq_extra_size: "Size of the text under the prayer", sq_ph_no: "Number", sq_ph_date: "Date",
+  sq_ph_qty: "Quantity", sq_ph_name: "Name", sq_ph_dua: "Prayer", sq_tpl_std: "Standard wording", sq_tpl_custom: "Your own wording",
+  sq_tpl_help: "Each line here is a line on the plaque. Words in { } are filled from the order automatically. Lines you write under {الدعاء} appear under the prayer; set their size above.",
+  sq_no_edit_hint: "Change it to give this سقيا another number (it must be free).", sq_texts: "Plaque text", sq_month_plaque: "Date on the plaque",
   sq_tab: "Haram water", nav_suqya: "Suqya projects", nav_shop_orders: "Shopify orders", sq_projects_sub: "Projects", sq_shopify: "Shopify order",
   live_on: "Live", live_off: "Every 2 minutes", live_last: "last update", live_on_help: "New Shopify orders appear here within seconds, without refreshing.", live_off_help: "Instant notifications are not connected yet: an admin presses «Connect order notifications» in Settings > Shopify once. Until then new orders arrive within 2 minutes.", so_new_orders: "New order received",
   so_title: "Shopify orders", so_sub: "Every order from the store, as HAYAH received it", so_search: "Order no., name, phone or product…",
@@ -17,13 +20,16 @@ export const suqyaEn: Record<string, string> = {
   sq_not_saved: "Plaque not saved yet", sq_sent: "Sent", sq_bg: "Background and style", sq_bg_upload: "Upload background",
   sq_bg_help: "Portrait pictures fit best (about 1055 × 1491). Uploaded backgrounds stay in the list for everyone.", sq_bg_added: "Background added",
   sq_f_intro: "Line above the hadith", sq_f_hadith: "Hadith (red)", sq_f_qty_before: "Word before the quantity", sq_f_qty_after: "Words after the quantity",
-  sq_f_logo: "Show the HAYAH logo", sq_reset: "Back to the standard text", sq_send: "Send on WhatsApp",
+  sq_f_logo: "Show the HAYAH logo", sq_reset: "Back to the standard wording", sq_send: "Send on WhatsApp",
   sq_send_help: "Phone: one tap opens the share sheet with the plaque; choose WhatsApp and the customer. Computer: WhatsApp Web opens on the customer's chat and the plaque downloads to attach. Changes are saved first.",
   sq_save_phone_first: "Save the new phone number first", sq_msg: "Assalamu alaikum\nHere is the plaque of Haram water project no.", sq_msg_end: "May Allah accept it from you",
   sq_delete: "Delete this سقيا", sq_delete_q: "Delete this سقيا and its plaque? It stays in the change log.",
 };
 export const suqyaAr: Record<string, string> = {
-  sq_no_edit_hint: "غيّره لتعطي هذه السقيا رقماً آخر (يجب ألا يكون مستخدماً).", sq_texts: "نصوص اللوحة (كل سطر)", sq_month_plaque: "التاريخ على اللوحة",
+  sq_dua_size: "حجم الدعاء («حفظه الله»)", sq_extra_size: "حجم النص تحت الدعاء", sq_ph_no: "الرقم", sq_ph_date: "التاريخ",
+  sq_ph_qty: "العدد", sq_ph_name: "الاسم", sq_ph_dua: "الدعاء", sq_tpl_std: "الصيغة التلقائية", sq_tpl_custom: "صيغة معدّلة",
+  sq_tpl_help: "كل سطر هنا هو سطر على اللوحة. الكلمات بين { } تُملأ تلقائياً من الطلب. الأسطر التي تكتبها تحت {الدعاء} تظهر تحت «حفظه الله»، وحجمها من الشريط في الأعلى.",
+  sq_no_edit_hint: "غيّره لتعطي هذه السقيا رقماً آخر (يجب ألا يكون مستخدماً).", sq_texts: "نص اللوحة", sq_month_plaque: "التاريخ على اللوحة",
   sq_tab: "سقيا الحرم", nav_suqya: "مشاريع السُقيا", nav_shop_orders: "طلبات شوبيفاي", sq_projects_sub: "المشاريع", sq_shopify: "طلب شوبيفاي",
   live_on: "مباشر", live_off: "كل دقيقتين", live_last: "آخر تحديث", live_on_help: "تظهر طلبات شوبيفاي الجديدة هنا خلال ثوانٍ دون تحديث الصفحة.", live_off_help: "الإشعارات الفورية غير مربوطة بعد: يضغط المدير «ربط إشعارات الطلبات» في الإعدادات > شوبيفاي مرة واحدة. وحتى ذلك تصل الطلبات الجديدة خلال دقيقتين.", so_new_orders: "وصل طلب جديد",
   so_title: "طلبات شوبيفاي", so_sub: "كل طلبات المتجر كما وصلت إلى حياة", so_search: "رقم الطلب أو الاسم أو الهاتف أو المنتج…",
@@ -40,7 +46,7 @@ export const suqyaAr: Record<string, string> = {
   sq_not_saved: "اللوحة لم تُحفظ بعد", sq_sent: "أُرسلت", sq_bg: "الخلفية والشكل", sq_bg_upload: "رفع خلفية",
   sq_bg_help: "الصور الطولية تناسب أكثر (حوالي 1055 × 1491). الخلفيات المرفوعة تبقى في القائمة للجميع.", sq_bg_added: "تمت إضافة الخلفية",
   sq_f_intro: "السطر فوق الحديث", sq_f_hadith: "الحديث (بالأحمر)", sq_f_qty_before: "الكلمة قبل العدد", sq_f_qty_after: "الكلمات بعد العدد",
-  sq_f_logo: "إظهار شعار حياة", sq_reset: "الرجوع للنص الأساسي", sq_send: "إرسال واتساب",
+  sq_f_logo: "إظهار شعار حياة", sq_reset: "الرجوع للصيغة التلقائية", sq_send: "إرسال واتساب",
   sq_send_help: "الجوال: ضغطة واحدة تفتح المشاركة مع صورة اللوحة، اختر واتساب ثم العميل. الكمبيوتر: يفتح واتساب ويب على محادثة العميل وتنزل اللوحة لإرفاقها. تُحفظ التعديلات أولاً.",
   sq_save_phone_first: "احفظ رقم الهاتف الجديد أولاً", sq_msg: "السلام عليكم ورحمة الله\nهذه لوحة سقيا الماء في الحرم رقم", sq_msg_end: "تقبل الله منكم وجعلها في ميزان حسناتكم",
   sq_delete: "حذف هذه السقيا", sq_delete_q: "حذف هذه السقيا ولوحتها؟ تبقى في سجل التغييرات.",

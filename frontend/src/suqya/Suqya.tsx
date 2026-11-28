@@ -14,7 +14,7 @@ import { FONTS } from "../plaque/fonts";
 import { isPhoneDevice, waLink, waProblem, WaIcon } from "../plaque/flow";
 import { downloadBlob, saveToPhotos } from "../plaque/photos";
 import * as I from "../icons";
-import { designFor, designToSave, drawSuqya, loadSuqyaAssets, SH, SuqyaDesign, SuqyaOrder, suqyaPng, SW } from "./render";
+import { defaultTemplate, designFor, designToSave, PH, templateOf, drawSuqya, loadSuqyaAssets, SH, SuqyaDesign, SuqyaOrder, suqyaPng, SW } from "./render";
 
 export const DUAS = ["حفظه الله", "حفظها الله", "حفظهم الله", "رحمه الله", "رحمها الله", "رحمهم الله", "تقبل الله منه", "تقبل الله منها", "تقبل الله منهم"];
 type Bg = { id: string; name: string; src: string; builtin: boolean };
@@ -182,6 +182,7 @@ function Editor({ no }: { no: string }) {
   const [more, setMore] = useState(true);
   const [num, setNum] = useState<number | "">(Number(no));
   const fileRef = useRef<HTMLInputElement>(null);
+  const tplRef = useRef<HTMLTextAreaElement>(null);
   const take = (r: SuqyaOrder) => { setO(r); setF(pickForm(r)); setDs(r.design || {}); setDirty(false); };
   useEffect(() => { api<SuqyaOrder>(`/api/suqya/${no}`).then(take).catch((e) => setError(e.message)); }, [no]);
   useEffect(() => { api<Bg[]>("/api/suqya/backgrounds").then(setBgs).catch(() => {}); }, []);
@@ -220,6 +221,18 @@ function Editor({ no }: { no: string }) {
   const del = async () => {
     if (!window.confirm(t("sq_delete_q"))) return;
     try { await api(`/api/suqya/${no}`, { method: "DELETE" }); nav("/plaque/suqya"); } catch (e: any) { toast(e.message); }
+  };
+  const tpl = templateOf(design);
+  const isStd = tpl.trim() === defaultTemplate(design).trim();
+  const insert = (ph: string) => {
+    const el = tplRef.current, a = el?.selectionStart ?? tpl.length, b = el?.selectionEnd ?? tpl.length;
+    setD("template", tpl.slice(0, a) + ph + tpl.slice(b));
+    requestAnimationFrame(() => { if (el) { el.focus(); el.selectionStart = el.selectionEnd = a + ph.length; } });
+  };
+  // back to the standard wording; sizes, font, background and footer stay as chosen
+  const resetText = () => {
+    const { template: _t, intro: _i, hadith: _h, number_label: _n, qty_before: _b, qty_after: _a, sadaqa_label: _s, ...keep } = ds;
+    setDs(keep); setDirty(true);
   };
   const txt = (k: keyof SuqyaDesign, label: string, dir: "rtl" | "ltr" = "rtl") => (
     <Field key={k} label={label}><input dir={dir} value={String(design[k] ?? "")} onChange={(e) => setD(k, e.target.value)} /></Field>);
@@ -264,14 +277,28 @@ function Editor({ no }: { no: string }) {
               </select></Field>
             <Field label={`${t("cert_f_names_size")} (${design.name_size}%)`}>
               <input type="range" min={60} max={130} step={5} value={design.name_size} onChange={(e) => setD("name_size", Number(e.target.value))} /></Field>
+            <Field label={`${t("sq_dua_size")} (${design.dua_size}%)`}>
+              <input type="range" min={60} max={200} step={5} value={design.dua_size} onChange={(e) => setD("dua_size", Number(e.target.value))} /></Field>
+            <Field label={`${t("sq_extra_size")} (${design.extra_size}%)`}>
+              <input type="range" min={50} max={200} step={5} value={design.extra_size} onChange={(e) => setD("extra_size", Number(e.target.value))} /></Field>
           </div>
           <button type="button" className="sm" onClick={() => setMore(!more)}>{more ? "▾" : "▸"} {t("sq_texts")}</button>
           {more && <div className="suqya-form" style={{ marginTop: 10 }}>
-            {txt("intro", t("sq_f_intro"))}{txt("hadith", t("sq_f_hadith"))}{txt("number_label", t("pl_number_label"))}
-            {txt("qty_before", t("sq_f_qty_before"))}{txt("qty_after", t("sq_f_qty_after"))}{txt("sadaqa_label", t("pl_sadaqa_label"))}
+            <div className="span2">
+              <textarea ref={tplRef} dir="rtl" rows={Math.max(8, tpl.split("\n").length + 1)} value={tpl} className="suqya-template"
+                onChange={(e) => setD("template", e.target.value)} aria-label={t("sq_texts")} />
+              <div className="chips" style={{ marginTop: 6 }}>
+                {([["no", "sq_ph_no"], ["date", "sq_ph_date"], ["qty", "sq_ph_qty"], ["name", "sq_ph_name"], ["dua", "sq_ph_dua"]] as const).map(([k, l]) =>
+                  <button type="button" key={k} className="chip" onClick={() => insert(PH[k])} title={PH[k]}>+ {t(l)}</button>)}
+              </div>
+              <p className="muted" style={{ fontSize: 12.5, margin: "6px 2px 0" }}>{t("sq_tpl_help")}</p>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
+                <button type="button" className="sm" disabled={isStd} onClick={resetText}>↺ {t("sq_reset")}</button>
+                <span className="muted" style={{ fontSize: 12.5 }}>{isStd ? `✓ ${t("sq_tpl_std")}` : t("sq_tpl_custom")}</span>
+              </div>
+            </div>
             {txt("footer", t("pl_footer_org"))}{txt("site", t("pl_footer_site"), "ltr")}
             <label className="check"><input type="checkbox" checked={design.show_logo} onChange={(e) => setD("show_logo", e.target.checked)} /> {t("sq_f_logo")}</label>
-            <div className="span2"><button type="button" className="sm" onClick={() => { setDs({ bg: ds.bg }); setDirty(true); }}>↺ {t("sq_reset")}</button></div>
           </div>}
         </div>
         <p className="muted" style={{ fontSize: 12.5 }}>{t("sq_send_help")}</p>

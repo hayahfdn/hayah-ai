@@ -1095,3 +1095,4 @@ tr.clickable { cursor: pointer; }
 .tool-rows .chip.feed { display: inline-flex; align-items: center; gap: 6px; }
 .tool-rows .chip.feed input { margin: 0; }
 .tool-rows .chip.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+.suqya-template { width: 100%; font-size: 15px; line-height: 1.7; resize: vertical; font-family: inherit; }

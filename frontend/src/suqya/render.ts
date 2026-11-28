@@ -12,6 +12,10 @@ export interface SuqyaDesign {
   qty_before: string; quantity: string; qty_after: string; sadaqa_label: string;
   name: string; name_size: number; name_font: string; dua: string;
   site: string; footer: string; bg: string; bg_src?: string; show_logo: boolean;
+  /** The whole plaque wording, one line per plaque line (Hayah, 28 Nov 2026). Missing = the standard wording. */
+  template?: string;
+  /** Size of the prayer line («حفظه الله») and of any lines written under it, in % of the standard. */
+  dua_size: number; extra_size: number;
 }
 export interface SuqyaOrder {
   suqya_no: number; order_date: string | null; quantity: number; donor_name: string | null; dua: string | null;
@@ -27,7 +31,7 @@ export function designFor(o: SuqyaOrder): SuqyaDesign {
   return {
     intro: "قال رسول الله ﷺ", hadith: "أفضل الصدقة سقي الماء", number_label: "سقيا رقم", month_text: o.month_text,
     qty_before: "توزيع", qty_after: "عبوة مياه لضيوف الرحمن", sadaqa_label: "صدقة عن",
-    name_size: 100, name_font: FONT, site: "HayahFoundation.com", footer: "تنفيذ مؤسسة حياة", bg: "haram", show_logo: true,
+    name_size: 100, dua_size: 100, extra_size: 100, name_font: FONT, site: "HayahFoundation.com", footer: "تنفيذ مؤسسة حياة", bg: "haram", show_logo: true,
     ...saved,
     // these always follow the order (edit them in the order fields)
     number: String(o.suqya_no), quantity: String(o.quantity), name: o.donor_name || "", dua: o.dua || "",
@@ -37,6 +41,118 @@ export function designFor(o: SuqyaOrder): SuqyaDesign {
 export function designToSave(d: SuqyaDesign): Partial<SuqyaDesign> {
   const { number: _n, quantity: _q, bg_src: _s, name: _name, dua: _d, ...rest } = d;
   return rest;
+}
+
+/** Words in braces are filled from the order, so the wording can change while numbers and names stay automatic. */
+export const PH = { no: "{رقم}", date: "{التاريخ}", qty: "{العدد}", name: "{الاسم}", dua: "{الدعاء}" } as const;
+
+/** The standard wording, built from the line fields (so wording changed before 28 Nov 2026 carries over). */
+export function defaultTemplate(d: SuqyaDesign): string {
+  return [d.intro, d.hadith, `${d.number_label} ${PH.no} | ${PH.date}`, `${d.qty_before} ${PH.qty} ${d.qty_after}`, d.sadaqa_label, PH.name, PH.dua]
+    .map((s) => s.replace(/\s+/g, " ").trim()).join("\n");
+}
+export const templateOf = (d: SuqyaDesign) => (d.template ?? defaultTemplate(d));
+
+type Kind = "intro" | "hadith" | "text" | "name" | "dua" | "extra" | "gap";
+type Block = { kind: Kind; text: string; px: number; y: number; lines?: string[] };
+
+const fill = (s: string, d: SuqyaDesign) => s.split(PH.no).join(d.number).split(PH.qty).join(d.quantity)
+  .split(PH.date).join(d.month_text).split(PH.name).join(d.name.replace(/\s*\n\s*/g, " ")).split(PH.dua).join(d.dua);
+
+/** Turns the wording into plaque lines and places them top to bottom. The standard wording lands exactly
+ *  where it did before; extra or fewer lines shift the rest, and a long text is squeezed to fit. */
+function layout(d: SuqyaDesign): Block[] {
+  const out: Block[] = [];
+  let afterDua = false;
+  for (const raw of templateOf(d).split("\n")) {
+    const line = raw.trim();
+    const prev = out.filter((b) => b.kind !== "gap").slice(-1)[0];
+    if (!line) { if (out.length) out.push({ kind: "gap", text: "", px: 0, y: 0 }); continue; }
+    if (line.includes(PH.name)) {
+      const names = d.name.split("\n").map((s) => s.trim()).filter(Boolean).slice(0, 3);
+      if (!names.length && line === PH.name) continue;
+      const lines = line === PH.name ? names : [fill(line, d)];
+      out.push({ kind: "name", text: "", lines, px: (lines.length > 1 ? 82 : 112) * (d.name_size / 100), y: 0 });
+    } else if (line.includes(PH.dua)) {
+      const t = fill(line, d).trim();
+      afterDua = true;
+      if (t) out.push({ kind: "dua", text: t, px: 48 * ((d.dua_size || 100) / 100), y: 0 });
+    } else if (afterDua) out.push({ kind: "extra", text: fill(line, d), px: 44 * ((d.extra_size || 100) / 100), y: 0 });
+    else if (/ﷺ|صلى الله عليه وسلم/.test(line)) out.push({ kind: "intro", text: fill(line, d), px: 44, y: 0 });
+    else if (prev?.kind === "intro") out.push({ kind: "hadith", text: line, px: 74, y: 0 });
+    else out.push({ kind: "text", text: line, px: /\{(رقم|العدد)\}/.test(line) ? 70 : 56, y: 0 });
+  }
+  // spacing tuned so the standard wording sits where HAYAH's poster has it (345, 448, 572, 690, 790, 912, 1030)
+  let y = 0, last: Block | null = null, pending = 0;
+  for (const b of out) {
+    if (b.kind === "gap") { pending += 50; continue; }
+    const n = b.lines?.length || 1, lh = b.px * 1.18;
+    if (!last) y = 301 + (b.kind === "name" ? 44 : b.px);
+    else if (b.kind === "hadith") y += 103;
+    else if (last.kind === "hadith" && b.kind === "text") y += 124;
+    else if (b.kind === "name") y += n > 1 ? Math.max(122 - (lh * (n - 1)) / 2, b.px * 0.9) : 28 + b.px * (122 - 28) / 112;
+    else if (last.kind === "name") y += last.px * 1.05 + (b.px - 48) * 0.8;
+    else y += 28 + b.px * 1.286 + (last.kind === "dua" ? Math.max(0, last.px - 48) * 0.5 : 0);
+    y += pending; pending = 0;
+    b.y = y;
+    if (b.kind === "name") y += lh * (n - 1);
+    last = b;
+  }
+  // too long for the space above the footer: squeeze the line spacing
+  const vis = out.filter((b) => b.kind !== "gap");
+  if (vis.length) {
+    const top = vis[0].y, bottom = vis[vis.length - 1].y, limit = 1300;
+    if (bottom > limit) {
+      const k = (limit - top) / (bottom - top);
+      vis.forEach((b) => { b.y = top + (b.y - top) * k; b.px *= Math.max(k, 0.7); });
+    }
+  }
+  return vis;
+}
+
+/** A plain line: words navy, the number and quantity red, «|» gold. Empty fields drop out with their «|». */
+function lineRuns(line: string, d: SuqyaDesign, px: number): Run[] {
+  const parts = line.split(/(\{[^}]+\}|\|)/).map((s) => s.trim()).filter(Boolean);
+  let rs: Run[] = parts.map((p) => {
+    if (p === "|") return { t: "|", color: GOLD, px: px * 0.87, weight: 700 };
+    if (p === PH.no || p === PH.qty) return { t: p === PH.no ? d.number : d.quantity, color: RED, px: px + 10, stroke: true };
+    return { t: fill(p, d), color: NAVY, px };
+  }).filter((r) => r.t.trim());
+  rs = rs.filter((r, i) => r.t !== "|" || (i > 0 && i < rs.length - 1 && rs[i - 1].t !== "|"));
+  return rs;
+}
+
+function drawBlock(ctx: CanvasRenderingContext2D, b: Block, d: SuqyaDesign, cx: number) {
+  if (b.kind === "intro") {
+    // «قال رسول الله ﷺ»: the ﷺ sign comes from Amiri, which draws it as calligraphy
+    const m = b.text.match(/^(.*?)\s*(ﷺ|صلى الله عليه وسلم)\s*(.*)$/);
+    runs(ctx, m ? [{ t: m[1], color: NAVY, px: b.px, weight: 800 }, { t: "ﷺ", color: NAVY, px: b.px + 6, weight: 700, family: "Amiri" },
+      { t: m[3], color: NAVY, px: b.px, weight: 800 }] : [{ t: b.text, color: NAVY, px: b.px, weight: 800 }], cx, b.y, 640, 10);
+  } else if (b.kind === "hadith") runs(ctx, [{ t: fill(b.text, d), color: RED, px: b.px, stroke: true }], cx, b.y, 860);
+  else if (b.kind === "text") {
+    const red = /\{(رقم|العدد)\}/.test(b.text);
+    runs(ctx, lineRuns(b.text, d, red ? b.px - 10 : b.px), cx, b.y, 900, red ? 20 : 18);
+  } else if (b.kind === "name") {
+    const fam = d.name_font || FONT, lh = b.px * 1.18;
+    (b.lines || []).forEach((s, i) => runs(ctx, [{ t: s, color: RED, px: b.px, weight: weightFor(fam, true), family: fam, stroke: true }], cx, b.y + i * lh, 840));
+  } else if (b.kind === "dua") {
+    // prayer with two gold lines either side
+    const wmax = 600 * Math.max(1, b.px / 48);
+    ctx.font = f(900, b.px); const w = Math.min(ctx.measureText(b.text).width, wmax);
+    runs(ctx, [{ t: b.text, color: NAVY, px: b.px }], cx, b.y, wmax);
+    const len = Math.min(150, (SW - 40 - w) / 2 - 30);
+    if (len > 20) {
+      ctx.save(); ctx.lineWidth = 4; ctx.lineCap = "round";
+      const gy = b.y - b.px / 3;
+      for (const dir of [-1, 1]) {
+        const x0 = cx + dir * (w / 2 + 26);
+        const grd = ctx.createLinearGradient(x0, gy, x0 + dir * len, gy);
+        grd.addColorStop(0, GOLD); grd.addColorStop(1, "rgba(214,165,42,0)");
+        ctx.strokeStyle = grd; ctx.beginPath(); ctx.moveTo(x0, gy); ctx.lineTo(x0 + dir * len, gy); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  } else runs(ctx, [{ t: b.text, color: NAVY, px: b.px, weight: 800 }], cx, b.y, 900);
 }
 
 const f = (w: number, px: number, fam = FONT) => `${w} ${px}px ${cssFamily(fam)}`;
@@ -106,47 +222,7 @@ export function drawSuqya(ctx: CanvasRenderingContext2D, d: SuqyaDesign, a: Suqy
     ctx.drawImage(a.logo, (SW - w) / 2, 14, w, h); ctx.restore();
   }
   const cx = SW / 2;
-  // «قال رسول الله ﷺ»: the ﷺ sign comes from Amiri, which draws it as calligraphy
-  const intro = d.intro.trim();
-  if (intro) {
-    const m = intro.match(/^(.*?)\s*(ﷺ|صلى الله عليه وسلم)\s*$/);
-    runs(ctx, m ? [{ t: m[1], color: NAVY, px: 44, weight: 800 }, { t: "ﷺ", color: NAVY, px: 50, weight: 700, family: "Amiri" }]
-      : [{ t: intro, color: NAVY, px: 44, weight: 800 }], cx, 345, 640, 10);
-  }
-  runs(ctx, [{ t: d.hadith, color: RED, px: 74, stroke: true }], cx, 448, 860);
-  // «سقيا رقم 104 | نوفمبر 2026»
-  const sep = "|";
-  runs(ctx, [{ t: d.number_label, color: NAVY, px: 62 }, { t: d.number, color: RED, px: 70, stroke: true },
-    ...(d.month_text.trim() ? [{ t: sep, color: GOLD, px: 54, weight: 700 }, { t: d.month_text, color: NAVY, px: 62 }] : [])], cx, 572, 860, 22);
-  // «توزيع 100 عبوة مياه لضيوف الرحمن»
-  runs(ctx, [{ t: d.qty_before, color: NAVY, px: 58 }, { t: d.quantity, color: RED, px: 70, stroke: true }, { t: d.qty_after, color: NAVY, px: 58 }],
-    cx, 690, 900, 14);
-  runs(ctx, [{ t: d.sadaqa_label, color: NAVY, px: 56 }], cx, 790, 700);
-
-  // the donor name: large, red, one or two lines
-  const lines = d.name.split("\n").map((s) => s.trim()).filter(Boolean).slice(0, 3);
-  const fam = d.name_font || FONT;
-  const base = (lines.length > 1 ? 82 : 112) * (d.name_size / 100);
-  const lh = base * 1.18;
-  const top = lines.length > 1 ? 900 - (lh * (lines.length - 1)) / 2 : 912;
-  lines.forEach((s, i) => runs(ctx, [{ t: s, color: RED, px: base, weight: weightFor(fam, true), family: fam, stroke: true }], cx, top + i * lh, 840));
-
-  // prayer with two gold lines either side
-  const dua = d.dua.trim();
-  if (dua) {
-    const y = 1030;
-    ctx.font = f(900, 48); const w = Math.min(ctx.measureText(dua).width, 600);
-    runs(ctx, [{ t: dua, color: NAVY, px: 48 }], cx, y, 600);
-    ctx.save(); ctx.strokeStyle = GOLD; ctx.lineWidth = 4; ctx.lineCap = "round";
-    const gy = y - 16, len = 150;
-    for (const dir of [-1, 1]) {
-      const x0 = cx + dir * (w / 2 + 26);
-      const grd = ctx.createLinearGradient(x0, gy, x0 + dir * len, gy);
-      grd.addColorStop(0, GOLD); grd.addColorStop(1, "rgba(214,165,42,0)");
-      ctx.strokeStyle = grd; ctx.beginPath(); ctx.moveTo(x0, gy); ctx.lineTo(x0 + dir * len, gy); ctx.stroke();
-    }
-    ctx.restore();
-  }
+  layout(d).forEach((b) => drawBlock(ctx, b, d, cx));
 
   // footer: website on the left, «تنفيذ مؤسسة حياة» on the right, gold bar between
   const fy = 1460;
